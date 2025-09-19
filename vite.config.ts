@@ -12,11 +12,6 @@ export default defineConfig({
         if (warning.code === 'UNUSED_EXTERNAL_IMPORT') return
         if (warning.code === 'UNRESOLVED_IMPORT') return
         warn(warning)
-      },
-      external: (id) => {
-        // Ignore framer-motion build issues
-        if (id.includes('globalThis-config.mjs')) return true
-        return false
       }
     }
   },
@@ -26,9 +21,15 @@ export default defineConfig({
     }
   },
   define: {
-    global: 'globalThis',
+    // Não definir global em produção - causa problemas com framer-motion
+    ...(process.env.NODE_ENV === 'development' ? { global: 'globalThis' } : {}),
   },
   optimizeDeps: {
-    exclude: ['framer-motion']
+    // Force Vite to pre-bundle framer-motion para evitar problemas de ESM
+    include: ['framer-motion'],
+    esbuildOptions: {
+      // Garantir compatibilidade com globalThis
+      target: 'es2020'
+    }
   }
 })

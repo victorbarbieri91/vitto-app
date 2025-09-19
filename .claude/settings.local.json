@@ -68,7 +68,9 @@
       "Bash(git push:*)",
       "Bash(git filter-branch:*)",
       "mcp__supabase__get_project_url",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(git checkout:*)",
+      "Bash(NODE_ENV=production npm run build:vercel)"
     ],
     "deny": [],
     "ask": []
