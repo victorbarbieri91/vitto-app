@@ -33,3 +33,4 @@ dist-ssr
 # MCP configuration with tokens (keep template only)
 .cursor/mcp.json
 !.cursor/mcp.json.template
+.env.backup
