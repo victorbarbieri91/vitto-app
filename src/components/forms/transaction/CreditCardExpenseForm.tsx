@@ -232,10 +232,10 @@ const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ onSave, o
       )}
 
 
-      {/* Grid compacto principal - 6 colunas */}
-      <div className="grid grid-cols-6 gap-4">
-        {/* Descrição - 2 colunas */}
-        <div className="col-span-2">
+      {/* Linha principal - Descrição, Valor e Data */}
+      <div className="grid grid-cols-12 gap-4">
+        {/* Descrição - 5 colunas */}
+        <div className="col-span-5">
           <label className="block text-xs font-medium text-slate-600 mb-1.5">Descrição</label>
           <input
             {...register('descricao')}
@@ -247,8 +247,8 @@ const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ onSave, o
           )}
         </div>
 
-        {/* Valor - 2 colunas */}
-        <div className="col-span-2">
+        {/* Valor - 4 colunas */}
+        <div className="col-span-4">
           <Controller
             name="valor"
             control={control}
@@ -264,8 +264,8 @@ const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ onSave, o
           />
         </div>
 
-        {/* Data - 1 coluna */}
-        <div className="col-span-1">
+        {/* Data - 3 colunas */}
+        <div className="col-span-3">
           <label className="block text-xs font-medium text-slate-600 mb-1.5">Data</label>
           <input
             type="date"
@@ -276,26 +276,26 @@ const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ onSave, o
             <p className="text-xs text-red-500 mt-1">{errors.data.message}</p>
           )}
         </div>
+      </div>
 
-        {/* Fatura - 1 coluna */}
-        <div className="col-span-1">
-          <label className="block text-xs font-medium text-slate-600 mb-1.5">Fatura</label>
-          <select
-            value={valorPadrao}
-            onChange={(e) => {
-              const [mes, ano] = e.target.value.split('-').map(Number);
-              setValue('mes_fatura', mes);
-              setValue('ano_fatura', ano);
-            }}
-            className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-coral-500/20 focus:border-coral-500 transition-colors"
-          >
-            {faturaOpcoes.map(opcao => (
-              <option key={opcao.value} value={opcao.value}>
-                {opcao.label}
-              </option>
-            ))}
-          </select>
-        </div>
+      {/* Linha da fatura - separada */}
+      <div>
+        <label className="block text-xs font-medium text-slate-600 mb-1.5">Fatura</label>
+        <select
+          value={valorPadrao}
+          onChange={(e) => {
+            const [mes, ano] = e.target.value.split('-').map(Number);
+            setValue('mes_fatura', mes);
+            setValue('ano_fatura', ano);
+          }}
+          className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-coral-500/20 focus:border-coral-500 transition-colors"
+        >
+          {faturaOpcoes.map(opcao => (
+            <option key={opcao.value} value={opcao.value}>
+              {opcao.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Categoria */}
@@ -390,7 +390,7 @@ const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ onSave, o
         <button
           type="submit"
           disabled={isSubmitting}
-          className="px-4 py-2 text-sm font-medium text-white bg-coral-500 rounded-lg hover:bg-coral-600 transition-colors disabled:opacity-50 flex items-center gap-2"
+          className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-400 via-indigo-500 to-purple-600 rounded-lg hover:from-blue-500 hover:via-indigo-600 hover:to-purple-700 transition-all disabled:opacity-50 flex items-center gap-2"
         >
           {isSubmitting ? (
             <>

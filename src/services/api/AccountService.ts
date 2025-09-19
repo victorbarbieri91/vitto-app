@@ -225,66 +225,45 @@ export class AccountService extends BaseApi {
       const user = await this.getCurrentUser();
       if (!user) throw new Error('Usuário não autenticado');
 
-      // Primeiro, buscar a conta atual para evitar conflitos de concorrência
-      const { data: currentAccount, error: fetchError } = await this.supabase
-        .from('app_conta')
-        .select('*')
-        .eq('id', id)
-        .eq('user_id', user.id)
-        .single();
-
-      if (fetchError) throw fetchError;
-      if (!currentAccount) throw new Error('Conta não encontrada');
-
       // Se estiver atualizando saldo_inicial, também atualizar saldo_atual
       const updateData = { ...updates };
       if ('saldo_inicial' in updates && updates.saldo_inicial !== undefined) {
         updateData.saldo_atual = updates.saldo_inicial;
       }
 
-      // Usar updated_at para controle de concorrência otimista
-      const { error } = await this.supabase
-        .from('app_conta')
-        .update({
-          ...updateData,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', id)
-        .eq('user_id', user.id)
-        .eq('updated_at', currentAccount.updated_at); // Controle de concorrência
+      // Implementar retry com backoff exponencial para conflitos de concorrência
+      let attempts = 0;
+      const maxAttempts = 3;
 
-      if (error) {
-        // Se houver erro de concorrência, tentar novamente uma vez
-        if (error.message.includes('tuple to be updated was already modified')) {
-          console.warn('Conflito de concorrência detectado, tentando novamente...');
-
-          // Buscar dados atualizados e tentar novamente
-          const { data: refreshedAccount, error: refreshError } = await this.supabase
+      while (attempts < maxAttempts) {
+        try {
+          const { error } = await this.supabase
             .from('app_conta')
-            .select('*')
+            .update(updateData)
             .eq('id', id)
-            .eq('user_id', user.id)
-            .single();
+            .eq('user_id', user.id);
 
-          if (refreshError) throw refreshError;
+          if (error) throw error;
+          return true;
 
-          const { error: retryError } = await this.supabase
-            .from('app_conta')
-            .update({
-              ...updateData,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', id)
-            .eq('user_id', user.id)
-            .eq('updated_at', refreshedAccount.updated_at);
+        } catch (error: any) {
+          attempts++;
 
-          if (retryError) throw retryError;
-        } else {
+          if (error.message?.includes('tuple to be updated was already modified') && attempts < maxAttempts) {
+            console.warn(`Conflito de concorrência detectado, tentativa ${attempts}/${maxAttempts}`);
+
+            // Aguardar um tempo antes de tentar novamente (backoff exponencial)
+            const delay = Math.pow(2, attempts) * 100; // 200ms, 400ms, 800ms
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+
           throw error;
         }
       }
 
-      return true;
+      throw new Error('Falha ao atualizar conta após múltiplas tentativas');
+
     } catch (error) {
       throw this.handleError(error, 'Falha ao atualizar conta');
     }

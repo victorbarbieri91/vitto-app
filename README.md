@@ -1,4 +1,4 @@
-# Barsi Web - Sistema Financeiro Pessoal
+# Vitto App - Sistema Financeiro Pessoal
 
 Sistema completo de gestão financeira pessoal desenvolvido com React, TypeScript e Supabase.
 
@@ -35,7 +35,7 @@ Sistema completo de gestão financeira pessoal desenvolvido com React, TypeScrip
 1. **Clone o repositório**
    ```bash
    git clone <repository-url>
-   cd barsi_web
+   cd vitto-app
    ```
 
 2. **Instale as dependências**

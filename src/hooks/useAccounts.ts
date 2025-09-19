@@ -70,16 +70,22 @@ export function useAccounts() {
   };
 
   const updateAccount = async (id: number, accountData: Partial<AccountFormData>) => {
-    setLoading(true);
     try {
       await accountService.updateAccount(id, accountData);
-      fetchAllData(); // Re-fetch to ensure consistency
+
+      // Atualizar o estado local imediatamente para melhor UX
+      setAccounts(prev =>
+        prev.map(acc =>
+          acc.id === id ? { ...acc, ...accountData } : acc
+        )
+      );
+
+      // Re-fetch para garantir consistência, mas sem loading
+      setTimeout(() => fetchAllData(), 500);
       return true;
     } catch (err) {
       handleError(err, 'Erro ao atualizar conta');
       return false;
-    } finally {
-      setLoading(false);
     }
   };
 

@@ -186,7 +186,7 @@ export default function AccountBankCard({
                 size="sm"
                 variant="ghost"
                 onClick={handleViewTransactions}
-                className="h-8 px-3 text-white/80 hover:text-white hover:bg-white/20 text-xs"
+                className="h-8 p-0 text-white/80 hover:text-white hover:bg-white/20 text-xs"
               >
                 <ExternalLink className="w-3 h-3 mr-2" />
                 Ver Extrato
