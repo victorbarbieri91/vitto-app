@@ -347,11 +347,32 @@ export class BudgetService extends BaseApi {
       if (budgetError) throw budgetError;
 
       const budgetedIds = budgetedCategories.map(b => b.categoria_id);
-      
+
       return allCategories.filter(cat => !budgetedIds.includes(cat.id));
     } catch (error) {
       throw this.handleError(error, 'Falha ao buscar categorias sem orçamento');
     }
+  }
+
+  // Aliases para compatibilidade com código antigo
+  async list(): Promise<BudgetWithCategory[]> {
+    return this.fetchBudgets();
+  }
+
+  async getById(id: number): Promise<BudgetWithCategory | null> {
+    return this.getBudget(id);
+  }
+
+  async create(newBudget: NewBudget): Promise<Budget> {
+    return this.createBudget(newBudget);
+  }
+
+  async update(id: number, updates: Partial<NewBudget>): Promise<boolean> {
+    return this.updateBudget(id, updates);
+  }
+
+  async delete(id: number): Promise<boolean> {
+    return this.deleteBudget(id);
   }
 }
 

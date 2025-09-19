@@ -10,6 +10,7 @@ interface ModernButtonProps
   isLoading?: boolean;
   leftIcon?: ReactNode;
   rightIcon?: ReactNode;
+  icon?: ReactNode; // Alias para leftIcon para compatibilidade
   asChild?: boolean;
 }
 
@@ -34,6 +35,7 @@ const ModernButton = forwardRef<HTMLButtonElement, ModernButtonProps>(
       isLoading = false,
       leftIcon,
       rightIcon,
+      icon,
       className,
       disabled,
       type = 'button',
@@ -42,6 +44,9 @@ const ModernButton = forwardRef<HTMLButtonElement, ModernButtonProps>(
     ref
   ) => {
     const isDisabled = disabled || isLoading;
+
+    // Use icon como alias para leftIcon se fornecido
+    const finalLeftIcon = leftIcon || icon;
 
     return (
       <motion.button
@@ -79,8 +84,8 @@ const ModernButton = forwardRef<HTMLButtonElement, ModernButtonProps>(
                 />
               </svg>
             </motion.div>
-          ) : leftIcon ? (
-            <span className="flex-shrink-0">{leftIcon}</span>
+          ) : finalLeftIcon ? (
+            <span className="flex-shrink-0">{finalLeftIcon}</span>
           ) : null}
 
           {/* Conteúdo do botão */}

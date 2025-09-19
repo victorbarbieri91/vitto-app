@@ -18,6 +18,7 @@ export const buttonVariants = cva(
         danger: 'bg-danger-500 text-white hover:bg-danger-600 active:bg-danger-700 shadow-medium hover:shadow-large focus:ring-danger-500',
       },
       size: {
+        icon: 'h-10 w-10 p-0 text-sm',
         sm: 'h-10 px-4 text-sm',
         md: 'h-12 px-6 text-base',
         lg: 'h-14 px-8 text-lg',
