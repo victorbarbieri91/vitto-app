@@ -75,6 +75,7 @@ export const sanitizeAccount = (account: any): any => {
     id: toSafeNumber(account.id),
     nome: toSafeString(account.nome, 'Conta sem nome'),
     tipo: toSafeString(account.tipo, 'corrente'),
+    saldo_inicial: toSafeNumber(account.saldo_inicial, 0),
     saldo_atual: toSafeNumber(account.saldo_atual, 0),
     cor: toSafeString(account.cor, '#F87060'),
     icone: toSafeString(account.icone, 'wallet'),
