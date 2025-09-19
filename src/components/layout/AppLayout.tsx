@@ -9,6 +9,8 @@ import { useState } from 'react';
 import { Bot } from 'lucide-react';
 import { AIChat } from '../chat/AIChat';
 import { ModernButton } from '../ui/modern';
+import ErrorBoundary from '../ui/ErrorBoundary';
+import { useErrorMonitoring } from '../../hooks/useErrorMonitoring';
 
 type AppLayoutProps = {
   children: ReactNode;
@@ -17,12 +19,15 @@ type AppLayoutProps = {
 
 export default function AppLayout({ children, requireAuth = true }: AppLayoutProps) {
   console.log('[AppLayout] Renderizando AppLayout', { requireAuth });
-  
+
   const { user, loading } = useAuth();
   console.log('[AppLayout] Estado de autenticação:', { user: !!user, loading });
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [aiChatOpen, setAiChatOpen] = useState(false);
+
+  // Inicializar monitoramento de erros
+  useErrorMonitoring();
 
   // Show loading state
   if (loading) {
@@ -46,34 +51,49 @@ export default function AppLayout({ children, requireAuth = true }: AppLayoutPro
   try {
     return (
       <div className="flex h-screen bg-background">
-        {user && <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
+        <ErrorBoundary componentName="Sidebar">
+          {user && <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
+        </ErrorBoundary>
+
         <div className="flex flex-col flex-1 overflow-y-auto">
-          {user && <Header onMenuClick={() => setSidebarOpen(true)} />}
+          <ErrorBoundary componentName="Header">
+            {user && <Header onMenuClick={() => setSidebarOpen(true)} />}
+          </ErrorBoundary>
+
           {/* Adiciona padding-bottom para não sobrepor o conteúdo com a barra de chat */}
           <main className="flex-1 p-4 md:p-6 pb-[90px]">
             {/* Log antes de renderizar children */}
             {(() => { console.log('[AppLayout] Renderizando children:', !!children); return null; })()}
-            <Outlet />
+            <ErrorBoundary componentName="MainContent">
+              <Outlet />
+            </ErrorBoundary>
           </main>
         </div>
-        {user && <ChatBar />}
+
+        <ErrorBoundary componentName="ChatBar">
+          {user && <ChatBar />}
+        </ErrorBoundary>
 
         {/* AI Chat Button */}
         <div className="fixed bottom-6 right-6 z-40">
-          <ModernButton
-            onClick={() => setAiChatOpen(true)}
-            className="w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 bg-gradient-to-r from-[#F87060] to-[#102542] hover:scale-105"
-            title="Abrir Assistente Vitto"
-          >
-            <Bot className="w-6 h-6 text-white" />
-          </ModernButton>
+          <ErrorBoundary componentName="AIChatButton">
+            <ModernButton
+              onClick={() => setAiChatOpen(true)}
+              className="w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 bg-gradient-to-r from-[#F87060] to-[#102542] hover:scale-105"
+              title="Abrir Assistente Vitto"
+            >
+              <Bot className="w-6 h-6 text-white" />
+            </ModernButton>
+          </ErrorBoundary>
         </div>
 
         {/* AI Chat Modal */}
-        <AIChat 
-          isOpen={aiChatOpen}
-          onClose={() => setAiChatOpen(false)}
-        />
+        <ErrorBoundary componentName="AIChatModal">
+          <AIChat
+            isOpen={aiChatOpen}
+            onClose={() => setAiChatOpen(false)}
+          />
+        </ErrorBoundary>
       </div>
     );
   } catch (error) {

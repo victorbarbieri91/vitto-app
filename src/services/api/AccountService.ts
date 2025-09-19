@@ -1,4 +1,5 @@
 import { BaseApi } from './BaseApi';
+import { sanitizeAccount, withFallback, toSafeArray } from '../../utils/dataValidation';
 
 import type { Database } from '../../types/supabase';
 
@@ -58,7 +59,7 @@ export class AccountService extends BaseApi {
    * Fetch all accounts for the current user
    */
   async fetchAccounts(): Promise<Account[]> {
-    try {
+    return withFallback(async () => {
       const user = await this.getCurrentUser();
       if (!user) return [];
 
@@ -69,10 +70,11 @@ export class AccountService extends BaseApi {
         .order('nome');
 
       if (error) throw error;
-      return data || [];
-    } catch (error) {
-      throw this.handleError(error, 'Falha ao buscar contas');
-    }
+
+      // Sanitizar dados antes de retornar
+      const sanitizedData = toSafeArray(data).map(sanitizeAccount).filter(Boolean);
+      return sanitizedData;
+    }, [], 'fetchAccounts');
   }
 
   /**
