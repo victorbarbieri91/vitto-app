@@ -1,0 +1,248 @@
+/* Estilos customizados para o calendário */
+
+/* Container do calendário */
+.calendario-mini {
+  min-height: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Garantir altura fixa para o calendário */
+.calendario-mini .rdp {
+  --rdp-cell-size: 32px;
+  --rdp-accent-color: #102542;
+  --rdp-background-color: #f87060;
+  --rdp-accent-color-dark: #102542;
+  --rdp-background-color-dark: #f87060;
+}
+
+/* Ajustes para tamanho compacto */
+@media (max-width: 768px) {
+  .calendario-mini .rdp {
+    --rdp-cell-size: 28px;
+  }
+}
+
+/* Estilo para dias com transações */
+.rdp-day_hasTransactions,
+.rdp-day_hasReceitas,
+.rdp-day_hasDespesas {
+  position: relative;
+}
+
+/* Indicadores visuais usando bolinhas - posicionamento absoluto */
+.rdp-day_hasTransactions .rdp-day_button {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+/* Apenas receitas - bolinha verde */
+.rdp-day_hasReceitas:not(.rdp-day_hasDespesas) .rdp-day_button::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #10b981;
+  z-index: 1;
+}
+
+/* Apenas despesas - bolinha coral */
+.rdp-day_hasDespesas:not(.rdp-day_hasReceitas) .rdp-day_button::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #f87060;
+  z-index: 1;
+}
+
+/* Ambos receitas e despesas - duas bolinhas */
+.rdp-day_hasReceitas.rdp-day_hasDespesas .rdp-day_button::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  left: calc(50% - 4px);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: #10b981;
+  z-index: 1;
+}
+
+.rdp-day_hasReceitas.rdp-day_hasDespesas .rdp-day_button::before {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  right: calc(50% - 4px);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: #f87060;
+  z-index: 1;
+}
+
+/* Hover nos dias com transações - círculo de hover + movimento sutil */
+.rdp-day_hasTransactions:hover .rdp-day_button {
+  background-color: rgba(16, 37, 66, 0.1);
+  border-radius: 50%;
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+/* Remover hover dos dias normais - não clicáveis */
+.rdp-day:not([disabled]):not(.rdp-day_hasTransactions) .rdp-day_button {
+  cursor: default !important;
+}
+
+.rdp-day:not([disabled]):not(.rdp-day_hasTransactions):hover .rdp-day_button {
+  background-color: transparent !important;
+  border-radius: 0 !important;
+  transition: none;
+  cursor: default !important;
+}
+
+/* Dias com transações devem ter cursor pointer */
+.rdp-day_hasTransactions .rdp-day_button {
+  cursor: pointer !important;
+}
+
+/* Dia selecionado - removido o círculo azul */
+.rdp-day_selected {
+  background-color: transparent !important;
+  color: inherit !important;
+  font-weight: normal !important;
+}
+
+.rdp-day_selected .rdp-day_button {
+  background-color: transparent !important;
+  color: inherit !important;
+  border: none !important;
+  outline: none !important;
+}
+
+/* Dia de hoje */
+.rdp-day_today {
+  font-weight: 700;
+  color: #102542;
+  position: relative;
+}
+
+.rdp-day_today::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: #102542;
+}
+
+/* Dias fora do mês */
+.rdp-day_outside {
+  opacity: 0.4;
+}
+
+/* Garantir que a tabela tenha altura consistente */
+.rdp-table {
+  min-height: 240px;
+}
+
+/* Células da tabela com altura fixa */
+.rdp-tbody td {
+  height: var(--rdp-cell-size);
+  vertical-align: middle;
+}
+
+/* Ajustar navegação do mês */
+.rdp-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Botões de navegação */
+.rdp-nav_button {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.rdp-nav_button:hover:not([disabled]) {
+  background-color: rgba(16, 37, 66, 0.1);
+}
+
+/* Indicadores de transação customizados */
+.transaction-indicator {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2px;
+}
+
+.transaction-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+}
+
+.transaction-dot.receita {
+  background-color: #10b981;
+}
+
+.transaction-dot.despesa {
+  background-color: #f87060;
+}
+
+/* Tooltip animations */
+@keyframes slideUpAndFade {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+[data-radix-tooltip-content] {
+  animation: slideUpAndFade 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Scrollbar customizada para lista de transações no tooltip */
+.tooltip-transactions-list::-webkit-scrollbar {
+  width: 3px;
+}
+
+.tooltip-transactions-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tooltip-transactions-list::-webkit-scrollbar-thumb {
+  background: rgba(16, 37, 66, 0.2);
+  border-radius: 3px;
+}
+
+.tooltip-transactions-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 37, 66, 0.3);
+}

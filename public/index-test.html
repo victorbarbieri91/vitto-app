@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teste React Mínimo</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="test-root"></div>
+
+  <script type="text/babel">
+    function TestComponent() {
+      return (
+        <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
+          <h1 style={{ color: '#4CAFAD' }}>Teste React Independente</h1>
+          <p>Se você está vendo esta mensagem, o React está funcionando corretamente nesta página.</p>
+          <div style={{ backgroundColor: '#e6f7e6', border: '1px solid #4CAF50', padding: '15px', borderRadius: '4px', marginTop: '20px' }}>
+            <p><strong>Diagnóstico:</strong> O problema não está no React em si, mas possivelmente na configuração do Vite ou no bundle da aplicação.</p>
+          </div>
+        </div>
+      );
+    }
+
+    const container = document.getElementById('test-root');
+    const root = ReactDOM.createRoot(container);
+    root.render(<TestComponent />);
+  </script>
+</body>
+</html>
