@@ -665,8 +665,8 @@ export default function TransactionsPageModern() {
         const filteredData = (data || []).filter(t => {
           const shouldExclude = (
             t.tipo_especial === 'fatura' ||
-            t.descricao?.toLowerCase()?.includes('fatura') ||
             t.descricao?.match(/Fatura.*\(\d{2}\/\d{2}\)/i)
+            // Removed generic 'fatura' check to allow "Total da fatura de setembro" type transactions
           );
 
           if (shouldExclude) {

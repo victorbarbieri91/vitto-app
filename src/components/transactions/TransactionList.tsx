@@ -147,8 +147,7 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
             const shouldExclude = (
               t.is_fatura === true ||
               t.tipo_registro === 'fatura' ||
-              t.descricao?.toLowerCase()?.includes('fatura') ||
-              t.fatura_details?.tipo === 'fatura' ||
+                            t.fatura_details?.tipo === 'fatura' ||
               t.tipo_especial === 'fatura' ||
               // Additional checks for consolidated invoice records
               (t.descricao?.match(/Fatura.*\(\d{2}\/\d{2}\)/i)) ||
@@ -231,8 +230,7 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
             const shouldExclude = (
               t.is_fatura === true ||
               t.tipo_registro === 'fatura' ||
-              t.descricao?.toLowerCase()?.includes('fatura') ||
-              t.fatura_details?.tipo === 'fatura' ||
+                            t.fatura_details?.tipo === 'fatura' ||
               t.tipo_especial === 'fatura' ||
               // Additional checks for consolidated invoice records
               (t.descricao?.match(/Fatura.*\(\d{2}\/\d{2}\)/i)) ||
@@ -271,12 +269,12 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
           const shouldExclude = (
             t.is_fatura === true ||
             t.tipo_registro === 'fatura' ||
-            t.descricao?.toLowerCase()?.includes('fatura') ||
             t.fatura_details?.tipo === 'fatura' ||
             t.tipo_especial === 'fatura' ||
-            // Additional checks for consolidated invoice records
+            // Additional checks for consolidated invoice records with specific patterns
             (t.descricao?.match(/Fatura.*\(\d{2}\/\d{2}\)/i)) ||
             (t.tipo === 'despesa' && t.descricao?.toLowerCase()?.includes('nubank') && t.descricao?.match(/\(\d{2}\/\d{2}\)/))
+            // Removed generic 'fatura' check to allow "Total da fatura de setembro" type transactions
           );
 
           if (shouldExclude) {
