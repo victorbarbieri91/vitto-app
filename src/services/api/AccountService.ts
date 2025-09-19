@@ -231,38 +231,26 @@ export class AccountService extends BaseApi {
         updateData.saldo_atual = updates.saldo_inicial;
       }
 
-      // Implementar retry com backoff exponencial para conflitos de concorrência
-      let attempts = 0;
-      const maxAttempts = 3;
-
-      while (attempts < maxAttempts) {
-        try {
-          const { error } = await this.supabase
-            .from('app_conta')
-            .update(updateData)
-            .eq('id', id)
-            .eq('user_id', user.id);
-
-          if (error) throw error;
-          return true;
-
-        } catch (error: any) {
-          attempts++;
-
-          if (error.message?.includes('tuple to be updated was already modified') && attempts < maxAttempts) {
-            console.warn(`Conflito de concorrência detectado, tentativa ${attempts}/${maxAttempts}`);
-
-            // Aguardar um tempo antes de tentar novamente (backoff exponencial)
-            const delay = Math.pow(2, attempts) * 100; // 200ms, 400ms, 800ms
-            await new Promise(resolve => setTimeout(resolve, delay));
-            continue;
-          }
-
-          throw error;
-        }
+      // Remover updated_at do updateData já que existe um trigger que o atualiza automaticamente
+      // Isso evita conflitos com o trigger update_app_conta_updated_at
+      if ('updated_at' in updateData) {
+        delete updateData.updated_at;
       }
 
-      throw new Error('Falha ao atualizar conta após múltiplas tentativas');
+      // Usar uma transação simples sem controle de updated_at já que os triggers
+      // estão causando modificações adicionais na tupla
+      const { error } = await this.supabase
+        .from('app_conta')
+        .update(updateData)
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Erro ao atualizar conta:', error);
+        throw error;
+      }
+
+      return true;
 
     } catch (error) {
       throw this.handleError(error, 'Falha ao atualizar conta');
