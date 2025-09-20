@@ -42,7 +42,7 @@ const SaldoScore = ({ saldo, metaPercentual = 80, receitaMensal = 0 }: SaldoScor
   return (
     <Link to="/contas/saldo-detalhe" className="block transform transition-transform duration-300 hover:scale-[1.02]">
       <ModernCard variant="dark" className={cn(
-        classes.padding, 
+        size === 'mobile' ? 'p-4' : classes.padding,
         'h-full',
         size === 'compact' ? 'min-h-[100px]' : ''
       )}>

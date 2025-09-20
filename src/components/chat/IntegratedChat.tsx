@@ -50,7 +50,7 @@ export default function IntegratedChat() {
       <div
         className={cn(
           'bg-slate-100/50 rounded-2xl overflow-y-auto',
-          size === 'mobile' ? 'p-2 mb-2 h-[220px]' : 'flex-1 p-4 min-h-0',
+          size === 'mobile' ? 'p-2 mb-2 h-[300px]' : 'flex-1 p-4 min-h-0',
           size !== 'mobile' && (size === 'compact' ? 'mb-3' : 'mb-4')
         )}
       >

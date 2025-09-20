@@ -2,14 +2,15 @@ import { useState, useMemo, useEffect } from 'react';
 import { DayPicker } from 'react-day-picker';
 import { ptBR } from 'date-fns/locale';
 import { format } from 'date-fns';
+import { motion, AnimatePresence } from 'framer-motion';
 import * as Tooltip from '@radix-ui/react-tooltip';
-import { ModernCard } from '../ui/modern';
+import { ModernCard, ModernBadge } from '../ui/modern';
 import { useResponsiveClasses } from '../../hooks/useScreenDetection';
 import { useCalendarTransactions } from '../../hooks/useCalendarTransactions';
 import { useMonthlyDashboard } from '../../contexts/MonthlyDashboardContext';
 import { cn } from '../../utils/cn';
 import { formatCurrency } from '../../utils/format';
-import { TrendingUp, TrendingDown, Activity } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, X, Calendar, Filter, Receipt, ShoppingCart, CreditCard, DollarSign } from 'lucide-react';
 import 'react-day-picker/dist/style.css';
 import '../../styles/calendar.css';
 
@@ -18,6 +19,7 @@ const MiniCalendario = () => {
   const [selected, setSelected] = useState<Date>();
   const [selectedDayData, setSelectedDayData] = useState<Date | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [filterType, setFilterType] = useState<'all' | 'receitas' | 'despesas'>('all');
   const { currentMonth, currentYear } = useMonthlyDashboard();
 
   // Buscar transações do mês
@@ -129,8 +131,9 @@ const MiniCalendario = () => {
 
   return (
     <ModernCard className={cn(
-      classes.padding,
-      'flex flex-col overflow-hidden h-full'
+      size === 'mobile' ? 'p-2' : classes.padding,
+      'flex flex-col overflow-hidden h-full',
+      size === 'mobile' ? 'min-h-[240px]' : ''
     )}>
 
       <div className="flex-1 flex items-center justify-center">
@@ -151,7 +154,7 @@ const MiniCalendario = () => {
             showOutsideDays={false}
             modifiers={modifiers}
             modifiersClassNames={modifiersClassNames}
-            captionLayout="dropdown-buttons"
+            captionLayout="label"
             onDayMouseEnter={(date) => {
               const dayData = getDayTransactions(date);
               if (dayData && dayData.count > 0) {
@@ -162,7 +165,7 @@ const MiniCalendario = () => {
             className={cn(classes.textSm, 'mx-auto')}
             styles={{
               root: {
-                fontSize: classes.textSm === 'text-xs' ? '0.65rem' : '0.75rem',
+                fontSize: size === 'mobile' ? '0.75rem' : classes.textSm === 'text-xs' ? '0.65rem' : '0.75rem',
                 width: '100%',
                 display: 'flex',
                 justifyContent: 'center'
@@ -179,28 +182,28 @@ const MiniCalendario = () => {
               },
               table: {
                 margin: '0 auto',
-                width: '100%',
+                width: size === 'mobile' ? '100%' : '100%',
                 tableLayout: 'fixed'
               },
               day: {
-                fontSize: classes.textSm === 'text-xs' ? '0.65rem' : '0.75rem',
-                padding: size === 'compact' ? '0.2rem' : '0.3rem',
-                minWidth: size === 'compact' ? '1.5rem' : '1.8rem',
-                minHeight: size === 'compact' ? '1.5rem' : '1.8rem',
+                fontSize: size === 'mobile' ? '0.625rem' : classes.textSm === 'text-xs' ? '0.65rem' : '0.75rem',
+                padding: size === 'mobile' ? '0.125rem' : size === 'compact' ? '0.2rem' : '0.3rem',
+                minWidth: size === 'mobile' ? '1.5rem' : size === 'compact' ? '1.5rem' : '1.8rem',
+                minHeight: size === 'mobile' ? '1.5rem' : size === 'compact' ? '1.5rem' : '1.8rem',
               },
               day_button: {
-                fontSize: classes.textSm === 'text-xs' ? '0.65rem' : '0.75rem',
-                padding: size === 'compact' ? '0.2rem' : '0.3rem',
-                minWidth: size === 'compact' ? '1.5rem' : '1.8rem',
-                minHeight: size === 'compact' ? '1.5rem' : '1.8rem',
+                fontSize: size === 'mobile' ? '0.625rem' : classes.textSm === 'text-xs' ? '0.65rem' : '0.75rem',
+                padding: size === 'mobile' ? '0.125rem' : size === 'compact' ? '0.2rem' : '0.3rem',
+                minWidth: size === 'mobile' ? '1.5rem' : size === 'compact' ? '1.5rem' : '1.8rem',
+                minHeight: size === 'mobile' ? '1.5rem' : size === 'compact' ? '1.5rem' : '1.8rem',
               },
               caption: {
-                fontSize: size === 'compact' ? '0.65rem' : classes.textSm === 'text-xs' ? '0.75rem' : '0.875rem',
+                fontSize: size === 'mobile' ? '0.7rem' : size === 'compact' ? '0.65rem' : classes.textSm === 'text-xs' ? '0.75rem' : '0.875rem',
                 textAlign: 'center',
-                marginBottom: '0.5rem'
+                marginBottom: size === 'mobile' ? '0.4rem' : '0.5rem'
               },
               weekdays: {
-                fontSize: classes.textSm === 'text-xs' ? '0.65rem' : '0.75rem'
+                fontSize: size === 'mobile' ? '0.6rem' : classes.textSm === 'text-xs' ? '0.65rem' : '0.75rem'
               },
             }}
           />
@@ -208,131 +211,240 @@ const MiniCalendario = () => {
       </div>
 
       {/* Modal lateral para detalhes do dia */}
-      {isModalOpen && selectedDayData && (
-        <div className="fixed inset-0 z-50 flex">
-          {/* Overlay */}
-          <div
-            className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+      <AnimatePresence>
+        {isModalOpen && selectedDayData && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex"
             onClick={() => setIsModalOpen(false)}
-          />
+          >
+            {/* Overlay com backdrop blur */}
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
 
-          {/* Modal lateral direito */}
-          <div className="ml-auto w-96 h-full bg-white shadow-xl flex flex-col relative z-10">
-            {/* Header */}
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-deep-blue">
-                {format(selectedDayData, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-              </h3>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <span className="sr-only">Fechar</span>
-                ✕
-              </button>
-            </div>
+            {/* Modal Container - Lateral */}
+            <motion.div
+              initial={{ x: '100%', opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: '100%', opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              className={cn(
+                "relative bg-white/95 backdrop-blur-xl shadow-2xl flex flex-col z-10",
+                size === 'mobile'
+                  ? "w-full h-full" // Mobile: tela cheia
+                  : "ml-auto w-96 h-full" // Desktop: lateral direito
+              )}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header com gradiente coral */}
+              <div className="relative px-4 py-4 bg-gradient-to-r from-coral-400 via-coral-500 to-coral-600 border-b border-white/20">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-white" />
+                      <h2 className="text-base font-semibold text-white">
+                        {format(selectedDayData, "dd 'de' MMM", { locale: ptBR })}
+                      </h2>
+                    </div>
+                    <button
+                      onClick={() => setIsModalOpen(false)}
+                      className="w-6 h-6 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+                    >
+                      <X className="w-3 h-3 text-white" />
+                    </button>
+                  </div>
+                </div>
 
-            {/* Conteúdo */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {(() => {
-                const dayData = getDayTransactions(selectedDayData);
-                if (!dayData) return null;
+                {/* Conteúdo com scroll otimizado */}
+                <div className="flex-1 overflow-y-auto p-4">
+                  {(() => {
+                    const dayData = getDayTransactions(selectedDayData);
+                    if (!dayData) return null;
 
-                return (
-                  <>
-                    {/* Resumo financeiro */}
-                    <div className="mb-6">
-                      <div className="grid grid-cols-2 gap-4 mb-4">
-                        {dayData.receitas > 0 && (
-                          <div className="bg-green-50 rounded-lg p-3">
-                            <div className="flex items-center gap-2 mb-1">
-                              <TrendingUp size={16} className="text-green-600" />
-                              <span className="text-sm font-medium text-green-800">Receitas</span>
+                    // Filtrar transações baseado no filtro ativo
+                    const filteredTransactions = dayData.transactions.filter(trans => {
+                      if (filterType === 'receitas') return trans.tipo === 'receita';
+                      if (filterType === 'despesas') return trans.tipo === 'despesa' || trans.tipo === 'despesa_cartao';
+                      return true;
+                    });
+
+                    return (
+                      <>
+                        {/* Resumo financeiro compacto */}
+                        <div className="mb-4">
+                          <div className="grid grid-cols-3 gap-2 mb-3">
+                            {dayData.receitas > 0 && (
+                              <div className="bg-green-50/80 backdrop-blur-sm rounded-xl p-2 border border-green-100">
+                                <div className="flex items-center gap-1 mb-1">
+                                  <TrendingUp size={12} className="text-green-600" />
+                                  <span className="text-xs font-medium text-green-800">Receitas</span>
+                                </div>
+                                <p className="text-sm font-bold text-green-600">
+                                  {formatCurrency(dayData.receitas)}
+                                </p>
+                              </div>
+                            )}
+
+                            {dayData.despesas > 0 && (
+                              <div className="bg-coral-50/80 backdrop-blur-sm rounded-xl p-2 border border-coral-100">
+                                <div className="flex items-center gap-1 mb-1">
+                                  <TrendingDown size={12} className="text-coral" />
+                                  <span className="text-xs font-medium text-coral">Despesas</span>
+                                </div>
+                                <p className="text-sm font-bold text-coral">
+                                  {formatCurrency(dayData.despesas)}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Saldo do dia */}
+                            <div className={cn(
+                              "backdrop-blur-sm rounded-xl p-2 border",
+                              dayData.saldo >= 0
+                                ? "bg-green-50/80 border-green-100"
+                                : "bg-red-50/80 border-red-100"
+                            )}>
+                              <div className="flex items-center gap-1 mb-1">
+                                <Activity size={12} className={dayData.saldo >= 0 ? "text-green-600" : "text-red-600"} />
+                                <span className="text-xs font-medium text-gray-700">Saldo</span>
+                              </div>
+                              <p className={cn(
+                                "text-sm font-bold",
+                                dayData.saldo >= 0 ? "text-green-600" : "text-red-600"
+                              )}>
+                                {formatCurrency(dayData.saldo)}
+                              </p>
                             </div>
-                            <p className="text-lg font-bold text-green-600">
-                              {formatCurrency(dayData.receitas)}
-                            </p>
                           </div>
-                        )}
-
-                        {dayData.despesas > 0 && (
-                          <div className="bg-coral/10 rounded-lg p-3">
-                            <div className="flex items-center gap-2 mb-1">
-                              <TrendingDown size={16} className="text-coral" />
-                              <span className="text-sm font-medium text-coral">Despesas</span>
-                            </div>
-                            <p className="text-lg font-bold text-coral">
-                              {formatCurrency(dayData.despesas)}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Saldo do dia */}
-                      <div className={cn(
-                        "rounded-lg p-3 border-2",
-                        dayData.saldo >= 0
-                          ? "bg-green-50 border-green-200"
-                          : "bg-red-50 border-red-200"
-                      )}>
-                        <div className="flex items-center gap-2 mb-1">
-                          <Activity size={16} className={dayData.saldo >= 0 ? "text-green-600" : "text-red-600"} />
-                          <span className="text-sm font-medium text-gray-700">Saldo do dia</span>
                         </div>
-                        <p className={cn(
-                          "text-xl font-bold",
-                          dayData.saldo >= 0 ? "text-green-600" : "text-red-600"
-                        )}>
-                          {formatCurrency(dayData.saldo)}
-                        </p>
-                      </div>
-                    </div>
 
-                    {/* Lista de transações */}
-                    <div>
-                      <h4 className="text-md font-semibold text-gray-900 mb-3">
-                        Lançamentos ({dayData.count})
-                      </h4>
-
-                      <div className="space-y-3">
-                        {dayData.transactions.map((trans, idx) => (
-                          <div key={idx} className="bg-gray-50 rounded-lg p-3">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <p className="font-medium text-gray-900">
-                                  {trans.descricao || trans.categoria_nome}
-                                </p>
-                                {trans.categoria_nome && trans.descricao && (
-                                  <p className="text-xs text-gray-500 mt-1">
-                                    {trans.categoria_nome}
-                                  </p>
-                                )}
-                              </div>
-
-                              <div className="ml-3 text-right">
-                                <p className={cn(
-                                  "font-bold",
-                                  trans.tipo === 'receita' ? "text-green-600" : "text-coral"
-                                )}>
-                                  {trans.tipo === 'receita' ? '+' : '-'}
-                                  {formatCurrency(Math.abs(Number(trans.valor)))}
-                                </p>
-                                <p className="text-xs text-gray-500 capitalize">
-                                  {trans.tipo.replace('_', ' ')}
-                                </p>
-                              </div>
-                            </div>
+                        {/* Filtros interativos */}
+                        <div className="mb-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Filter className="w-3 h-3 text-gray-500" />
+                            <span className="text-xs font-medium text-gray-600">Filtrar por:</span>
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
-          </div>
-        </div>
-      )}
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setFilterType('all')}
+                              className={cn(
+                                "px-2 py-1 text-xs rounded-full font-medium transition-all duration-200 hover:scale-105",
+                                filterType === 'all'
+                                  ? "bg-coral-100 text-coral-700 border border-coral-200"
+                                  : "bg-slate-100 text-slate-700"
+                              )}
+                            >
+                              Todas ({dayData.count})
+                            </button>
+                            {dayData.receitas > 0 && (
+                              <button
+                                onClick={() => setFilterType('receitas')}
+                                className={cn(
+                                  "px-2 py-1 text-xs rounded-full font-medium transition-all duration-200 hover:scale-105",
+                                  filterType === 'receitas'
+                                    ? "bg-green-100 text-green-700 border border-green-200"
+                                    : "bg-slate-100 text-slate-700"
+                                )}
+                              >
+                                Receitas ({dayData.transactions.filter(t => t.tipo === 'receita').length})
+                              </button>
+                            )}
+                            {dayData.despesas > 0 && (
+                              <button
+                                onClick={() => setFilterType('despesas')}
+                                className={cn(
+                                  "px-2 py-1 text-xs rounded-full font-medium transition-all duration-200 hover:scale-105",
+                                  filterType === 'despesas'
+                                    ? "bg-red-100 text-red-700 border border-red-200"
+                                    : "bg-slate-100 text-slate-700"
+                                )}
+                              >
+                                Despesas ({dayData.transactions.filter(t => t.tipo === 'despesa' || t.tipo === 'despesa_cartao').length})
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Lista de transações filtrada */}
+                        <div>
+                          <h4 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                            Lançamentos
+                            <span className="text-xs text-gray-500">({filteredTransactions.length})</span>
+                          </h4>
+
+                          <div className="space-y-2">
+                            {filteredTransactions.map((trans, idx) => {
+                              const isReceita = trans.tipo === 'receita';
+                              const tipoFormatted = trans.tipo.replace(/_/g, ' ');
+
+                              return (
+                                <motion.div
+                                  key={idx}
+                                  initial={{ opacity: 0, y: 10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ delay: idx * 0.05 }}
+                                  className="bg-white/60 backdrop-blur-sm rounded-xl p-3 border border-white/40 hover:bg-white/80 transition-all duration-200"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 flex-1">
+                                      <div className={cn(
+                                        "w-6 h-6 rounded-lg flex items-center justify-center",
+                                        isReceita ? "bg-green-100" : "bg-coral-100"
+                                      )}>
+                                        {(() => {
+                                          if (isReceita) {
+                                            return <DollarSign className="w-3 h-3 text-green-600" />;
+                                          } else if (trans.tipo === 'despesa_cartao') {
+                                            return <CreditCard className="w-3 h-3 text-coral" />;
+                                          } else {
+                                            return <ShoppingCart className="w-3 h-3 text-coral" />;
+                                          }
+                                        })()}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium text-gray-900 truncate">
+                                          {trans.descricao || trans.categoria_nome}
+                                        </p>
+                                        {trans.categoria_nome && trans.descricao && (
+                                          <p className="text-xs text-gray-500 truncate">
+                                            {trans.categoria_nome}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    <div className="text-right">
+                                      <p className={cn(
+                                        "text-sm font-bold",
+                                        isReceita ? "text-green-600" : "text-coral"
+                                      )}>
+                                        {isReceita ? '+' : '-'}
+                                        {formatCurrency(Math.abs(Number(trans.valor)))}
+                                      </p>
+                                      <p className="text-xs text-gray-500 capitalize">
+                                        {tipoFormatted}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              );
+                            })}
+                          </div>
+
+                          {filteredTransactions.length === 0 && (
+                            <div className="text-center py-4">
+                              <p className="text-sm text-gray-500">Nenhuma transação encontrada</p>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </ModernCard>
   );
 };

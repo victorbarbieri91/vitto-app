@@ -116,7 +116,7 @@ function DashboardContent() {
 
       {size === 'mobile' ? (
         /* Layout mobile reorganizado: saldo compacto + cards + chat expandido */
-        <div className="flex flex-col space-y-4 h-[calc(100vh-120px)] overflow-y-auto pb-20">
+        <div className="flex flex-col space-y-4 min-h-[calc(100vh-120px)] pb-20">
           {/* 1. Saldo Score compacto */}
           <div className="flex-shrink-0 mb-2">
             <SaldoScore
@@ -162,7 +162,7 @@ function DashboardContent() {
           </div>
 
           {/* 4. Calendário compacto para mobile */}
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0 mb-6">
             <MiniCalendario />
           </div>
         </div>

@@ -41,7 +41,7 @@ export default function SimpleMetricCard({
       variant="metric-interactive"
       padding={size === 'mobile' ? 'sm' : 'md'}
       className={cn(
-        size === 'mobile' ? 'p-2' : classes.padding,
+        size === 'mobile' ? 'p-3' : classes.padding,
         onClick && 'cursor-pointer',
         className
       )}
