@@ -55,10 +55,10 @@ export function useScreenDetection(): ScreenInfo {
     
     // Lógica de classificação melhorada
     let size: ScreenSize;
-    
-    if (width <= 640) {
+
+    if (width <= 480) {  // Mobile phones (mudado de 640 para 480)
       size = 'mobile';
-    } else if (width <= 768 || isTouch) {
+    } else if (width <= 768 || (isTouch && width <= 834)) {  // Tablets
       size = 'compact';
     } else if (width <= 1024 || availableSpace < 600000) {
       // Notebooks típicos: mesmo com resolução alta, espaço efetivo é limitado
@@ -70,7 +70,7 @@ export function useScreenDetection(): ScreenInfo {
     } else {
       size = 'xlarge';
     }
-    
+
     // Ajuste especial para notebooks com alta densidade ou telas pequenas
     if (pixelRatio >= 1.25 && !isTouch) {
       // Notebooks com densidade alta (incluindo 1.3x) devem ser tratados como compact
@@ -80,9 +80,10 @@ export function useScreenDetection(): ScreenInfo {
         size = 'medium';
       }
     }
-    
+
     // Força compact para telas que provavelmente são notebooks físicos pequenos
-    if (height < 800 && width < 1800 && !isTouch) {
+    // EXCETO dispositivos genuinamente mobile (width <= 480)
+    if (height < 800 && width < 1800 && width > 480 && !isTouch) {
       size = 'compact';
     }
     
@@ -145,11 +146,11 @@ export function useResponsiveClasses() {
       case 'mobile':
         return {
           ...base,
-          container: 'space-y-3',
-          grid: 'grid grid-cols-1 gap-3',
+          container: 'space-y-2 px-2',
+          grid: 'flex flex-col space-y-2',
           metricGrid: 'grid grid-cols-2 gap-2',
-          iconSize: 'w-4 h-4',
-          padding: 'p-3',
+          iconSize: 'w-3 h-3',
+          padding: 'p-2',
           textSm: 'text-xs',
           textBase: 'text-sm',
           textLg: 'text-base',

@@ -173,8 +173,8 @@ export default function ModernAppLayout({ children, requireAuth = true }: Modern
 
             {/* Mobile Navigation */}
             {mobileMenuOpen && (
-              <div className="md:hidden border-t border-slate-200/60">
-                <nav className="py-4 space-y-1">
+              <div className="md:hidden border-t border-slate-200/60 bg-white/95 backdrop-blur-md">
+                <nav className="py-4 space-y-2 px-4">
                   {navigation.map((item) => {
                     const isActive = location.pathname === item.path;
                     const Icon = item.icon;
@@ -183,17 +183,46 @@ export default function ModernAppLayout({ children, requireAuth = true }: Modern
                         key={item.name}
                         to={item.path}
                         onClick={() => setMobileMenuOpen(false)}
-                        className={`flex items-center px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                        className={`flex items-center px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 w-full ${
                           isActive
                             ? 'bg-coral-500 text-white shadow-lg shadow-coral-500/25'
-                            : 'text-slate-600 hover:text-coral-600 hover:bg-white/60'
+                            : 'text-slate-600 hover:text-coral-600 hover:bg-white/80 active:bg-coral-50'
                         }`}
                       >
-                        <Icon className="w-4 h-4 mr-3" />
-                        <span>{item.name}</span>
+                        <Icon className="w-5 h-5 mr-3 flex-shrink-0" />
+                        <span className="font-medium">{item.name}</span>
                       </Link>
                     );
                   })}
+
+                  {/* Seção adicional para mobile */}
+                  <div className="border-t border-slate-200/60 mt-4 pt-4">
+                    <Link
+                      to="/perfil"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center px-4 py-3 rounded-xl text-sm font-medium text-slate-600 hover:text-coral-600 hover:bg-white/80 transition-all duration-200 w-full"
+                    >
+                      <User className="w-5 h-5 mr-3 flex-shrink-0" />
+                      <span>Perfil</span>
+                    </Link>
+
+                    <Link
+                      to="/categorias"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center px-4 py-3 rounded-xl text-sm font-medium text-slate-600 hover:text-coral-600 hover:bg-white/80 transition-all duration-200 w-full"
+                    >
+                      <Tags className="w-5 h-5 mr-3 flex-shrink-0" />
+                      <span>Categorias</span>
+                    </Link>
+
+                    <button
+                      onClick={handleSignOut}
+                      className="flex items-center px-4 py-3 rounded-xl text-sm font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 transition-all duration-200 w-full"
+                    >
+                      <LogOut className="w-5 h-5 mr-3 flex-shrink-0" />
+                      <span>Sair</span>
+                    </button>
+                  </div>
                 </nav>
               </div>
             )}
