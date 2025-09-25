@@ -23,15 +23,49 @@ export const formatCurrency = (value: number | string): string => {
  */
 export const formatDate = (date: string | Date): string => {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
-  
+
   if (isNaN(dateObj.getTime())) {
     return '--/--/----';
   }
-  
+
   return dateObj.toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric'
+  });
+};
+
+/**
+ * Formata uma data como local (resolve problema de fuso horário)
+ * Para strings no formato YYYY-MM-DD, trata como data local
+ */
+export const formatLocalDate = (dateString: string): string => {
+  if (!dateString) {
+    return '--/--/----';
+  }
+
+  // Se é uma string no formato YYYY-MM-DD, criar data local
+  if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    const [year, month, day] = dateString.split('-').map(Number);
+    const localDate = new Date(year, month - 1, day); // mês é 0-indexado
+
+    return localDate.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit'
+    });
+  }
+
+  // Fallback para outros formatos
+  const dateObj = new Date(dateString);
+  if (isNaN(dateObj.getTime())) {
+    return '--/--/----';
+  }
+
+  return dateObj.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit'
   });
 };
 
