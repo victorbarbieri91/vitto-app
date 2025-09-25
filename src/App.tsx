@@ -17,6 +17,9 @@ import DashboardPageModern from './pages/dashboard/DashboardPageModern';
 import AccountsPage from './pages/accounts/AccountsPage';
 import AccountDetailPage from './pages/accounts/AccountDetailPage';
 import TransactionsPageModern from './pages/transactions/TransactionsPageModern';
+import NewRevenuePage from './pages/transactions/NewRevenuePage';
+import NewExpensePage from './pages/transactions/NewExpensePage';
+import NewCreditCardExpensePage from './pages/transactions/NewCreditCardExpensePage';
 import CategoriesPage from './pages/categories/CategoriesPage';
 import ProfilePage from './pages/profile/ProfilePage';
 import CardsPage from './pages/cards/CardsPage';
@@ -82,6 +85,12 @@ function App() {
               <Route path="/contas/:id" element={<AccountDetailPage />} />
               <Route path="/transactions" element={<TransactionsPageModern />} />
               <Route path="/lancamentos" element={<TransactionsPageModern />} />
+
+              {/* Páginas de Nova Transação Mobile-First */}
+              <Route path="/nova-receita" element={<NewRevenuePage />} />
+              <Route path="/nova-despesa" element={<NewExpensePage />} />
+              <Route path="/nova-compra-cartao" element={<NewCreditCardExpensePage />} />
+
               <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/categorias" element={<CategoriesPage />} />
               <Route path="/profile" element={<ProfilePage />} />

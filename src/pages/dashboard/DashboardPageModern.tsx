@@ -10,6 +10,7 @@ import SimpleMetricCard from '../../components/ui/modern/SimpleMetricCard';
 import SaldoScore from '../../components/dashboard/SaldoScore';
 import MiniCalendario from '../../components/dashboard/MiniCalendario';
 import IntegratedChat from '../../components/chat/IntegratedChat';
+import SmartFinancialChat from '../../components/chat/SmartFinancialChat';
 import NewTransactionButton from '../../components/dashboard/NewTransactionButton';
 import MonthTransactionsList from '../../components/dashboard/MonthTransactionsList';
 import { useTransactionModal } from '../../hooks/useTransactionModal';
@@ -159,7 +160,8 @@ function DashboardContent() {
 
           {/* 3. Chat expandido - pega o espaço restante */}
           <div className="flex-1 min-h-[420px] mb-5">
-            <IntegratedChat />
+            <SmartFinancialChat />
+            {/* <IntegratedChat /> */}
           </div>
 
           {/* 4. Calendário compacto para mobile */}
@@ -184,7 +186,8 @@ function DashboardContent() {
               receitaMensal={consolidatedData.receitaMensal}
             />
             <div className="flex-1 min-h-0">
-              <IntegratedChat />
+              <SmartFinancialChat />
+              {/* <IntegratedChat /> */}
             </div>
           </div>
 

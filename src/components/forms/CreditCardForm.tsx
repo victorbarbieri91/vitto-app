@@ -16,6 +16,13 @@ import {
 } from '../../services/api';
 import { cn } from '../../utils/cn';
 import { formatCurrency } from '../../utils/format';
+import {
+  calculateSmartClosingDay,
+  getSmartClosingResult,
+  validateCreditCardDates,
+  calculateDaysBetween
+} from '../../utils/creditCardHelpers';
+import DayPicker from '../ui/DayPicker';
 
 interface CreditCardFormProps {
   card?: CreditCardWithUsage;
@@ -33,6 +40,7 @@ interface FormData {
   cor: string;
   icone: string;
   ultimos_quatro_digitos: string;
+  fechamento_manual: boolean; // Track if user manually edited closing day
 }
 
 const cardColors = [
@@ -69,7 +77,8 @@ export default function CreditCardForm({
     dia_vencimento: '',
     cor: '#F87060',
     icone: 'card',
-    ultimos_quatro_digitos: ''
+    ultimos_quatro_digitos: '',
+    fechamento_manual: false
   });
 
   const [errors, setErrors] = useState<Partial<FormData>>({});
@@ -83,7 +92,8 @@ export default function CreditCardForm({
         dia_vencimento: card.dia_vencimento.toString(),
         cor: card.cor || '#F87060',
         icone: card.icone || 'card',
-        ultimos_quatro_digitos: card.ultimos_quatro_digitos || ''
+        ultimos_quatro_digitos: card.ultimos_quatro_digitos || '',
+        fechamento_manual: true // Existing cards are considered manually set
       });
     } else {
       setFormData({
@@ -93,7 +103,8 @@ export default function CreditCardForm({
         dia_vencimento: '',
         cor: '#F87060',
         icone: 'card',
-        ultimos_quatro_digitos: ''
+        ultimos_quatro_digitos: '',
+        fechamento_manual: false
       });
     }
     setErrors({});
@@ -104,13 +115,63 @@ export default function CreditCardForm({
       ...prev,
       [field]: value
     }));
-    
+
     // Limpar erro do campo quando o usuário começar a digitar
     if (errors[field]) {
       setErrors(prev => ({
         ...prev,
         [field]: undefined
       }));
+    }
+  };
+
+  // Handle due date change with smart closing calculation
+  const handleDueDateChange = (dueDay: string) => {
+    const newDueDay = parseInt(dueDay);
+
+    setFormData(prev => {
+      const newFormData = { ...prev, dia_vencimento: dueDay };
+
+      // Only auto-calculate if not manually set and due day is valid
+      if (!prev.fechamento_manual && !isNaN(newDueDay) && newDueDay >= 1 && newDueDay <= 31) {
+        const smartClosing = calculateSmartClosingDay(newDueDay);
+        newFormData.dia_fechamento = smartClosing.toString();
+      }
+
+      return newFormData;
+    });
+
+    // Clear due date errors
+    if (errors.dia_vencimento) {
+      setErrors(prev => ({ ...prev, dia_vencimento: undefined }));
+    }
+  };
+
+  // Handle manual closing day change
+  const handleClosingDateChange = (closingDay: string) => {
+    setFormData(prev => ({
+      ...prev,
+      dia_fechamento: closingDay,
+      fechamento_manual: true // Mark as manually edited
+    }));
+
+    if (errors.dia_fechamento) {
+      setErrors(prev => ({ ...prev, dia_fechamento: undefined }));
+    }
+  };
+
+  // Reset to smart calculation
+  const resetToSmartCalculation = () => {
+    if (formData.dia_vencimento) {
+      const dueDay = parseInt(formData.dia_vencimento);
+      if (!isNaN(dueDay)) {
+        const smartClosing = calculateSmartClosingDay(dueDay);
+        setFormData(prev => ({
+          ...prev,
+          dia_fechamento: smartClosing.toString(),
+          fechamento_manual: false
+        }));
+      }
     }
   };
 
@@ -134,25 +195,27 @@ export default function CreditCardForm({
       }
     }
 
-    // Validar dia de fechamento
-    if (!formData.dia_fechamento) {
-      newErrors.dia_fechamento = 'Dia de fechamento é obrigatório';
-    } else {
-      const dia = parseInt(formData.dia_fechamento);
-      if (isNaN(dia) || dia < 1 || dia > 31) {
-        newErrors.dia_fechamento = 'Dia deve estar entre 1 e 31';
-      }
-    }
+    // Validate credit card dates using helper function
+    const closingDay = parseInt(formData.dia_fechamento);
+    const dueDay = parseInt(formData.dia_vencimento);
 
-    // Validar dia de vencimento
     if (!formData.dia_vencimento) {
       newErrors.dia_vencimento = 'Dia de vencimento é obrigatório';
-    } else {
-      const dia = parseInt(formData.dia_vencimento);
-      if (isNaN(dia) || dia < 1 || dia > 31) {
-        newErrors.dia_vencimento = 'Dia deve estar entre 1 e 31';
-      } else if (dia <= parseInt(formData.dia_fechamento)) {
-        newErrors.dia_vencimento = 'Vencimento deve ser após o fechamento';
+    } else if (isNaN(dueDay) || dueDay < 1 || dueDay > 31) {
+      newErrors.dia_vencimento = 'Dia deve estar entre 1 e 31';
+    }
+
+    if (!formData.dia_fechamento) {
+      newErrors.dia_fechamento = 'Dia de fechamento é obrigatório';
+    } else if (isNaN(closingDay) || closingDay < 1 || closingDay > 31) {
+      newErrors.dia_fechamento = 'Dia deve estar entre 1 e 31';
+    }
+
+    // Additional validation using helper (if both dates are valid)
+    if (!newErrors.dia_fechamento && !newErrors.dia_vencimento) {
+      const validation = validateCreditCardDates(closingDay, dueDay);
+      if (!validation.isValid) {
+        newErrors.dia_fechamento = validation.error;
       }
     }
 
@@ -352,57 +415,27 @@ export default function CreditCardForm({
                   />
                 </div>
 
-                {/* Datas lado a lado */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">
-                      Fechamento
-                    </label>
-                    <select
-                      value={formData.dia_fechamento}
-                      onChange={(e) => handleInputChange('dia_fechamento', e.target.value)}
-                      className={cn(
-                        'w-full px-3 py-2 text-sm border rounded-lg transition-colors',
-                        'focus:ring-2 focus:ring-coral-500/20 focus:border-coral-500',
-                        errors.dia_fechamento ? 'border-red-300' : 'border-slate-200'
-                      )}
-                    >
-                      <option value="">Dia</option>
-                      {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
-                        <option key={day} value={day.toString()}>
-                          {day}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.dia_fechamento && (
-                      <p className="text-xs text-red-500 mt-1">{errors.dia_fechamento}</p>
-                    )}
-                  </div>
+                {/* Datas - UI simplificada */}
+                <div className="space-y-3">
+                  {/* Vencimento */}
+                  <DayPicker
+                    value={formData.dia_vencimento ? parseInt(formData.dia_vencimento) : undefined}
+                    onChange={(day) => handleDueDateChange(day?.toString() || '')}
+                    label="Vencimento"
+                    placeholder="Selecione o dia"
+                    error={errors.dia_vencimento}
+                  />
 
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">
-                      Vencimento
-                    </label>
-                    <select
-                      value={formData.dia_vencimento}
-                      onChange={(e) => handleInputChange('dia_vencimento', e.target.value)}
-                      className={cn(
-                        'w-full px-3 py-2 text-sm border rounded-lg transition-colors',
-                        'focus:ring-2 focus:ring-coral-500/20 focus:border-coral-500',
-                        errors.dia_vencimento ? 'border-red-300' : 'border-slate-200'
-                      )}
-                    >
-                      <option value="">Dia</option>
-                      {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
-                        <option key={day} value={day.toString()}>
-                          {day}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.dia_vencimento && (
-                      <p className="text-xs text-red-500 mt-1">{errors.dia_vencimento}</p>
-                    )}
-                  </div>
+                  {/* Fechamento - só aparece depois do vencimento */}
+                  {formData.dia_vencimento && (
+                    <DayPicker
+                      value={formData.dia_fechamento ? parseInt(formData.dia_fechamento) : undefined}
+                      onChange={(day) => handleClosingDateChange(day?.toString() || '')}
+                      label="Fechamento"
+                      placeholder="Selecione o dia"
+                      error={errors.dia_fechamento}
+                    />
+                  )}
                 </div>
               </div>
             </div>

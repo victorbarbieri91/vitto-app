@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, TrendingUp, TrendingDown, Smartphone } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 type TransactionType = 'receita' | 'despesa' | 'despesa_cartao';
 
@@ -39,10 +41,29 @@ interface NewTransactionButtonProps {
 
 export default function NewTransactionButton({ onSelect, className }: NewTransactionButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   const handleSelect = (type: TransactionType) => {
     setIsOpen(false);
-    onSelect(type);
+
+    if (isMobile) {
+      // Mobile: Navegar para páginas dedicadas
+      switch (type) {
+        case 'receita':
+          navigate('/nova-receita');
+          break;
+        case 'despesa':
+          navigate('/nova-despesa');
+          break;
+        case 'despesa_cartao':
+          navigate('/nova-compra-cartao');
+          break;
+      }
+    } else {
+      // Desktop: Continuar usando modal
+      onSelect(type);
+    }
   };
 
   return (

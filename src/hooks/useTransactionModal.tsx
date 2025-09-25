@@ -225,6 +225,7 @@ export function useTransactionModal(onTransactionSaved?: () => void) {
     closeModal,
     activeModal,
     isSubmitting,
+    handleTransactionSaved,
     TransactionModalComponent,
     transactionListRef,
   };
