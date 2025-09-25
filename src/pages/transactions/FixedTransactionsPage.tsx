@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Calendar, TrendingUp, TrendingDown, DollarSign, Edit2, Trash2, Power, PowerOff } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Calendar, TrendingUp, TrendingDown, DollarSign, Edit2, Trash2, Power, PowerOff, Settings } from 'lucide-react';
 import { ModernCard, ModernButton, ModernBadge } from '../../components/ui/modern';
 import { fixedTransactionService, FixedTransactionWithDetails } from '../../services/api/FixedTransactionService';
 import { useTransactionModal } from '../../hooks/useTransactionModal';
 import { cn } from '../../utils/cn';
+import { toast } from 'react-hot-toast';
 
 interface FixedTransactionStats {
   total_ativo: number;
@@ -14,10 +16,15 @@ interface FixedTransactionStats {
 }
 
 export default function FixedTransactionsPage() {
+  const [searchParams] = useSearchParams();
   const [fixedTransactions, setFixedTransactions] = useState<FixedTransactionWithDetails[]>([]);
   const [stats, setStats] = useState<FixedTransactionStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('active');
+  const [editingTransaction, setEditingTransaction] = useState<FixedTransactionWithDetails | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [adjustmentTransaction, setAdjustmentTransaction] = useState<FixedTransactionWithDetails | null>(null);
+  const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
   const { openModal, TransactionModalComponent } = useTransactionModal();
 
   const loadData = async () => {
@@ -41,6 +48,23 @@ export default function FixedTransactionsPage() {
     loadData();
   }, []);
 
+  // Processar parâmetro edit da URL
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    if (editId && fixedTransactions.length > 0) {
+      const transactionToEdit = fixedTransactions.find(t => t.id === parseInt(editId));
+      if (transactionToEdit) {
+        console.log(`Abrindo edição automática para lançamento fixo ID: ${editId}`, transactionToEdit);
+        handleEdit(transactionToEdit);
+        // Limpar o parâmetro da URL
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+      } else {
+        toast.error('Lançamento fixo não encontrado para edição');
+      }
+    }
+  }, [searchParams, fixedTransactions]);
+
   const handleToggleStatus = async (id: number, currentStatus: boolean) => {
     try {
       await fixedTransactionService.toggle(id, !currentStatus);
@@ -48,6 +72,29 @@ export default function FixedTransactionsPage() {
     } catch (error) {
       console.error('Erro ao alterar status:', error);
       alert('Erro ao alterar status da transação');
+    }
+  };
+
+  const handleEdit = (transaction: FixedTransactionWithDetails) => {
+    setEditingTransaction(transaction);
+    setIsEditModalOpen(true);
+  };
+
+  const handleCloseEditModal = () => {
+    setIsEditModalOpen(false);
+    setEditingTransaction(null);
+  };
+
+  const handleSaveEditedTransaction = async (data: any) => {
+    if (!editingTransaction) return;
+
+    try {
+      await fixedTransactionService.update(editingTransaction.id, data);
+      await loadData(); // Reload data
+      handleCloseEditModal();
+    } catch (error) {
+      console.error('Erro ao atualizar transação fixa:', error);
+      alert('Erro ao atualizar transação fixa');
     }
   };
 
@@ -61,6 +108,16 @@ export default function FixedTransactionsPage() {
       console.error('Erro ao excluir transação:', error);
       alert('Erro ao excluir transação fixa');
     }
+  };
+
+  const handlePointAdjustment = (transaction: FixedTransactionWithDetails) => {
+    setAdjustmentTransaction(transaction);
+    setIsAdjustmentModalOpen(true);
+  };
+
+  const handleCloseAdjustmentModal = () => {
+    setIsAdjustmentModalOpen(false);
+    setAdjustmentTransaction(null);
   };
 
   const filteredTransactions = fixedTransactions.filter(transaction => {
@@ -332,7 +389,17 @@ export default function FixedTransactionsPage() {
                     <ModernButton
                       variant="ghost"
                       size="sm"
-                      onClick={() => {/* TODO: Implement edit */}}
+                      onClick={() => handlePointAdjustment(transaction)}
+                      className="p-2 text-blue-600 hover:text-blue-700"
+                      title="Ajuste Pontual para este mês"
+                    >
+                      <Settings className="w-4 h-4" />
+                    </ModernButton>
+
+                    <ModernButton
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEdit(transaction)}
                       className="p-2 text-slate-600 hover:text-slate-800"
                     >
                       <Edit2 className="w-4 h-4" />
@@ -356,6 +423,214 @@ export default function FixedTransactionsPage() {
 
       {/* Modal for creating new fixed transactions */}
       <TransactionModalComponent />
+
+      {/* Modal for editing fixed transactions */}
+      {isEditModalOpen && editingTransaction && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Editar Transação Fixa</h2>
+              <button
+                onClick={handleCloseEditModal}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target as HTMLFormElement);
+              const data = {
+                descricao: formData.get('descricao') as string,
+                valor: parseFloat(formData.get('valor') as string),
+                tipo: formData.get('tipo') as string,
+                dia_mes: parseInt(formData.get('dia_mes') as string),
+                categoria_id: parseInt(formData.get('categoria_id') as string),
+                conta_id: editingTransaction.conta_id ? parseInt(formData.get('conta_id') as string) : null,
+                cartao_id: editingTransaction.cartao_id ? parseInt(formData.get('cartao_id') as string) : null,
+                ativo: formData.get('ativo') === 'on',
+              };
+              handleSaveEditedTransaction(data);
+            }} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Descrição
+                </label>
+                <input
+                  type="text"
+                  name="descricao"
+                  defaultValue={editingTransaction.descricao}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coral-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Valor
+                </label>
+                <input
+                  type="number"
+                  name="valor"
+                  step="0.01"
+                  defaultValue={editingTransaction.valor}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coral-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tipo
+                </label>
+                <select
+                  name="tipo"
+                  defaultValue={editingTransaction.tipo}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coral-500"
+                >
+                  <option value="receita">Receita</option>
+                  <option value="despesa">Despesa</option>
+                  <option value="despesa_cartao">Despesa Cartão</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Dia do Mês
+                </label>
+                <input
+                  type="number"
+                  name="dia_mes"
+                  min="1"
+                  max="31"
+                  defaultValue={editingTransaction.dia_mes}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coral-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Categoria
+                </label>
+                <select
+                  name="categoria_id"
+                  defaultValue={editingTransaction.categoria_id || ''}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coral-500"
+                >
+                  <option value="">Selecione uma categoria</option>
+                  {/* TODO: Load categories */}
+                </select>
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  name="ativo"
+                  id="ativo"
+                  defaultChecked={editingTransaction.ativo}
+                  className="h-4 w-4 text-coral-600 focus:ring-coral-500 border-gray-300 rounded"
+                />
+                <label htmlFor="ativo" className="ml-2 block text-sm text-gray-900">
+                  Transação ativa
+                </label>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <ModernButton type="submit" className="flex-1">
+                  Salvar
+                </ModernButton>
+                <ModernButton
+                  type="button"
+                  variant="outline"
+                  onClick={handleCloseEditModal}
+                  className="flex-1"
+                >
+                  Cancelar
+                </ModernButton>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Ajuste Pontual */}
+      {isAdjustmentModalOpen && adjustmentTransaction && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg w-full max-w-md p-6">
+            <h2 className="text-xl font-bold text-deep-blue mb-4">
+              Ajuste Pontual - {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+            </h2>
+
+            <div className="mb-4 p-4 bg-slate-50 rounded-lg">
+              <h3 className="font-medium text-slate-700 mb-2">{adjustmentTransaction.descricao}</h3>
+              <p className="text-sm text-slate-500">Valor original: {formatCurrency(Number(adjustmentTransaction.valor))}</p>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target as HTMLFormElement);
+              const newValue = parseFloat(formData.get('valor') as string);
+
+              // TODO: Implement point-in-time adjustment service
+              console.log('Ajuste pontual:', {
+                fixedTransactionId: adjustmentTransaction.id,
+                month: new Date().getMonth() + 1,
+                year: new Date().getFullYear(),
+                originalValue: adjustmentTransaction.valor,
+                newValue: newValue
+              });
+
+              handleCloseAdjustmentModal();
+              // TODO: Refresh data after adjustment
+            }} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Novo Valor para este Mês
+                </label>
+                <input
+                  type="number"
+                  name="valor"
+                  step="0.01"
+                  defaultValue={adjustmentTransaction.valor}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coral-500"
+                  placeholder="0,00"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Observação (opcional)
+                </label>
+                <textarea
+                  name="observacao"
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coral-500"
+                  placeholder="Motivo do ajuste..."
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <ModernButton type="submit" className="flex-1">
+                  Criar Ajuste
+                </ModernButton>
+                <ModernButton
+                  type="button"
+                  variant="outline"
+                  onClick={handleCloseAdjustmentModal}
+                  className="flex-1"
+                >
+                  Cancelar
+                </ModernButton>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -15,7 +15,7 @@ import type { TransactionListRef } from '../components/transactions/TransactionL
 
 type ModalType = 'receita' | 'despesa' | 'despesa_cartao' | null;
 
-export function useTransactionModal() {
+export function useTransactionModal(onTransactionSaved?: () => void) {
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const transactionListRef = useRef<TransactionListRef>(null);
@@ -170,8 +170,20 @@ export function useTransactionModal() {
       }
       
       closeModal();
-      // Atualizar a lista de transações se a ref estiver disponível
-      transactionListRef.current?.fetchTransactions();
+
+      // SEMPRE chamar o callback primeiro (para dashboard e outras páginas)
+      if (onTransactionSaved) {
+        console.log('[useTransactionModal] Executando callback onTransactionSaved...');
+        onTransactionSaved();
+      }
+
+      // Atualizar a lista de transações se a ref estiver disponível (para páginas com TransactionList)
+      if (transactionListRef.current) {
+        console.log('[useTransactionModal] Atualizando TransactionList via ref...');
+        transactionListRef.current.fetchTransactions();
+      } else {
+        console.log('[useTransactionModal] TransactionList ref não disponível (normal em páginas sem lista)');
+      }
 
     } catch (error: any) {
       console.error("[useTransactionModal] Erro ao salvar a transação", error);

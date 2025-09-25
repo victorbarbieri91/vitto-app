@@ -124,7 +124,9 @@ export class AccountService extends BaseApi {
 
       if (contaError) throw contaError;
 
-      // Se o saldo inicial não for zero ou nulo, criar lançamento de saldo inicial
+      // Se o saldo inicial não for zero ou nulo, criar lançamento VIRTUAL de saldo inicial
+      // Este lançamento aparece no módulo de lançamentos mas NÃO é somado no cálculo do saldo
+      // pois tem tipo_especial = 'saldo_inicial' que é ignorado pela função calcular_saldo_conta
       if (accountData.saldo_inicial && accountData.saldo_inicial !== 0) {
         await this.criarLancamentoSaldoInicial(conta.id, accountData.saldo_inicial, accountData.nome, user.id);
       }
@@ -132,6 +134,74 @@ export class AccountService extends BaseApi {
       return conta;
     } catch (error) {
       throw this.handleError(error, 'Falha ao criar conta');
+    }
+  }
+
+  /**
+   * Fix missing initial balance transactions for existing accounts
+   */
+  async fixMissingInitialBalanceTransactions(userId?: string): Promise<{ fixed: number; errors: string[] }> {
+    try {
+      const user = userId ? { id: userId } : await this.getCurrentUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
+      const errors: string[] = [];
+      let fixed = 0;
+
+      // Buscar contas que têm saldo inicial mas não têm transação de saldo inicial
+      const { data: accounts, error: accountsError } = await this.supabase
+        .from('app_conta')
+        .select(`
+          id,
+          nome,
+          saldo_inicial,
+          created_at,
+          app_transacoes!inner(id)
+        `)
+        .eq('user_id', user.id)
+        .neq('saldo_inicial', 0)
+        .not('saldo_inicial', 'is', null)
+        .not('app_transacoes.tipo_especial', 'eq', 'saldo_inicial');
+
+      if (accountsError) throw accountsError;
+
+      // Filtrar contas que realmente não têm transação de saldo inicial
+      const accountsWithoutInitialTransaction = [];
+
+      for (const account of accounts || []) {
+        const { data: existingTransaction } = await this.supabase
+          .from('app_transacoes')
+          .select('id')
+          .eq('conta_id', account.id)
+          .eq('tipo_especial', 'saldo_inicial')
+          .limit(1);
+
+        if (!existingTransaction || existingTransaction.length === 0) {
+          accountsWithoutInitialTransaction.push(account);
+        }
+      }
+
+      // Criar transações de saldo inicial para essas contas
+      for (const account of accountsWithoutInitialTransaction) {
+        try {
+          await this.criarLancamentoSaldoInicial(
+            account.id,
+            parseFloat(account.saldo_inicial.toString()),
+            account.nome,
+            user.id
+          );
+          fixed++;
+          console.log(`✅ Criada transação de saldo inicial para conta: ${account.nome}`);
+        } catch (error) {
+          const errorMsg = `Erro ao criar transação de saldo inicial para conta ${account.nome}: ${error}`;
+          errors.push(errorMsg);
+          console.error(errorMsg);
+        }
+      }
+
+      return { fixed, errors };
+    } catch (error) {
+      throw this.handleError(error, 'Falha ao corrigir transações de saldo inicial');
     }
   }
 

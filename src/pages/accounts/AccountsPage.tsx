@@ -3,12 +3,13 @@ import { motion } from 'framer-motion';
 import { useAccounts } from '../../hooks/useAccounts';
 import type { Account, AccountFormData } from '../../services/api/AccountService';
 import AccountForm from '../../components/forms/AccountForm';
-import { TransferForm } from '../../components/forms/TransferForm';
+import { TransferModal } from '../../components/modals/TransferModal';
 import { ModernButton } from '../../components/ui/modern';
 import { ModernCard } from '../../components/ui/modern';
 import AccountsDashboard from '../../components/accounts/AccountsDashboard';
 import AccountBankCard from '../../components/accounts/AccountBankCard';
 import { DollarSign, Edit, Plus, Trash2, Zap, Building2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -147,19 +148,12 @@ export default function AccountsPage() {
 
       <AccountsDashboard accounts={accounts} />
 
-      {isTransferModalOpen && (
-         <ModernCard variant="glass" className="fixed inset-0 z-40 flex justify-center items-center">
-            <div className="w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
-                <ModernCard className="p-6">
-                    <h2 className="text-xl font-bold mb-4 text-deep-blue">Nova Transferência</h2>
-                    <TransferForm
-                        onSuccess={handleTransferSuccess}
-                        onCancel={() => setIsTransferModalOpen(false)}
-                    />
-                </ModernCard>
-            </div>
-         </ModernCard>
-      )}
+
+      <TransferModal
+        isOpen={isTransferModalOpen}
+        onClose={() => setIsTransferModalOpen(false)}
+        onSuccess={handleTransferSuccess}
+      />
 
       {isModalOpen && (
          <ModernCard variant="glass" className="fixed inset-0 z-50 flex items-center justify-center p-4">

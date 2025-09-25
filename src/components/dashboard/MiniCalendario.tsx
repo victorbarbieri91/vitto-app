@@ -20,7 +20,7 @@ const MiniCalendario = () => {
   const [selectedDayData, setSelectedDayData] = useState<Date | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'receitas' | 'despesas'>('all');
-  const { currentMonth, currentYear } = useMonthlyDashboard();
+  const { currentMonth, currentYear, fetchMonthData } = useMonthlyDashboard();
 
   // Buscar transações do mês
   const {
@@ -151,10 +151,17 @@ const MiniCalendario = () => {
             }}
             locale={ptBR}
             month={new Date(currentYear, currentMonth - 1)}
+            onMonthChange={(month) => {
+              // Integrar com o contexto do dashboard para mudança de mês
+              const newMonth = month.getMonth() + 1;
+              const newYear = month.getFullYear();
+              console.log(`📅 MiniCalendario mudando para: ${newMonth}/${newYear}`);
+              fetchMonthData(newMonth, newYear);
+            }}
             showOutsideDays={false}
             modifiers={modifiers}
             modifiersClassNames={modifiersClassNames}
-            captionLayout="label"
+            captionLayout="buttons"
             onDayMouseEnter={(date) => {
               const dayData = getDayTransactions(date);
               if (dayData && dayData.count > 0) {

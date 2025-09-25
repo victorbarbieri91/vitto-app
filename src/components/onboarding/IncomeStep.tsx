@@ -90,7 +90,7 @@ const IncomeStep = memo(() => {
               transition={{ delay: 0.3, duration: 0.5 }}
               className="text-xl font-bold text-deep-blue mb-2"
             >
-              Qual sua renda mensal?
+              Qual sua renda mensal total?
             </motion.h1>
 
             <motion.p
@@ -114,7 +114,7 @@ const IncomeStep = memo(() => {
             {/* Income Input */}
             <div>
               <label className="block text-sm font-semibold text-deep-blue mb-3">
-                Renda mensal total (líquida)
+                Renda mensal total
               </label>
               <CurrencyInput
                 value={watchedData.receita_mensal}
@@ -123,7 +123,7 @@ const IncomeStep = memo(() => {
                 placeholder="R$ 0,00"
               />
               <p className="text-xs text-slate-500 mt-2">
-                Digite o valor que você recebe mensalmente após descontos
+                Digite o valor total de receita que você recebe mensalmente
               </p>
             </div>
 

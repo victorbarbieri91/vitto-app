@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { motion } from 'framer-motion';
-import { Rocket, ArrowRight, Sparkles } from 'lucide-react';
+import { Rocket, ArrowRight, Sparkles, ChevronRight } from 'lucide-react';
 import ModernCard from '../ui/modern/ModernCard';
 import Button from '../ui/Button';
 import { useOnboarding } from '../../contexts/OnboardingContext';
@@ -91,37 +91,52 @@ const WelcomeStep = memo(() => {
             </p>
           </motion.div>
 
-          {/* Features list */}
+          {/* Features flow with arrows */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8, duration: 0.6 }}
-            className="grid grid-cols-3 gap-3"
+            className="flex items-center justify-center gap-2"
           >
             {[
               { icon: '💰', title: 'Conta' },
               { icon: '📊', title: 'Renda' },
               { icon: '🎯', title: 'Meta' }
             ].map((feature, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1 + (index * 0.1), duration: 0.4 }}
-                className="p-3 rounded-lg bg-white/50 backdrop-blur-sm border border-white/20 text-center"
-              >
-                <div className="text-xl mb-1">{feature.icon}</div>
-                <h3 className="font-medium text-deep-blue text-xs">{feature.title}</h3>
-              </motion.div>
+              <div key={index} className="flex items-center">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 1 + (index * 0.1), duration: 0.4 }}
+                  whileHover={{ scale: 1.05 }}
+                  transition={{ duration: 0.2 }}
+                  className="p-3 text-center"
+                >
+                  <div className="text-2xl mb-0.5">{feature.icon}</div>
+                  <h3 className="font-semibold text-deep-blue text-sm">{feature.title}</h3>
+                </motion.div>
+
+                {/* Arrow between items */}
+                {index < 2 && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 1.3 + (index * 0.1), duration: 0.3 }}
+                    className="mx-2"
+                  >
+                    <ChevronRight className="w-4 h-4 text-coral-500" />
+                  </motion.div>
+                )}
+              </div>
             ))}
           </motion.div>
 
-          {/* Action buttons */}
+          {/* Action button */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1.2, duration: 0.6 }}
-            className="flex flex-col sm:flex-row gap-4 justify-center"
+            className="flex justify-center"
           >
             <Button
               onClick={nextStep}
@@ -131,14 +146,6 @@ const WelcomeStep = memo(() => {
                 Vamos começar!
                 <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
               </span>
-            </Button>
-
-            <Button
-              variant="outline"
-              onClick={() => {/* Will implement skip later */}}
-              className="px-6 py-3 border-slate-300 text-slate-600 hover:bg-slate-50 transition-colors duration-300"
-            >
-              Configurar depois
             </Button>
           </motion.div>
 

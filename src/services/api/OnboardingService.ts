@@ -109,7 +109,7 @@ export class OnboardingService extends BaseApi {
       if (!user) throw new Error('Usuário não autenticado');
 
       // Create the first account
-      const { error: accountError } = await this.supabase
+      const { data: conta, error: accountError } = await this.supabase
         .from('app_conta')
         .insert({
           user_id: user.id,
@@ -120,9 +120,43 @@ export class OnboardingService extends BaseApi {
           status: 'ativo',
           cor: '#4F46E5',
           moeda: 'BRL'
-        });
+        })
+        .select()
+        .single();
 
       if (accountError) throw accountError;
+
+      // Criar lançamento VIRTUAL de saldo inicial se houver saldo
+      // Este lançamento aparece no módulo mas não duplica o valor no cálculo
+      if (onboardingData.accountInfo.saldo_inicial && onboardingData.accountInfo.saldo_inicial !== 0) {
+        const isReceita = onboardingData.accountInfo.saldo_inicial >= 0;
+        const valorAbsoluto = Math.abs(onboardingData.accountInfo.saldo_inicial);
+
+        // Buscar categoria apropriada
+        const { data: categoria } = await this.supabase
+          .from('app_categoria')
+          .select('id')
+          .eq('nome', 'Saldo Inicial')
+          .eq('is_default', true)
+          .single();
+
+        const categoriaId = categoria?.id || 1; // Fallback para categoria 1 se não encontrar
+
+        // Criar lançamento virtual
+        await this.supabase
+          .from('app_transacoes')
+          .insert({
+            descricao: `Saldo inicial - ${onboardingData.accountInfo.nome}`,
+            valor: valorAbsoluto,
+            data: new Date().toISOString().split('T')[0],
+            tipo: isReceita ? 'receita' : 'despesa',
+            categoria_id: categoriaId,
+            conta_id: conta.id,
+            user_id: user.id,
+            status: 'confirmado',
+            tipo_especial: 'saldo_inicial' // IMPORTANTE: marca como saldo inicial para não duplicar
+          });
+      }
 
       // Finalize onboarding with goal setup
       const { data, error } = await this.supabase.rpc('finalizar_onboarding', {

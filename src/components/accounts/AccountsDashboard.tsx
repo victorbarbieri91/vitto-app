@@ -80,8 +80,8 @@ const AccountsDashboard = ({ accounts }: AccountsDashboardProps) => {
           <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Maior Saldo</h3>
           <TrendingUp className="w-5 h-5 text-slate-400" />
         </div>
-        <div>
-          <p className="text-xl font-bold truncate text-deep-blue tracking-tight mb-1" title={stats.highestBalanceAccount?.nome}>
+        <div className="min-w-0 overflow-hidden">
+          <p className="text-xl font-bold truncate text-deep-blue tracking-tight mb-1 max-w-full min-w-0" title={stats.highestBalanceAccount?.nome}>
             {stats.highestBalanceAccount?.nome || '-'}
           </p>
           <p className="text-sm font-medium text-slate-500">{formatCurrency(stats.highestBalanceAccount?.saldo_atual || 0)}</p>
@@ -94,8 +94,8 @@ const AccountsDashboard = ({ accounts }: AccountsDashboardProps) => {
           <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Menor Saldo</h3>
           <TrendingDown className="w-5 h-5 text-slate-400" />
         </div>
-        <div>
-          <p className="text-xl font-bold truncate text-deep-blue tracking-tight mb-1" title={stats.lowestBalanceAccount?.nome}>
+        <div className="min-w-0 overflow-hidden">
+          <p className="text-xl font-bold truncate text-deep-blue tracking-tight mb-1 max-w-full min-w-0" title={stats.lowestBalanceAccount?.nome}>
             {stats.lowestBalanceAccount?.nome || '-'}
           </p>
           <p className="text-sm font-medium text-slate-500">{formatCurrency(stats.lowestBalanceAccount?.saldo_atual || 0)}</p>

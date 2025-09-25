@@ -11,7 +11,7 @@ import MonthlyTotals from '../../components/transactions/MonthlyTotals';
 import { fixedTransactionService, FixedTransactionWithDetails } from '../../services/api/FixedTransactionService';
 import { creditCardService, CreditCard } from '../../services/api/CreditCardService';
 import { transactionService, TransactionWithDetails } from '../../services/api/TransactionService';
-import { Calendar, TrendingUp, TrendingDown, DollarSign, Edit2, Trash2, Power, PowerOff, CreditCard as CreditCardIcon } from 'lucide-react';
+import { Calendar, TrendingUp, TrendingDown, DollarSign, Edit2, Trash2, Power, PowerOff, CreditCard as CreditCardIcon, Settings } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { supabase } from '../../services/supabase/client';
 import { useAuth } from '../../store/AuthContext';
@@ -28,6 +28,7 @@ export default function TransactionsPageModern() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+
   const { openModal, TransactionModalComponent, transactionListRef } = useTransactionModal();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -55,6 +56,10 @@ export default function TransactionsPageModern() {
     fluxo_mensal_fixo: 0
   });
   const [fixedFilter, setFixedFilter] = useState<'all' | 'active' | 'inactive'>('active');
+
+  // Point adjustment modal state
+  const [adjustmentTransaction, setAdjustmentTransaction] = useState<FixedTransactionWithDetails | null>(null);
+  const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
 
   // Credit card transactions state
   const [creditCards, setCreditCards] = useState<CreditCard[]>([]);
@@ -398,6 +403,29 @@ export default function TransactionsPageModern() {
     }
   };
 
+  // Handle activating a transaction (change status from pendente to confirmado)
+  const handleActivateTransaction = async (transactionId: number) => {
+    try {
+      setIsSubmitting(true);
+      const { error } = await transactionService.updateStatus(transactionId.toString(), 'confirmado');
+      if (error) {
+        throw new Error(error.message || 'Erro ao efetivar transação');
+      }
+
+      // Show success message
+      toast.success('Transação efetivada com sucesso!');
+
+      // Refresh the transaction list
+      transactionListRef.current?.fetchTransactions();
+      console.log('Transação efetivada com sucesso');
+    } catch (error: any) {
+      console.error('Erro ao efetivar transação:', error);
+      toast.error(error.message || 'Erro ao efetivar transação');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // Handle confirming a virtual fixed transaction
   const handleConfirmFixedTransaction = async (fixedTransactionId: number, targetDate: string) => {
     setIsSubmitting(true);
@@ -474,6 +502,34 @@ export default function TransactionsPageModern() {
       console.error('Erro ao desfazer confirmação:', error);
       toast.error('Erro ao desfazer confirmação');
     }
+  };
+
+  // Handle edit fixed transaction
+  const handleEditFixedTransaction = async (fixedTransactionId: number) => {
+    try {
+      console.log(`Editando lançamento fixo ID: ${fixedTransactionId}`);
+
+      // Buscar dados do lançamento fixo para edição
+      const fixedTransaction = await fixedTransactionService.getById(fixedTransactionId.toString());
+      console.log('Dados do lançamento fixo:', fixedTransaction);
+
+      // Redirecionar para a página de lançamentos fixos com foco na edição
+      navigate(`/transacoes/fixos?edit=${fixedTransactionId}`);
+    } catch (error) {
+      console.error('Erro ao editar lançamento fixo:', error);
+      toast.error('Erro ao abrir editor do lançamento fixo');
+    }
+  };
+
+  // Handle point adjustment
+  const handlePointAdjustment = (transaction: FixedTransactionWithDetails) => {
+    setAdjustmentTransaction(transaction);
+    setIsAdjustmentModalOpen(true);
+  };
+
+  const handleCloseAdjustmentModal = () => {
+    setIsAdjustmentModalOpen(false);
+    setAdjustmentTransaction(null);
   };
 
   // Confirm invoice deletion
@@ -871,7 +927,9 @@ export default function TransactionsPageModern() {
               onConfirmFixedTransaction={handleConfirmFixedTransaction}
               onPartialFixedTransaction={handlePartialFixedTransaction}
               onUndoFixedTransaction={handleUndoFixedTransaction}
+              onEditFixedTransaction={handleEditFixedTransaction}
               onDeleteInvoice={handleDeleteInvoice}
+              onActivateTransaction={handleActivateTransaction}
               showFilters={true}
               defaultFilters={getDateFilters()}
               includeVirtualFixed={true}
@@ -1013,6 +1071,16 @@ export default function TransactionsPageModern() {
                         <ModernButton
                           variant="ghost"
                           size="sm"
+                          onClick={() => handlePointAdjustment(transaction)}
+                          className="p-2 text-blue-600 hover:text-blue-700"
+                          title="Ajuste Pontual para este mês"
+                        >
+                          <Settings className="w-4 h-4" />
+                        </ModernButton>
+
+                        <ModernButton
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleDeleteFixedTransaction(transaction.id)}
                           className="p-2 text-red-600 hover:text-red-700"
                         >
@@ -1057,6 +1125,7 @@ export default function TransactionsPageModern() {
                 onEditTransaction={handleEditTransaction}
                 onDeleteTransaction={handleDeleteTransaction}
                 onConfirmFixedTransaction={handleConfirmFixedTransaction}
+                onActivateTransaction={handleActivateTransaction}
                 showFilters={false}
                 defaultFilters={{
                   ...getInvoiceDateFilters(selectedCardId),
@@ -1132,6 +1201,82 @@ export default function TransactionsPageModern() {
         onConfirm={confirmDeleteInvoice}
         invoiceDetails={selectedInvoiceForDelete}
       />
+
+      {/* Modal de Ajuste Pontual */}
+      {isAdjustmentModalOpen && adjustmentTransaction && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg w-full max-w-md p-6">
+            <h2 className="text-xl font-bold text-deep-blue mb-4">
+              Ajuste Pontual - {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+            </h2>
+
+            <div className="mb-4 p-4 bg-slate-50 rounded-lg">
+              <h3 className="font-medium text-slate-700 mb-2">{adjustmentTransaction.descricao}</h3>
+              <p className="text-sm text-slate-500">Valor original: {formatCurrency(Number(adjustmentTransaction.valor))}</p>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target as HTMLFormElement);
+              const newValue = parseFloat(formData.get('valor') as string);
+
+              // TODO: Implement point-in-time adjustment service
+              console.log('Ajuste pontual:', {
+                fixedTransactionId: adjustmentTransaction.id,
+                month: new Date().getMonth() + 1,
+                year: new Date().getFullYear(),
+                originalValue: adjustmentTransaction.valor,
+                newValue: newValue
+              });
+
+              toast.success('Ajuste pontual salvo! Funcionalidade em desenvolvimento.');
+              handleCloseAdjustmentModal();
+              // TODO: Refresh data after adjustment
+            }} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Novo Valor para este Mês
+                </label>
+                <input
+                  type="number"
+                  name="valor"
+                  step="0.01"
+                  defaultValue={adjustmentTransaction.valor}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coral-500"
+                  placeholder="0,00"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Observação (opcional)
+                </label>
+                <textarea
+                  name="observacao"
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coral-500"
+                  placeholder="Motivo do ajuste..."
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <ModernButton type="submit" className="flex-1">
+                  Criar Ajuste
+                </ModernButton>
+                <ModernButton
+                  type="button"
+                  variant="outline"
+                  onClick={handleCloseAdjustmentModal}
+                  className="flex-1"
+                >
+                  Cancelar
+                </ModernButton>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

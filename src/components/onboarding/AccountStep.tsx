@@ -11,11 +11,11 @@ import CurrencyInput from '../ui/CurrencyInput';
 import { useOnboarding } from '../../contexts/OnboardingContext';
 
 const accountSchema = z.object({
-  nome: z.string().min(2, 'Nome da conta deve ter pelo menos 2 caracteres'),
+  nome: z.string().min(1, 'Nome da conta é obrigatório').min(2, 'Nome da conta deve ter pelo menos 2 caracteres'),
   tipo: z.enum(['conta_corrente', 'conta_poupanca', 'carteira', 'investimento'], {
     errorMap: () => ({ message: 'Selecione um tipo de conta' })
   }),
-  saldo_inicial: z.number().min(0, 'Saldo deve ser positivo ou zero')
+  saldo_inicial: z.number({ required_error: 'Saldo inicial é obrigatório' }).min(0, 'Saldo deve ser positivo ou zero')
 });
 
 type AccountFormData = z.infer<typeof accountSchema>;
@@ -34,7 +34,7 @@ const AccountStep = memo(() => {
   } = useForm<AccountFormData>({
     resolver: zodResolver(accountSchema),
     defaultValues: {
-      nome: onboardingData.accountInfo?.nome || 'Conta Principal',
+      nome: onboardingData.accountInfo?.nome || '',
       tipo: 'conta_corrente',
       saldo_inicial: onboardingData.accountInfo?.saldo_inicial || 0
     },
@@ -117,7 +117,7 @@ const AccountStep = memo(() => {
               </label>
               <Input
                 {...register('nome')}
-                placeholder="Ex: Nubank, Banco do Brasil, Carteira..."
+                placeholder="Conta Principal"
                 error={errors.nome?.message}
                 className="w-full"
               />

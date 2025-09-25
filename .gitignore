@@ -34,3 +34,23 @@ dist-ssr
 .cursor/mcp.json
 !.cursor/mcp.json.template
 .env.backup
+
+# Capacitor
+.capacitor
+android/app/src/main/assets/public
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+ios/App/public
+ios/App/capacitor.config.json
+ios/App/capacitor.plugins.json
+
+# Android Studio
+android/.idea/
+android/.gradle/
+android/app/build/
+android/build/
+android/gradle/
+android/gradlew
+android/gradlew.bat
+android/local.properties
+android/app/src/main/assets/

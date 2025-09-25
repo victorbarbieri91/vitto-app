@@ -279,7 +279,7 @@ export default function SignUpPage() {
                   type="submit"
                   variant="primary"
                   fullWidth
-                  loading={isLoading}
+                  isLoading={isLoading}
                 >
                   Criar conta
                 </ModernButton>

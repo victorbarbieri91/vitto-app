@@ -140,16 +140,19 @@ export function TransferForm({ onSuccess, onCancel, className }: TransferFormPro
   );
 
   return (
-    <ModernCard variant="default" className={`p-6 ${className}`}>
-      <div className="flex items-center gap-4 mb-6">
-        <div className="p-3 bg-coral-500 rounded-2xl">
-          <ArrowLeftRight className="w-6 h-6 text-white" />
+    <ModernCard variant="default" className={`p-6 ${className || ''}`}>
+      {/* Só mostrar header se não estiver dentro de modal */}
+      {!className?.includes('!p-0') && (
+        <div className="flex items-center gap-4 mb-6">
+          <div className="p-3 bg-coral-500 rounded-2xl">
+            <ArrowLeftRight className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-deep-blue">Transferência entre Contas</h2>
+            <p className="text-slate-500">Mova dinheiro entre suas contas bancárias</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-xl font-semibold text-deep-blue">Transferência entre Contas</h2>
-          <p className="text-slate-500">Mova dinheiro entre suas contas bancárias</p>
-        </div>
-      </div>
+      )}
 
       {submitError && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">

@@ -232,9 +232,9 @@ export default function CategoriesPage() {
       {categories.length === 0 ? (
         <div className="bg-white rounded-xl shadow-md p-6 text-center">
           <p className="text-gray-500 mb-4">Nenhuma categoria encontrada.</p>
-          <Button onClick={handleAddCategory}>
+          <ModernButton onClick={handleAddCategory}>
             Adicionar Categoria
-          </Button>
+          </ModernButton>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -293,7 +293,7 @@ export default function CategoriesPage() {
             </h2>
             
             <form className="space-y-4">
-              <Input
+              <ModernInput
                 label="Nome"
                 name="nome"
                 value={formData.nome}

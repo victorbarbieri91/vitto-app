@@ -26,9 +26,8 @@ import {
 function DashboardContent() {
   const { user, userProfile } = useAuth();
   const { size, classes } = useResponsiveClasses();
-  const { openModal, TransactionModalComponent } = useTransactionModal();
-  
-  // Usar o contexto mensal em vez de estado local
+
+  // Usar o contexto mensal em vez de estado local - DEVE VIR PRIMEIRO
   const {
     consolidatedData,
     loading,
@@ -38,6 +37,8 @@ function DashboardContent() {
     fetchMonthData,
     refreshData
   } = useMonthlyDashboard();
+
+  const { openModal, TransactionModalComponent } = useTransactionModal(refreshData);
   
   // Navegação mensal
   const monthNavigation = useMonthNavigation(currentMonth, currentYear);
