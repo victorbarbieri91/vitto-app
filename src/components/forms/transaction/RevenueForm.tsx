@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAccounts } from '../../../hooks/useAccounts';
 import { useCategories } from '../../../hooks/useCategories';
+import { useIsMobile } from '../../../hooks/useIsMobile';
 import { ModernInput, ModernButton, ModernSelect, ModernSwitch } from '../../ui/modern';
 import CurrencyInput from '../../ui/CurrencyInput';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -65,9 +66,13 @@ interface RevenueFormProps {
 const RevenueForm: React.FC<RevenueFormProps> = ({ onSave, onCancel, isSubmitting }) => {
   const { accounts } = useAccounts();
   const { categories } = useCategories();
+  const isMobile = useIsMobile();
+  const formRef = useRef<HTMLFormElement>(null);
 
   const { register, handleSubmit, control, watch, setValue, formState: { errors } } = useForm<RevenueFormData>({
     resolver: zodResolver(revenueSchema),
+    // No mobile, validação apenas no submit para evitar re-renders
+    mode: isMobile ? 'onSubmit' : 'onChange',
     defaultValues: {
       descricao: '',
       valor: undefined,
@@ -115,6 +120,8 @@ const RevenueForm: React.FC<RevenueFormProps> = ({ onSave, onCancel, isSubmittin
           <input
             {...register('descricao')}
             placeholder="Ex: Salário, freelance, venda"
+            autoFocus={!isMobile}
+            autoComplete="off"
             className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-colors"
           />
           {errors.descricao && (

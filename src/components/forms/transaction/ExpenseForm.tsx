@@ -1,9 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAccounts } from '../../../hooks/useAccounts';
 import { useCategories } from '../../../hooks/useCategories';
+import { useIsMobile } from '../../../hooks/useIsMobile';
 import { ModernInput, ModernButton, ModernSelect, ModernSwitch } from '../../ui/modern';
 import CurrencyInput from '../../ui/CurrencyInput';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -56,9 +57,13 @@ interface ExpenseFormProps {
 const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSave, onCancel, isSubmitting }) => {
   const { accounts } = useAccounts();
   const { categories } = useCategories();
+  const isMobile = useIsMobile();
+  const formRef = useRef<HTMLFormElement>(null);
 
   const { register, handleSubmit, control, watch, setValue, formState: { errors } } = useForm<ExpenseFormData>({
     resolver: zodResolver(expenseSchema),
+    // No mobile, validação apenas no submit para evitar re-renders
+    mode: isMobile ? 'onSubmit' : 'onChange',
     defaultValues: {
       status: 'pendente',
       is_recorrente: false,

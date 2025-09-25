@@ -1,9 +1,10 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useCreditCards } from '../../../hooks/useCreditCards';
 import { useCategories } from '../../../hooks/useCategories';
+import { useIsMobile } from '../../../hooks/useIsMobile';
 import { ModernInput, ModernButton, ModernSelect, ModernSwitch } from '../../ui/modern';
 import CurrencyInput from '../../ui/CurrencyInput';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -48,6 +49,8 @@ interface CreditCardExpenseFormProps {
 const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ onSave, onCancel, isSubmitting, defaultCardId }) => {
   const { cards, loading: loadingCards } = useCreditCards();
   const { categories } = useCategories();
+  const isMobile = useIsMobile();
+  const formRef = useRef<HTMLFormElement>(null);
   const [selectedCardId, setSelectedCardId] = useState<number | null>(null);
 
   // Estados para controle de fatura (simplificado)
@@ -89,6 +92,8 @@ const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ onSave, o
 
   const { register, handleSubmit, control, watch, setValue, formState: { errors } } = useForm<CreditCardExpenseFormData>({
     resolver: zodResolver(creditCardExpenseSchema),
+    // No mobile, validação apenas no submit para evitar re-renders
+    mode: isMobile ? 'onSubmit' : 'onChange',
     defaultValues: {
       is_recorrente: false,
       is_parcelado: false,

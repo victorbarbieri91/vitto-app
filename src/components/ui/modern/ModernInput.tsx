@@ -1,7 +1,8 @@
-import { InputHTMLAttributes, ReactNode, forwardRef, useState } from 'react';
+import { InputHTMLAttributes, ReactNode, forwardRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '../../../utils/cn';
 import { inputVariants, type InputVariants } from '../../../utils/variants';
+import { useIsMobile } from '../../../hooks/useIsMobile';
 
 interface ModernInputProps
   extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'>,
@@ -48,6 +49,16 @@ const ModernInput = forwardRef<HTMLInputElement, ModernInputProps>(
     const [isFocused, setIsFocused] = useState(false);
     const inputVariant = error ? 'error' : variant;
     const isDisabled = disabled || isLoading;
+    const isMobile = useIsMobile();
+
+    // For mobile, detect if this is a number input
+    const inputMode = props.type === 'number' || props.type === 'tel'
+      ? 'numeric'
+      : props.type === 'email'
+        ? 'email'
+        : props.type === 'url'
+          ? 'url'
+          : 'text';
 
     return (
       <div className="w-full space-y-2">
@@ -95,13 +106,42 @@ const ModernInput = forwardRef<HTMLInputElement, ModernInputProps>(
             )}
             disabled={isDisabled}
             onFocus={(e) => {
-              setIsFocused(true);
+              // Delay focus state on mobile to prevent keyboard issues
+              if (isMobile) {
+                setTimeout(() => {
+                  setIsFocused(true);
+                }, 100);
+                // Prevent default only if needed
+                if (e.target.value === '') {
+                  e.target.select();
+                }
+              } else {
+                setIsFocused(true);
+              }
               props.onFocus?.(e);
             }}
             onBlur={(e) => {
-              setIsFocused(false);
+              // On mobile, check if we're moving to another input
+              if (isMobile) {
+                setTimeout(() => {
+                  const activeElement = document.activeElement;
+                  if (!(activeElement instanceof HTMLInputElement)) {
+                    setIsFocused(false);
+                  }
+                }, 150);
+              } else {
+                setIsFocused(false);
+              }
               props.onBlur?.(e);
             }}
+            onTouchStart={(e) => {
+              // Prevent bubbling on mobile
+              if (isMobile) {
+                e.stopPropagation();
+              }
+            }}
+            autoComplete={isMobile ? 'off' : props.autoComplete}
+            inputMode={isMobile ? inputMode : undefined}
             {...props}
           />
 

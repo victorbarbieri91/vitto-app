@@ -23,8 +23,7 @@
     "strictNullChecks": false,
     "strictFunctionTypes": false,
     "strictPropertyInitialization": false,
-    "noImplicitReturns": false,
-    "suppressImplicitAnyIndexErrors": true
+    "noImplicitReturns": false
   },
   "include": ["src"]
 }

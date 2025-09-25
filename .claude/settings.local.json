@@ -70,7 +70,14 @@
       "mcp__supabase__get_project_url",
       "Bash(grep:*)",
       "Bash(git checkout:*)",
-      "Bash(NODE_ENV=production npm run build:vercel)"
+      "Bash(NODE_ENV=production npm run build:vercel)",
+      "mcp__playwright__browser_resize",
+      "Bash(npm install:*)",
+      "Bash(npx cap init:*)",
+      "Bash(npx cap add:*)",
+      "Bash(tasklist)",
+      "mcp__playwright__browser_press_key",
+      "mcp__playwright__browser_install"
     ],
     "deny": [],
     "ask": []

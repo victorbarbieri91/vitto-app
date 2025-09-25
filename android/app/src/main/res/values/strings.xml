@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Vitto App</string>
+    <string name="title_activity_main">Vitto App</string>
+    <string name="package_name">com.vittoapp.financeiro</string>
+    <string name="custom_url_scheme">com.vittoapp.financeiro</string>
+</resources>
