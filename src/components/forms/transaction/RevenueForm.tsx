@@ -71,8 +71,7 @@ const RevenueForm: React.FC<RevenueFormProps> = ({ onSave, onCancel, isSubmittin
 
   const { register, handleSubmit, control, watch, setValue, formState: { errors } } = useForm<RevenueFormData>({
     resolver: zodResolver(revenueSchema),
-    // No mobile, validação apenas no submit para evitar re-renders
-    mode: isMobile ? 'onSubmit' : 'onChange',
+    mode: 'onChange',
     defaultValues: {
       descricao: '',
       valor: undefined,

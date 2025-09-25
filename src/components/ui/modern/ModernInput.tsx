@@ -106,39 +106,12 @@ const ModernInput = forwardRef<HTMLInputElement, ModernInputProps>(
             )}
             disabled={isDisabled}
             onFocus={(e) => {
-              // Delay focus state on mobile to prevent keyboard issues
-              if (isMobile) {
-                setTimeout(() => {
-                  setIsFocused(true);
-                }, 100);
-                // Prevent default only if needed
-                if (e.target.value === '') {
-                  e.target.select();
-                }
-              } else {
-                setIsFocused(true);
-              }
+              setIsFocused(true);
               props.onFocus?.(e);
             }}
             onBlur={(e) => {
-              // On mobile, check if we're moving to another input
-              if (isMobile) {
-                setTimeout(() => {
-                  const activeElement = document.activeElement;
-                  if (!(activeElement instanceof HTMLInputElement)) {
-                    setIsFocused(false);
-                  }
-                }, 150);
-              } else {
-                setIsFocused(false);
-              }
+              setIsFocused(false);
               props.onBlur?.(e);
-            }}
-            onTouchStart={(e) => {
-              // Prevent bubbling on mobile
-              if (isMobile) {
-                e.stopPropagation();
-              }
             }}
             autoComplete={isMobile ? 'off' : props.autoComplete}
             inputMode={isMobile ? inputMode : undefined}

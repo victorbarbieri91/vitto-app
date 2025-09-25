@@ -62,8 +62,7 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSave, onCancel, isSubmittin
 
   const { register, handleSubmit, control, watch, setValue, formState: { errors } } = useForm<ExpenseFormData>({
     resolver: zodResolver(expenseSchema),
-    // No mobile, validação apenas no submit para evitar re-renders
-    mode: isMobile ? 'onSubmit' : 'onChange',
+    mode: 'onChange',
     defaultValues: {
       status: 'pendente',
       is_recorrente: false,

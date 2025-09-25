@@ -92,8 +92,7 @@ const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ onSave, o
 
   const { register, handleSubmit, control, watch, setValue, formState: { errors } } = useForm<CreditCardExpenseFormData>({
     resolver: zodResolver(creditCardExpenseSchema),
-    // No mobile, validação apenas no submit para evitar re-renders
-    mode: isMobile ? 'onSubmit' : 'onChange',
+    mode: 'onChange',
     defaultValues: {
       is_recorrente: false,
       is_parcelado: false,

@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ArrowUpRight, ArrowDownLeft, Wallet, Sparkles, Zap } from 'lucide-react';
-import { useIsMobile } from '../../../hooks/useIsMobile';
+import { X, ArrowUpRight, ArrowDownLeft, Wallet } from 'lucide-react';
 
 type TransactionModalType = 'receita' | 'despesa' | 'despesa_cartao';
 
@@ -47,61 +46,24 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
   children,
 }) => {
   const config = modalConfigs[type];
-  const isMobile = useIsMobile();
-  const [isInputFocused, setIsInputFocused] = useState(false);
-
-  // Detectar quando um input está focado
-  useEffect(() => {
-    const handleFocusIn = (e: FocusEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        setIsInputFocused(true);
-      }
-    };
-
-    const handleFocusOut = () => {
-      // Pequeno delay para evitar flicker
-      setTimeout(() => {
-        const activeElement = document.activeElement;
-        if (!(activeElement instanceof HTMLInputElement) && !(activeElement instanceof HTMLTextAreaElement)) {
-          setIsInputFocused(false);
-        }
-      }, 100);
-    };
-
-    if (isOpen && isMobile) {
-      document.addEventListener('focusin', handleFocusIn);
-      document.addEventListener('focusout', handleFocusOut);
-    }
-
-    return () => {
-      document.removeEventListener('focusin', handleFocusIn);
-      document.removeEventListener('focusout', handleFocusOut);
-    };
-  }, [isOpen, isMobile]);
 
   return (
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          initial={isMobile ? false : { opacity: 0 }}
-          animate={isMobile ? false : { opacity: 1 }}
-          exit={isMobile ? false : { opacity: 0 }}
-          className={`fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 ${isMobile && isInputFocused ? 'pointer-events-none' : ''}`}
-          onClick={isMobile && isInputFocused ? undefined : onClose}
-          onTouchStart={(e) => {
-            if (isMobile && isInputFocused) {
-              e.stopPropagation();
-            }
-          }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={onClose}
         >
           <motion.div
-            initial={isMobile ? false : { scale: 0.95, opacity: 0, y: 20 }}
-            animate={isMobile ? false : { scale: 1, opacity: 1, y: 0 }}
-            exit={isMobile ? false : { scale: 0.95, opacity: 0, y: 20 }}
-            transition={isMobile ? undefined : { type: 'spring', stiffness: 400, damping: 25 }}
-            className={`relative w-full max-w-4xl max-h-[95vh] overflow-hidden ${isMobile ? 'will-change-auto' : ''} ${isMobile && isInputFocused ? 'pointer-events-auto' : ''}`}
+            initial={{ scale: 0.95, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.95, opacity: 0, y: 20 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+            className="relative w-full max-w-4xl max-h-[95vh] overflow-hidden"
             onClick={(e) => e.stopPropagation()}
-            onTouchStart={(e) => e.stopPropagation()}
           >
             {/* Container principal com glassmorphism */}
             <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
