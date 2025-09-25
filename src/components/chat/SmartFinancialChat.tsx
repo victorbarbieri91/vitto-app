@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Loader, User, Bot } from 'lucide-react';
+import { Send, Loader, User, Bot, HelpCircle, ChevronDown } from 'lucide-react';
 import { ModernCard } from '../ui/modern';
 import { useResponsiveClasses } from '../../hooks/useScreenDetection';
 import { useAuth } from '../../store/AuthContext';
@@ -13,12 +13,35 @@ interface ChatMessage {
   isStreaming?: boolean;
 }
 
-const suggestionChips = [
-  'Qual meu saldo atual?',
-  'Listar últimas 5 transações',
-  'Gastei 50 reais no supermercado',
-  'Como estão meus gastos este mês?',
-];
+const frequentQuestions = {
+  consultas: [
+    'Qual meu saldo atual?',
+    'Listar últimas 5 transações',
+    'Mostrar minhas contas',
+    'Qual o saldo de cada conta?',
+    'Receitas do mês atual',
+    'Despesas do mês atual',
+    'Listar transações por categoria'
+  ],
+  ações: [
+    'Gastei 50 reais no supermercado',
+    'Recebi 100 reais de freelance',
+    'Paguei 80 reais de luz',
+    'Comprei café da manhã por 15 reais',
+    'Recebi pagamento de cliente',
+    'Paguei conta do cartão',
+    'Transferi dinheiro para poupança'
+  ],
+  análises: [
+    'Como estão meus gastos este mês?',
+    'Estou gastando mais que o normal?',
+    'Qual categoria gasto mais?',
+    'Meu histórico de economia',
+    'Relatório financeiro mensal',
+    'Comparar gastos com mês passado',
+    'Projeção de gastos futuros'
+  ]
+};
 
 export default function SmartFinancialChat() {
   const { classes, size } = useResponsiveClasses();
@@ -33,8 +56,11 @@ export default function SmartFinancialChat() {
     }
   ]);
   const [isLoading, setIsLoading] = useState(false);
+  const [showFAQ, setShowFAQ] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<'consultas' | 'ações' | 'análises'>('consultas');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const faqRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
     if (scrollContainerRef.current) {
@@ -43,8 +69,24 @@ export default function SmartFinancialChat() {
   };
 
   useEffect(() => {
-    scrollToBottom();
+    // Scroll after messages render
+    const timer = setTimeout(scrollToBottom, 100);
+    return () => clearTimeout(timer);
   }, [messages]);
+
+  // Close FAQ when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (faqRef.current && !faqRef.current.contains(event.target as Node)) {
+        setShowFAQ(false);
+      }
+    };
+
+    if (showFAQ) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showFAQ]);
 
   const handleSendMessage = async (messageText?: string) => {
     const text = messageText || input.trim();
@@ -200,121 +242,159 @@ export default function SmartFinancialChat() {
     )}>
       {/* Header */}
       <div className={cn(
-        'flex items-center border-b border-slate-200/50 pb-3',
+        'flex items-center justify-between border-b border-slate-200/50 pb-3 relative',
         size === 'mobile' ? 'mb-2' : size === 'compact' ? 'mb-3' : 'mb-4'
       )}>
-        <img
-          src="/icone.vitto.png"
-          alt="Vitto"
-          className={size === 'mobile' ? 'w-4 h-4 mr-2' : classes.iconSize === 'w-4 h-4' ? 'w-5 h-5 mr-2' : 'w-6 h-6 mr-3'}
-        />
-        <div className="flex flex-col">
-          <h3 className={cn(
-            size === 'mobile' ? 'text-sm' : classes.textBase,
-            'font-bold text-deep-blue'
-          )}>Vitto - IA Financeira</h3>
-          {isLoading && (
-            <span className={cn(
-              size === 'mobile' ? 'text-xs' : 'text-sm',
-              'text-coral-500 font-medium'
-            )}>
-              Digitando...
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Messages Area - Container with fixed height and internal scroll */}
-      <div
-        className={cn(
-          'relative border border-transparent rounded-lg flex-1',
-          size === 'mobile' ? 'mb-2' : size === 'compact' ? 'mb-3' : 'mb-4'
-        )}
-        style={{
-          minHeight: size === 'mobile' ? '200px' : size === 'compact' ? '180px' : '250px',
-          maxHeight: size === 'mobile' ? '400px' : size === 'compact' ? '350px' : '500px',
-          overflow: 'hidden' // Force container to not grow beyond max
-        }}
-      >
-        <div
-          ref={scrollContainerRef}
-          className="absolute inset-0 overflow-y-auto px-2 py-1"
-          style={{
-            scrollbarWidth: 'thin',
-            scrollbarColor: '#CBD5E1 transparent'
-          }}
-        >
-          <div className="space-y-3 min-h-full">
-            {messages.map((message, index) => (
-              <div
-                key={message.id}
-                className={cn(
-                  'flex gap-2 w-full',
-                  message.role === 'user' ? 'justify-end' : 'justify-start'
-                )}
-              >
-                {message.role === 'assistant' && (
-                  <div className={cn(
-                    'flex-shrink-0 w-6 h-6 rounded-full bg-coral-500 flex items-center justify-center',
-                    size === 'mobile' ? 'w-5 h-5' : ''
-                  )}>
-                    <Bot className="w-3 h-3 text-white" />
-                  </div>
-                )}
-
-                <div
-                  className={cn(
-                    'max-w-[85%] rounded-2xl px-3 py-2 break-words',
-                    size === 'mobile' ? 'text-xs' : classes.textSm,
-                    message.role === 'user'
-                      ? 'bg-coral-500 text-white'
-                      : 'bg-slate-100 text-slate-800',
-                  )}
-                >
-                  {formatMessageContent(message.content)}
-                  {message.isStreaming && (
-                    <span className="inline-block w-2 h-4 bg-slate-400 ml-1 animate-pulse" />
-                  )}
-                </div>
-
-                {message.role === 'user' && (
-                  <div className={cn(
-                    'flex-shrink-0 w-6 h-6 rounded-full bg-deep-blue flex items-center justify-center',
-                    size === 'mobile' ? 'w-5 h-5' : ''
-                  )}>
-                    <User className="w-3 h-3 text-white" />
-                  </div>
-                )}
-              </div>
-            ))}
-            <div ref={messagesEndRef} className="h-1" />
+        <div className="flex items-center">
+          <img
+            src="/icone.vitto.png"
+            alt="Vitto"
+            className={size === 'mobile' ? 'w-4 h-4 mr-2' : classes.iconSize === 'w-4 h-4' ? 'w-5 h-5 mr-2' : 'w-6 h-6 mr-3'}
+          />
+          <div className="flex flex-col">
+            <h3 className={cn(
+              size === 'mobile' ? 'text-sm' : classes.textBase,
+              'font-bold text-deep-blue'
+            )}>Vitto - IA Financeira</h3>
+            {isLoading && (
+              <span className={cn(
+                size === 'mobile' ? 'text-xs' : 'text-sm',
+                'text-coral-500 font-medium'
+              )}>
+                Digitando...
+              </span>
+            )}
           </div>
         </div>
+
       </div>
 
-      {/* Suggestion Chips - Only show if no conversation started */}
-      {messages.length === 1 && (
-        <div className={cn(
-          'flex flex-wrap',
-          size === 'mobile' ? 'mb-2 gap-1' : size === 'compact' ? 'mb-3 gap-1' : 'mb-4 gap-2'
-        )}>
-          {suggestionChips.map((suggestion, i) => (
-            <button
-              key={i}
-              onClick={() => handleChipClick(suggestion)}
-              disabled={isLoading}
+      {/* Messages Area - Simple structure like IntegratedChat */}
+      <div
+        ref={scrollContainerRef}
+        className={cn(
+          'bg-slate-100/30 rounded-2xl overflow-y-auto p-3 space-y-3',
+          size === 'mobile' ? 'h-[280px] mb-2' : 'flex-1 min-h-0',
+          size !== 'mobile' && (size === 'compact' ? 'mb-3' : 'mb-4')
+        )}
+        style={{
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#CBD5E1 transparent'
+        }}
+      >
+        {messages.map((message, index) => (
+          <div
+            key={message.id}
+            className={cn(
+              'flex gap-2 w-full',
+              message.role === 'user' ? 'justify-end' : 'justify-start'
+            )}
+          >
+            {message.role === 'assistant' && (
+              <div className={cn(
+                'flex-shrink-0 w-6 h-6 rounded-full bg-coral-500 flex items-center justify-center',
+                size === 'mobile' ? 'w-5 h-5' : ''
+              )}>
+                <Bot className="w-3 h-3 text-white" />
+              </div>
+            )}
+
+            <div
               className={cn(
-                size === 'mobile' ? 'px-2 py-0.5 text-[10px]' : classes.textSm === 'text-xs' ? 'px-2 py-1 text-xs' : 'px-3 py-1.5',
-                'bg-white hover:bg-slate-50 border border-slate-200 rounded-full text-slate-600 font-medium transition-all',
-                'disabled:opacity-50 disabled:cursor-not-allowed',
-                !size || size !== 'mobile' ? classes.textSm : ''
+                'max-w-[85%] rounded-2xl px-3 py-2 break-words',
+                size === 'mobile' ? 'text-xs' : classes.textSm,
+                message.role === 'user'
+                  ? 'bg-coral-500 text-white'
+                  : 'bg-white/80 text-slate-800 shadow-sm',
               )}
             >
-              {suggestion}
-            </button>
-          ))}
-        </div>
-      )}
+              {formatMessageContent(message.content)}
+              {message.isStreaming && (
+                <span className="inline-block w-2 h-4 bg-slate-400 ml-1 animate-pulse" />
+              )}
+            </div>
+
+            {message.role === 'user' && (
+              <div className={cn(
+                'flex-shrink-0 w-6 h-6 rounded-full bg-deep-blue flex items-center justify-center',
+                size === 'mobile' ? 'w-5 h-5' : ''
+              )}>
+                <User className="w-3 h-3 text-white" />
+              </div>
+            )}
+          </div>
+        ))}
+        <div ref={messagesEndRef} className="h-1" />
+      </div>
+
+
+      {/* Dúvidas Financeiras Button */}
+      <div className="relative flex justify-center mb-3" ref={faqRef}>
+        <button
+          onClick={() => setShowFAQ(!showFAQ)}
+          className={cn(
+            'inline-flex items-center gap-2 px-3 py-2 text-deep-blue hover:text-deep-blue/80 hover:bg-slate-100/50 rounded-lg transition-all',
+            'focus:outline-none focus:ring-2 focus:ring-deep-blue/20 border border-slate-200/50 bg-white/50',
+            size === 'mobile' ? 'text-xs' : 'text-sm'
+          )}
+          title="Dúvidas Financeiras"
+        >
+          <HelpCircle className={size === 'mobile' ? 'w-3 h-3' : 'w-4 h-4'} />
+          Dúvidas Financeiras
+          <ChevronDown className={cn(
+            size === 'mobile' ? 'w-3 h-3' : 'w-4 h-4',
+            'transition-transform',
+            showFAQ && 'rotate-180'
+          )} />
+        </button>
+
+        {/* FAQ Dropdown - positioned above */}
+        {showFAQ && (
+          <div
+            className={cn(
+              'absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-white rounded-xl border border-slate-200 shadow-lg z-50',
+              size === 'mobile' ? 'w-80 max-h-96' : 'w-96 max-h-[480px]'
+            )}
+          >
+            {/* Category Tabs */}
+            <div className="flex border-b border-slate-200">
+              {Object.keys(frequentQuestions).map((category) => (
+                <button
+                  key={category}
+                  onClick={() => setSelectedCategory(category as any)}
+                  className={cn(
+                    'flex-1 px-4 py-3 text-sm font-medium transition-all',
+                    selectedCategory === category
+                      ? 'text-deep-blue border-b-2 border-deep-blue bg-slate-50'
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50/50'
+                  )}
+                >
+                  {category.charAt(0).toUpperCase() + category.slice(1)}
+                </button>
+              ))}
+            </div>
+
+            {/* Questions List */}
+            <div className="max-h-80 overflow-y-auto p-2">
+              {frequentQuestions[selectedCategory].map((question, index) => (
+                <button
+                  key={index}
+                  onClick={() => {
+                    setInput(question);
+                    setShowFAQ(false);
+                  }}
+                  className={cn(
+                    'w-full text-left px-3 py-2 rounded-lg text-sm transition-all',
+                    'hover:bg-slate-100 hover:text-deep-blue'
+                  )}
+                >
+                  {question}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Input Area */}
       <div className="relative">
@@ -327,28 +407,28 @@ export default function SmartFinancialChat() {
           rows={1}
           className={cn(
             'w-full bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-coral-500 focus:outline-none transition-shadow resize-none',
-            size === 'mobile' ? 'pl-3 pr-12 py-2 text-xs' : classes.textSm === 'text-xs' ? 'pl-3 pr-12 py-2.5' : 'pl-4 pr-14 py-3',
-            size !== 'mobile' && classes.textSm,
+            size === 'mobile' ? 'pl-3 pr-14 py-2 text-xs' : 'pl-4 pr-16 py-3 text-sm',
             'disabled:opacity-50 disabled:cursor-not-allowed'
           )}
-          style={{ minHeight: size === 'mobile' ? '32px' : '40px' }}
+          style={{ minHeight: size === 'mobile' ? '36px' : '44px' }}
         />
         <button
           onClick={() => handleSendMessage()}
           disabled={isLoading || !input.trim() || !user}
           className={cn(
-            'absolute top-1/2 -translate-y-1/2 bg-coral-500 hover:bg-coral-600 text-white rounded-lg transition-all',
-            'disabled:opacity-50 disabled:cursor-not-allowed',
-            size === 'mobile' ? 'right-2 p-1.5' : classes.textSm === 'text-xs' ? 'right-2 p-2' : 'right-2.5 p-2.5'
+            'absolute right-3 top-1/2 -translate-y-1/2',
+            'bg-coral-500 hover:bg-coral-600 text-white rounded-lg transition-all',
+            'disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-coral-500/50',
+            size === 'mobile' ? 'p-2' : 'p-2.5'
           )}
         >
           {isLoading ? (
             <Loader className={cn(
               'animate-spin',
-              size === 'mobile' ? 'w-3 h-3' : classes.iconSize
+              size === 'mobile' ? 'w-3 h-3' : 'w-4 h-4'
             )} />
           ) : (
-            <Send className={size === 'mobile' ? 'w-3 h-3' : classes.iconSize} />
+            <Send className={size === 'mobile' ? 'w-3 h-3' : 'w-4 h-4'} />
           )}
         </button>
       </div>
