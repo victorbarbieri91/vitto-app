@@ -3,6 +3,10 @@ import { ModernCard, ModernButton, ModernInput } from '../ui/modern';
 import { useAccounts } from '../../hooks/useAccounts';
 import { useCategories } from '../../hooks/useCategories';
 import { useAuth } from '../../store/AuthContext';
+import { useIsMobile } from '../../hooks/useIsMobile';
+import { TransactionCard } from './TransactionCard';
+import { cn } from '../../utils/cn';
+import { formatLocalDate } from '../../utils/format';
 import { transactionService, TransactionFilters } from '../../services/api';
 import { fixedTransactionService } from '../../services/api/FixedTransactionService';
 // A view retorna uma estrutura diferente, então vamos usar um tipo mais flexível por enquanto.
@@ -46,7 +50,9 @@ interface TransactionListProps {
   onConfirmFixedTransaction?: (fixedTransactionId: number, targetDate: string) => void;
   onPartialFixedTransaction?: (fixedTransactionId: number, targetDate: string) => void;
   onUndoFixedTransaction?: (transactionId: number) => void;
+  onEditFixedTransaction?: (fixedTransactionId: number) => void;
   onDeleteInvoice?: (invoiceId: number) => void;
+  onActivateTransaction?: (transactionId: number) => void;
   className?: string;
   showFilters?: boolean;
   defaultFilters?: Partial<TransactionFilters>;
@@ -86,7 +92,9 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
   onConfirmFixedTransaction,
   onPartialFixedTransaction,
   onUndoFixedTransaction,
+  onEditFixedTransaction,
   onDeleteInvoice,
+  onActivateTransaction,
   className,
   showFilters = true,
   defaultFilters = {},
@@ -97,6 +105,7 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
   const { user } = useAuth();
   const { accounts, loading: accountsLoading } = useAccounts();
   const { categories, loading: categoriesLoading } = useCategories();
+  const isMobile = useIsMobile();
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -171,6 +180,45 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
           console.log('🔍 [Preloaded] Data after fatura filter:', data.length);
         }
 
+        // Aplicar filtros do usuário aos dados pré-carregados (client-side filtering)
+        const { searchText, ...apiFilters } = filters;
+
+        // Filtro por tipo
+        if (apiFilters.tipo) {
+          data = data.filter(t => t.tipo === apiFilters.tipo);
+        }
+
+        // Filtro por conta
+        if (apiFilters.conta_id) {
+          data = data.filter(t => t.conta_id === parseInt(apiFilters.conta_id));
+        }
+
+        // Filtro por cartão
+        if (apiFilters.cartao_id) {
+          data = data.filter(t => t.cartao_id === parseInt(apiFilters.cartao_id));
+        }
+
+        // Filtro por categoria
+        if (apiFilters.categoria_id) {
+          data = data.filter(t => t.categoria_id === parseInt(apiFilters.categoria_id));
+        }
+
+        // Filtro por status
+        if (apiFilters.status) {
+          data = data.filter(t => t.status === apiFilters.status);
+        }
+
+        // Filtro por data (se especificado)
+        if (apiFilters.startDate && apiFilters.endDate) {
+          const startDate = new Date(apiFilters.startDate);
+          const endDate = new Date(apiFilters.endDate);
+          data = data.filter(t => {
+            const transactionDate = new Date(t.data);
+            return transactionDate >= startDate && transactionDate <= endDate;
+          });
+        }
+
+        console.log('🔍 [Preloaded] Data after user filters:', data.length);
         setTransactions(data);
         setLoading(false);
         return;
@@ -471,11 +519,7 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
   }, []);
 
   const formatDate = useCallback((dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: '2-digit'
-    });
+    return formatLocalDate(dateString);
   }, []);
 
   const getAccountName = useCallback((transaction: Transaction) => {
@@ -517,10 +561,16 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
       {/* Header com controles em linha única otimizada */}
       {showFilters && (
         <ModernCard variant="default" className="p-4">
-          <div className="grid grid-cols-3 items-center gap-4">
-            {/* Busca à esquerda */}
-            <div className="justify-self-start">
-              <div className="relative w-80">
+          <div className={cn(
+            "flex flex-col gap-3",
+            !isMobile && "md:grid md:grid-cols-3 md:items-center md:gap-4"
+          )}>
+            {/* Busca */}
+            <div className={cn(
+              "w-full",
+              !isMobile && "md:justify-self-start md:w-80"
+            )}>
+              <div className="relative">
                 <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none">
                   <Search className="w-4 h-4" />
                 </div>
@@ -539,16 +589,27 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
               </div>
             </div>
 
-            {/* Contador centralizado */}
-            <div className="justify-self-center">
-              <p className="text-sm text-slate-600">
-                <span className="font-medium">{filteredTransactions.length}</span> transações
-                {filters.searchText && <span className="text-slate-400"> • filtradas</span>}
-              </p>
-            </div>
+            {/* Contador e botões - flexbox em mobile, posicionamento em desktop */}
+            <div className={cn(
+              "flex justify-between items-center",
+              !isMobile && "md:contents"
+            )}>
+              {/* Contador */}
+              <div className={cn(
+                "flex-shrink-0",
+                !isMobile && "md:justify-self-center"
+              )}>
+                <p className="text-sm text-slate-600">
+                  <span className="font-medium">{filteredTransactions.length}</span> transações
+                  {filters.searchText && <span className="text-slate-400"> • filtradas</span>}
+                </p>
+              </div>
 
-            {/* Botões à direita */}
-            <div className="justify-self-end flex items-center gap-2">
+              {/* Botões */}
+              <div className={cn(
+                "flex items-center gap-2",
+                !isMobile && "md:justify-self-end"
+              )}>
               <ModernButton
                 variant="outline"
                 size="sm"
@@ -567,6 +628,7 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
               >
                 Filtros
               </ModernButton>
+              </div>
             </div>
           </div>
         </ModernCard>
@@ -575,7 +637,10 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
       {/* Painel de Filtros Compacto */}
       {showFilters && showFiltersPanel && (
           <div className="mt-4 p-4 bg-slate-50 rounded-lg border">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className={cn(
+              "grid gap-3",
+              isMobile ? "grid-cols-1" : "grid-cols-2 md:grid-cols-3 lg:grid-cols-6"
+            )}>
               <div>
                 <label className="text-xs font-medium text-slate-700 mb-1 block">Data Inicial</label>
                 <input
@@ -708,19 +773,40 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
           </div>
         ) : (
           <>
-            {/* Header da Tabela */}
-            <div className="bg-slate-50 border-b border-slate-200">
-              <div className="grid grid-cols-12 gap-4 px-4 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider">
-                <div className="col-span-1">Tipo</div>
-                <div className="col-span-2">Descrição</div>
-                <div className="col-span-2 hidden md:block">Categoria</div>
-                <div className="col-span-1 hidden lg:block">Recorrência</div>
-                <div className="col-span-2 hidden lg:block">Cartão</div>
-                <div className="col-span-1 hidden md:block">Data</div>
-                <div className="col-span-2 text-right">Valor</div>
-                <div className="col-span-1 text-center">Ações</div>
+            {isMobile ? (
+              // Renderização para mobile usando cards
+              <div className="space-y-3 p-4">
+                {paginatedTransactions.map((transaction) => (
+                  <TransactionCard
+                    key={transaction.is_virtual_fixed ? `virtual-${transaction.fixed_transaction_id}-${transaction.data}` : `real-${transaction.id}`}
+                    transaction={transaction}
+                    onEditTransaction={onEditTransaction}
+                    onDeleteTransaction={onDeleteTransaction}
+                    onConfirmFixedTransaction={onConfirmFixedTransaction}
+                    onPartialFixedTransaction={onPartialFixedTransaction}
+                    onUndoFixedTransaction={onUndoFixedTransaction}
+                    onEditFixedTransaction={onEditFixedTransaction}
+                    onDeleteInvoice={onDeleteInvoice}
+                    onActivateTransaction={onActivateTransaction}
+                  />
+                ))}
               </div>
-            </div>
+            ) : (
+              // Renderização para desktop usando tabela
+              <>
+                {/* Header da Tabela */}
+                <div className="bg-slate-50 border-b border-slate-200">
+                  <div className="grid grid-cols-12 gap-4 px-4 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider">
+                    <div className="col-span-1">Tipo</div>
+                    <div className="col-span-2">Descrição</div>
+                    <div className="col-span-2 hidden md:block">Categoria</div>
+                    <div className="col-span-1 hidden lg:block">Recorrência</div>
+                    <div className="col-span-2 hidden lg:block">Cartão</div>
+                    <div className="col-span-1 hidden md:block">Data</div>
+                    <div className="col-span-2 text-right">Valor</div>
+                    <div className="col-span-1 text-center">Ações</div>
+                  </div>
+                </div>
 
             {/* Linhas da Tabela */}
             <div className="divide-y divide-slate-100">
@@ -865,6 +951,23 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
                               <DollarSign className="w-3.5 h-3.5" />
                             </button>
                           )}
+                          {/* Adicionar botão de edição para lançamentos fixos virtuais */}
+                          {onEditFixedTransaction && (
+                            <button
+                              onClick={() => {
+                                const fixoId = transaction.fixed_transaction_id ||
+                                              transaction.fixo_id ||
+                                              (transaction.fatura_details && transaction.fatura_details.fixo_id);
+                                if (fixoId) {
+                                  onEditFixedTransaction(fixoId);
+                                }
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-coral-500 hover:bg-coral-50 rounded transition-colors"
+                              title="Editar lançamento fixo"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </>
                       ) : canUndoFixedTransaction(transaction) ? (
                         // Botões para lançamentos fixos confirmados (que podem ser desfeitos)
@@ -878,7 +981,25 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
                               <RotateCcw className="w-3.5 h-3.5" />
                             </button>
                           )}
-                          {onEditTransaction && (
+                          {/* Botão de edição para lançamentos fixos confirmados */}
+                          {onEditFixedTransaction && (
+                            <button
+                              onClick={() => {
+                                const fixoId = transaction.fixed_transaction_id ||
+                                              transaction.fixo_id ||
+                                              (transaction.fatura_details && transaction.fatura_details.fixo_id);
+                                if (fixoId) {
+                                  onEditFixedTransaction(fixoId);
+                                }
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-coral-500 hover:bg-coral-50 rounded transition-colors"
+                              title="Editar lançamento fixo"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {/* Manter o botão de edição normal como fallback */}
+                          {!onEditFixedTransaction && onEditTransaction && (
                             <button
                               onClick={() => onEditTransaction(transaction)}
                               className="p-1.5 text-slate-400 hover:text-coral-500 hover:bg-coral-50 rounded transition-colors"
@@ -891,6 +1012,16 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
                       ) : (
                         // Botões padrão para transações normais
                         <>
+                          {/* Botão para efetivar transações pendentes */}
+                          {transaction.status === 'pendente' && onActivateTransaction && (
+                            <button
+                              onClick={() => onActivateTransaction(transaction.id)}
+                              className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded transition-colors"
+                              title="Efetivar transação"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                           {onEditTransaction && (
                             <button
                               onClick={() => onEditTransaction(transaction)}
@@ -916,6 +1047,8 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
                 </div>
               ))}
             </div>
+              </>
+            )}
           </>
         )}
 
