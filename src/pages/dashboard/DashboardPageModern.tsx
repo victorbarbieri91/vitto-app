@@ -117,7 +117,7 @@ function DashboardContent() {
       )}
 
       {size === 'mobile' ? (
-        /* Layout mobile reorganizado: saldo compacto + cards + chat expandido */
+        /* Layout mobile reorganizado: saldo compacto + cards + chat adaptável */
         <div className="flex flex-col space-y-4 min-h-[calc(100vh-120px)] pb-20">
           {/* 1. Saldo Score compacto */}
           <div className="flex-shrink-0 mb-2">
@@ -158,8 +158,8 @@ function DashboardContent() {
             </div>
           </div>
 
-          {/* 3. Chat expandido - pega o espaço restante */}
-          <div className="flex-1 min-h-[420px] mb-5">
+          {/* 3. Chat inteligente - altura adaptável */}
+          <div className="flex-1 mb-5">
             <SmartFinancialChat />
             {/* <IntegratedChat /> */}
           </div>
@@ -170,7 +170,7 @@ function DashboardContent() {
           </div>
         </div>
       ) : (
-        /* Layout desktop/tablet original */
+        /* Layout desktop/tablet com altura adaptável */
         <div className={cn(
           classes.grid,
           size === 'compact' ? 'h-[calc(100vh-265px)]' : 'h-[calc(100vh-220px)]'

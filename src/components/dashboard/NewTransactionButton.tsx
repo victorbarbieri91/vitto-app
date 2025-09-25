@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Plus, TrendingUp, TrendingDown, Smartphone } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import MobileTransactionModal from '../modals/MobileTransactionModal';
 
 type TransactionType = 'receita' | 'despesa' | 'despesa_cartao';
 
@@ -36,34 +36,34 @@ const transactionTypes: TransactionTypeOption[] = [
 
 interface NewTransactionButtonProps {
   onSelect: (type: TransactionType) => void;
+  onSuccess?: () => void;
   className?: string;
 }
 
-export default function NewTransactionButton({ onSelect, className }: NewTransactionButtonProps) {
+export default function NewTransactionButton({ onSelect, onSuccess, className }: NewTransactionButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const navigate = useNavigate();
+  const [mobileModalType, setMobileModalType] = useState<TransactionType | null>(null);
   const isMobile = useIsMobile();
 
   const handleSelect = (type: TransactionType) => {
     setIsOpen(false);
 
     if (isMobile) {
-      // Mobile: Navegar para páginas dedicadas
-      switch (type) {
-        case 'receita':
-          navigate('/nova-receita');
-          break;
-        case 'despesa':
-          navigate('/nova-despesa');
-          break;
-        case 'despesa_cartao':
-          navigate('/nova-compra-cartao');
-          break;
-      }
+      // Mobile: Usar modal full-screen
+      setMobileModalType(type);
     } else {
-      // Desktop: Continuar usando modal
+      // Desktop: Continuar usando modal tradicional
       onSelect(type);
     }
+  };
+
+  const handleMobileModalClose = () => {
+    setMobileModalType(null);
+  };
+
+  const handleMobileModalSuccess = () => {
+    onSuccess?.();
+    setMobileModalType(null);
   };
 
   return (
@@ -155,6 +155,14 @@ export default function NewTransactionButton({ onSelect, className }: NewTransac
           </div>
         </>
       )}
+
+      {/* Modal Mobile */}
+      <MobileTransactionModal
+        isOpen={mobileModalType !== null}
+        transactionType={mobileModalType}
+        onClose={handleMobileModalClose}
+        onSuccess={handleMobileModalSuccess}
+      />
     </div>
   );
 }

@@ -86,23 +86,27 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSave, onCancel, isSubmittin
 
   return (
     <form onSubmit={handleSubmit(onSave)} className="space-y-4">
-      {/* Grid compacto principal - 6 colunas */}
-      <div className="grid grid-cols-6 gap-4">
-        {/* Descrição - 3 colunas */}
-        <div className="col-span-3">
-          <label className="block text-xs font-medium text-slate-600 mb-1.5">Descrição</label>
-          <input
-            {...register('descricao')}
-            placeholder="Ex: Almoço no restaurante"
-            className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-colors"
-          />
-          {errors.descricao && (
-            <p className="text-xs text-red-500 mt-1">{errors.descricao.message}</p>
-          )}
-        </div>
+      {/* Descrição - Full width em mobile */}
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-2">Descrição</label>
+        <input
+          {...register('descricao')}
+          placeholder="Ex: Almoço no restaurante"
+          autoFocus={!isMobile}
+          autoComplete="off"
+          className={`w-full px-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-colors ${
+            isMobile ? 'py-4 text-base' : 'py-3 text-sm'
+          }`}
+        />
+        {errors.descricao && (
+          <p className="text-sm text-red-500 mt-1">{errors.descricao.message}</p>
+        )}
+      </div>
 
-        {/* Valor - 2 colunas */}
-        <div className="col-span-2">
+      {/* Valor e Data - Responsivo */}
+      <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`}>
+        {/* Valor */}
+        <div>
           <Controller
             name="valor"
             control={control}
@@ -112,33 +116,37 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSave, onCancel, isSubmittin
                 value={field.value}
                 onChange={field.onChange}
                 error={errors.valor?.message}
-                className="text-sm py-2.5"
+                className={isMobile ? 'text-base py-4' : 'text-sm py-3'}
               />
             )}
           />
         </div>
 
-        {/* Data - 1 coluna */}
-        <div className="col-span-1">
-          <label className="block text-xs font-medium text-slate-600 mb-1.5">Data</label>
+        {/* Data */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">Data</label>
           <input
             type="date"
             {...register('data')}
-            className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-colors"
+            className={`w-full px-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-colors ${
+              isMobile ? 'py-4 text-base' : 'py-3 text-sm'
+            }`}
           />
           {errors.data && (
-            <p className="text-xs text-red-500 mt-1">{errors.data.message}</p>
+            <p className="text-sm text-red-500 mt-1">{errors.data.message}</p>
           )}
         </div>
       </div>
 
-      {/* Segunda linha - Conta e Categoria */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Conta e Categoria - Responsivo */}
+      <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`}>
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1.5">Conta</label>
+          <label className="block text-sm font-medium text-slate-700 mb-2">Conta</label>
           <select
             {...register('conta_id', { valueAsNumber: true })}
-            className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-colors"
+            className={`w-full px-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-colors ${
+              isMobile ? 'py-4 text-base' : 'py-3 text-sm'
+            }`}
           >
             <option value="">Selecione uma conta</option>
             {accounts.map(account => (
@@ -146,15 +154,17 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSave, onCancel, isSubmittin
             ))}
           </select>
           {errors.conta_id && (
-            <p className="text-xs text-red-500 mt-1">{errors.conta_id.message}</p>
+            <p className="text-sm text-red-500 mt-1">{errors.conta_id.message}</p>
           )}
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1.5">Categoria</label>
+          <label className="block text-sm font-medium text-slate-700 mb-2">Categoria</label>
           <select
             {...register('categoria_id', { valueAsNumber: true })}
-            className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-colors"
+            className={`w-full px-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-colors ${
+              isMobile ? 'py-4 text-base' : 'py-3 text-sm'
+            }`}
           >
             <option value="">Selecione uma categoria</option>
             {expenseCategories.map(cat => (
@@ -162,25 +172,31 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSave, onCancel, isSubmittin
             ))}
           </select>
           {errors.categoria_id && (
-            <p className="text-xs text-red-500 mt-1">{errors.categoria_id.message}</p>
+            <p className="text-sm text-red-500 mt-1">{errors.categoria_id.message}</p>
           )}
         </div>
       </div>
 
-      {/* Opções compactas em linha */}
-      <div className="grid grid-cols-3 gap-4 py-3 bg-slate-50 rounded-lg px-4">
+      {/* Opções - Layout responsivo */}
+      <div className={`grid gap-4 py-4 bg-slate-50 rounded-xl px-4 ${
+        isMobile ? 'grid-cols-1' : 'grid-cols-3'
+      }`}>
         <Controller
           name="status"
           control={control}
           render={({ field }) => (
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className="flex items-center gap-3 cursor-pointer">
               <input
                 type="checkbox"
                 checked={field.value === 'confirmado'}
                 onChange={(e) => field.onChange(e.target.checked ? 'confirmado' : 'pendente')}
-                className="w-4 h-4 text-red-500 border-slate-300 rounded focus:ring-red-500"
+                className={`text-red-500 border-slate-300 rounded focus:ring-red-500 ${
+                  isMobile ? 'w-5 h-5' : 'w-4 h-4'
+                }`}
               />
-              <span className="text-xs font-medium text-slate-700">Já pago</span>
+              <span className={`font-medium text-slate-700 ${
+                isMobile ? 'text-base' : 'text-sm'
+              }`}>Já pago</span>
             </label>
           )}
         />
@@ -189,15 +205,19 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSave, onCancel, isSubmittin
           name="is_recorrente"
           control={control}
           render={({ field }) => (
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className="flex items-center gap-3 cursor-pointer">
               <input
                 type="checkbox"
                 checked={field.value}
                 onChange={field.onChange}
                 disabled={isParcelado}
-                className="w-4 h-4 text-red-500 border-slate-300 rounded focus:ring-red-500 disabled:opacity-50"
+                className={`text-red-500 border-slate-300 rounded focus:ring-red-500 disabled:opacity-50 ${
+                  isMobile ? 'w-5 h-5' : 'w-4 h-4'
+                }`}
               />
-              <span className="text-xs font-medium text-slate-700">Recorrente</span>
+              <span className={`font-medium text-slate-700 ${
+                isMobile ? 'text-base' : 'text-sm'
+              }`}>Recorrente</span>
             </label>
           )}
         />
@@ -206,15 +226,19 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSave, onCancel, isSubmittin
           name="is_parcelado"
           control={control}
           render={({ field }) => (
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className="flex items-center gap-3 cursor-pointer">
               <input
                 type="checkbox"
                 checked={field.value}
                 onChange={field.onChange}
                 disabled={isRecorrente}
-                className="w-4 h-4 text-red-500 border-slate-300 rounded focus:ring-red-500 disabled:opacity-50"
+                className={`text-red-500 border-slate-300 rounded focus:ring-red-500 disabled:opacity-50 ${
+                  isMobile ? 'w-5 h-5' : 'w-4 h-4'
+                }`}
               />
-              <span className="text-xs font-medium text-slate-700">Parcelado</span>
+              <span className={`font-medium text-slate-700 ${
+                isMobile ? 'text-base' : 'text-sm'
+              }`}>Parcelado</span>
             </label>
           )}
         />
@@ -227,13 +251,17 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSave, onCancel, isSubmittin
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="grid grid-cols-2 gap-4 p-3 bg-red-50 rounded-lg border border-red-100"
+            className={`grid gap-4 p-4 bg-red-50 rounded-xl border border-red-100 ${
+              isMobile ? 'grid-cols-1' : 'grid-cols-2'
+            }`}
           >
             <div>
-              <label className="block text-xs font-medium text-red-700 mb-1.5">Frequência</label>
+              <label className="block text-sm font-medium text-red-700 mb-2">Frequência</label>
               <select
                 {...register('recorrencia.frequencia')}
-                className="w-full px-3 py-2 text-sm border border-red-200 rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+                className={`w-full px-4 border border-red-200 rounded-xl focus:ring-2 focus:ring-red-500/20 focus:border-red-500 ${
+                  isMobile ? 'py-4 text-base' : 'py-3 text-sm'
+                }`}
               >
                 <option value="mensal">Mensal</option>
                 <option value="semanal">Semanal</option>
@@ -241,13 +269,15 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSave, onCancel, isSubmittin
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-red-700 mb-1.5">Dia Vencimento</label>
+              <label className="block text-sm font-medium text-red-700 mb-2">Dia Vencimento</label>
               <input
                 type="number"
                 min="1"
                 max="31"
                 {...register('recorrencia.dia_cobranca', { valueAsNumber: true })}
-                className="w-full px-3 py-2 text-sm border border-red-200 rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+                className={`w-full px-4 border border-red-200 rounded-xl focus:ring-2 focus:ring-red-500/20 focus:border-red-500 ${
+                  isMobile ? 'py-4 text-base' : 'py-3 text-sm'
+                }`}
               />
             </div>
           </motion.div>
@@ -258,44 +288,56 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSave, onCancel, isSubmittin
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="grid grid-cols-2 gap-4 p-3 bg-blue-50 rounded-lg border border-blue-100"
+            className={`grid gap-4 p-4 bg-blue-50 rounded-xl border border-blue-100 ${
+              isMobile ? 'grid-cols-1' : 'grid-cols-2'
+            }`}
           >
             <div>
-              <label className="block text-xs font-medium text-blue-700 mb-1.5">Total Parcelas</label>
+              <label className="block text-sm font-medium text-blue-700 mb-2">Total Parcelas</label>
               <input
                 type="number"
                 min="2"
                 max="60"
                 {...register('parcelamento.total_parcelas', { valueAsNumber: true })}
-                className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                className={`w-full px-4 border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${
+                  isMobile ? 'py-4 text-base' : 'py-3 text-sm'
+                }`}
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-blue-700 mb-1.5">1ª Parcela</label>
+              <label className="block text-sm font-medium text-blue-700 mb-2">1ª Parcela</label>
               <input
                 type="date"
                 {...register('parcelamento.data_primeira_parcela')}
-                className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                className={`w-full px-4 border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${
+                  isMobile ? 'py-4 text-base' : 'py-3 text-sm'
+                }`}
               />
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Botões compactos */}
-      <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+      {/* Botões - Layout responsivo */}
+      <div className={`flex gap-3 pt-4 border-t border-slate-200 ${
+        isMobile ? 'flex-col' : 'justify-end'
+      }`}>
         <button
           type="button"
           onClick={onCancel}
           disabled={isSubmitting}
-          className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+          className={`font-medium text-slate-600 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-50 ${
+            isMobile ? 'px-6 py-4 text-base order-2' : 'px-4 py-3 text-sm'
+          }`}
         >
           Cancelar
         </button>
         <button
           type="submit"
           disabled={isSubmitting}
-          className="px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center gap-2"
+          className={`font-medium text-white bg-red-500 rounded-xl hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${
+            isMobile ? 'px-6 py-4 text-base order-1' : 'px-4 py-3 text-sm'
+          }`}
         >
           {isSubmitting ? (
             <>

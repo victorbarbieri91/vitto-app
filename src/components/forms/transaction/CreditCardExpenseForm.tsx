@@ -195,13 +195,15 @@ const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ onSave, o
 
   return (
     <form onSubmit={handleSubmit(onSave)} className="space-y-4">
-      {/* Seleção de cartão compacta */}
+      {/* Seleção de cartão */}
       <div>
-        <label className="block text-xs font-medium text-slate-600 mb-1.5">Cartão de Crédito</label>
+        <label className="block text-sm font-medium text-slate-700 mb-2">Cartão de Crédito</label>
         <select
           {...register('cartao_id', { valueAsNumber: true })}
           disabled={loadingCards}
-          className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-coral-500/20 focus:border-coral-500 transition-colors"
+          className={`w-full px-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors ${
+            isMobile ? 'py-4 text-base' : 'py-3 text-sm'
+          }`}
         >
           <option value="">{loadingCards ? 'Carregando cartões...' : 'Selecione um cartão'}</option>
           {cards.map(card => (
@@ -209,7 +211,7 @@ const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ onSave, o
           ))}
         </select>
         {errors.cartao_id && (
-          <p className="text-xs text-red-500 mt-1">{errors.cartao_id.message}</p>
+          <p className="text-sm text-red-500 mt-1">{errors.cartao_id.message}</p>
         )}
       </div>
 
@@ -218,7 +220,9 @@ const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ onSave, o
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="grid grid-cols-3 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs"
+          className={`grid gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl ${
+            isMobile ? 'grid-cols-1 text-sm' : 'grid-cols-3 text-xs'
+          }`}
         >
           <div className="text-center">
             <p className="text-slate-600 font-medium">Limite Disponível</p>
@@ -236,20 +240,25 @@ const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ onSave, o
       )}
 
 
-      {/* Linha principal - Descrição, Valor e Data */}
-      <div className="grid grid-cols-12 gap-4">
-        {/* Descrição - 5 colunas */}
-        <div className="col-span-5">
-          <label className="block text-xs font-medium text-slate-600 mb-1.5">Descrição</label>
-          <input
-            {...register('descricao')}
-            placeholder="Ex: Jantar, roupas, mercado"
-            className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-coral-500/20 focus:border-coral-500 transition-colors"
-          />
-          {errors.descricao && (
-            <p className="text-xs text-red-500 mt-1">{errors.descricao.message}</p>
-          )}
-        </div>
+      {/* Descrição - Full width em mobile */}
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-2">Descrição</label>
+        <input
+          {...register('descricao')}
+          placeholder="Ex: Jantar, roupas, mercado"
+          autoFocus={!isMobile}
+          autoComplete="off"
+          className={`w-full px-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors ${
+            isMobile ? 'py-4 text-base' : 'py-3 text-sm'
+          }`}
+        />
+        {errors.descricao && (
+          <p className="text-sm text-red-500 mt-1">{errors.descricao.message}</p>
+        )}
+      </div>
+
+      {/* Valor e Data - Responsivo */}
+      <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`}>
 
         {/* Valor - 4 colunas */}
         <div className="col-span-4">

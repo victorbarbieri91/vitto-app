@@ -34,9 +34,12 @@ export default function SmartFinancialChat() {
   ]);
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+    }
   };
 
   useEffect(() => {
@@ -221,57 +224,72 @@ export default function SmartFinancialChat() {
         </div>
       </div>
 
-      {/* Messages Area */}
+      {/* Messages Area - Container with fixed height and internal scroll */}
       <div
         className={cn(
-          'flex-1 overflow-y-auto space-y-3',
-          size === 'mobile' ? 'min-h-[280px] mb-2' : 'min-h-0',
-          size !== 'mobile' && (size === 'compact' ? 'mb-3' : 'mb-4')
+          'relative border border-transparent rounded-lg flex-1',
+          size === 'mobile' ? 'mb-2' : size === 'compact' ? 'mb-3' : 'mb-4'
         )}
+        style={{
+          minHeight: size === 'mobile' ? '200px' : size === 'compact' ? '180px' : '250px',
+          maxHeight: size === 'mobile' ? '400px' : size === 'compact' ? '350px' : '500px',
+          overflow: 'hidden' // Force container to not grow beyond max
+        }}
       >
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={cn(
-              'flex gap-2',
-              message.role === 'user' ? 'justify-end' : 'justify-start'
-            )}
-          >
-            {message.role === 'assistant' && (
-              <div className={cn(
-                'flex-shrink-0 w-6 h-6 rounded-full bg-coral-500 flex items-center justify-center',
-                size === 'mobile' ? 'w-5 h-5' : ''
-              )}>
-                <Bot className="w-3 h-3 text-white" />
-              </div>
-            )}
+        <div
+          ref={scrollContainerRef}
+          className="absolute inset-0 overflow-y-auto px-2 py-1"
+          style={{
+            scrollbarWidth: 'thin',
+            scrollbarColor: '#CBD5E1 transparent'
+          }}
+        >
+          <div className="space-y-3 min-h-full">
+            {messages.map((message, index) => (
+              <div
+                key={message.id}
+                className={cn(
+                  'flex gap-2 w-full',
+                  message.role === 'user' ? 'justify-end' : 'justify-start'
+                )}
+              >
+                {message.role === 'assistant' && (
+                  <div className={cn(
+                    'flex-shrink-0 w-6 h-6 rounded-full bg-coral-500 flex items-center justify-center',
+                    size === 'mobile' ? 'w-5 h-5' : ''
+                  )}>
+                    <Bot className="w-3 h-3 text-white" />
+                  </div>
+                )}
 
-            <div
-              className={cn(
-                'max-w-[85%] rounded-2xl px-3 py-2',
-                size === 'mobile' ? 'text-xs' : classes.textSm,
-                message.role === 'user'
-                  ? 'bg-coral-500 text-white'
-                  : 'bg-slate-100 text-slate-800',
-              )}
-            >
-              {formatMessageContent(message.content)}
-              {message.isStreaming && (
-                <span className="inline-block w-2 h-4 bg-slate-400 ml-1 animate-pulse" />
-              )}
-            </div>
+                <div
+                  className={cn(
+                    'max-w-[85%] rounded-2xl px-3 py-2 break-words',
+                    size === 'mobile' ? 'text-xs' : classes.textSm,
+                    message.role === 'user'
+                      ? 'bg-coral-500 text-white'
+                      : 'bg-slate-100 text-slate-800',
+                  )}
+                >
+                  {formatMessageContent(message.content)}
+                  {message.isStreaming && (
+                    <span className="inline-block w-2 h-4 bg-slate-400 ml-1 animate-pulse" />
+                  )}
+                </div>
 
-            {message.role === 'user' && (
-              <div className={cn(
-                'flex-shrink-0 w-6 h-6 rounded-full bg-deep-blue flex items-center justify-center',
-                size === 'mobile' ? 'w-5 h-5' : ''
-              )}>
-                <User className="w-3 h-3 text-white" />
+                {message.role === 'user' && (
+                  <div className={cn(
+                    'flex-shrink-0 w-6 h-6 rounded-full bg-deep-blue flex items-center justify-center',
+                    size === 'mobile' ? 'w-5 h-5' : ''
+                  )}>
+                    <User className="w-3 h-3 text-white" />
+                  </div>
+                )}
               </div>
-            )}
+            ))}
+            <div ref={messagesEndRef} className="h-1" />
           </div>
-        ))}
-        <div ref={messagesEndRef} />
+        </div>
       </div>
 
       {/* Suggestion Chips - Only show if no conversation started */}
