@@ -159,7 +159,7 @@ function DashboardContent() {
           </div>
 
           {/* 3. Chat inteligente - altura adaptável */}
-          <div className="flex-1 mb-5">
+          <div className="h-[calc(100vh-420px)] mb-3">
             <SmartFinancialChat />
             {/* <IntegratedChat /> */}
           </div>
