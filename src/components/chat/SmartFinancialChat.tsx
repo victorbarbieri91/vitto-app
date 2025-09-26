@@ -213,11 +213,6 @@ export default function SmartFinancialChat() {
     }
   };
 
-  const handleChipClick = (suggestion: string) => {
-    if (!isLoading) {
-      handleSendMessage(suggestion);
-    }
-  };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
