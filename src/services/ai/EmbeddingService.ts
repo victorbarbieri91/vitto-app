@@ -20,18 +20,31 @@ export interface KnowledgeChunk {
 }
 
 class EmbeddingService {
-  private openai: OpenAI;
+  private openai: OpenAI | null = null;
 
   constructor() {
-    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error('VITE_OPENAI_API_KEY não configurada');
-    }
+    // Lazy initialization - não falha no construtor
+  }
 
-    this.openai = new OpenAI({
-      apiKey,
-      dangerouslyAllowBrowser: true
-    });
+  private getOpenAI(): OpenAI {
+    if (!this.openai) {
+      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+      if (!apiKey) {
+        throw new Error('VITE_OPENAI_API_KEY não configurada. Configure a variável de ambiente para usar embeddings.');
+      }
+      this.openai = new OpenAI({
+        apiKey,
+        dangerouslyAllowBrowser: true
+      });
+    }
+    return this.openai;
+  }
+
+  /**
+   * Verifica se o serviço está disponível
+   */
+  isAvailable(): boolean {
+    return !!import.meta.env.VITE_OPENAI_API_KEY;
   }
 
   /**
@@ -40,8 +53,9 @@ class EmbeddingService {
   async generateEmbedding(text: string): Promise<EmbeddingResult> {
     try {
       const cleanText = this.cleanText(text);
+      const openai = this.getOpenAI();
 
-      const response = await this.openai.embeddings.create({
+      const response = await openai.embeddings.create({
         model: 'text-embedding-3-small',
         input: cleanText,
         encoding_format: 'float'
