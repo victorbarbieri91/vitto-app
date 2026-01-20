@@ -26,6 +26,20 @@ import SettingsPage from './pages/settings/SettingsPage';
 import NotFoundPage from './pages/errors/NotFoundPage';
 // import JourneyGamePage from './pages/historia/JourneyGamePage'; // TEMPORARIAMENTE OCULTO
 
+// Admin Pages
+import AICenterPage from './pages/admin/AICenterPage';
+import TrainingCenterPage from './pages/admin/TrainingCenterPage';
+
+// Central IA
+import CentralIAPage from './pages/central-ia/CentralIAPage';
+
+// Patrimonio Page
+import PatrimonioPage from './pages/patrimonio/PatrimonioPage';
+
+// Juntos (Finanças Compartilhadas)
+import JuntosPage from './pages/juntos/JuntosPage';
+import ConviteAceitarPage from './pages/juntos/ConviteAceitarPage';
+
 // Componente para redirecionar com base na autenticação e onboarding
 const RedirectBasedOnAuth = () => {
   const { user, loading } = useAuth();
@@ -100,6 +114,27 @@ function App() {
               <Route path="/budgets" element={<BudgetsPage />} />
               <Route path="/configuracoes" element={<SettingsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+
+              {/* Rotas de patrimônio */}
+              <Route path="/patrimonio" element={<PatrimonioPage />} />
+              <Route path="/assets" element={<PatrimonioPage />} />
+
+              {/* Rotas do módulo Juntos (Finanças Compartilhadas) */}
+              <Route path="/juntos" element={<JuntosPage />} />
+              <Route path="/juntos/convite/:token" element={<ConviteAceitarPage />} />
+              <Route path="/together" element={<JuntosPage />} />
+
+              {/* Central IA - Assistente Inteligente */}
+              <Route path="/central-ia" element={<CentralIAPage />} />
+              <Route path="/assistente" element={<CentralIAPage />} />
+              <Route path="/ai-assistant" element={<CentralIAPage />} />
+
+              {/* Rotas administrativas - Protegidas por permissão */}
+              <Route path="/admin/ai-center" element={<AICenterPage />} />
+              <Route path="/admin/centro-ia" element={<AICenterPage />} />
+              <Route path="/admin/ai-center/training" element={<TrainingCenterPage />} />
+              <Route path="/admin/centro-ia/treinamento" element={<TrainingCenterPage />} />
+
               {/* TEMPORARIAMENTE OCULTO - MÓDULO HISTÓRIA */}
               {/* <Route path="/sua-historia" element={<SuaHistoriaPage />} /> */}
               {/* <Route path="/historia" element={<SuaHistoriaPage />} /> */}

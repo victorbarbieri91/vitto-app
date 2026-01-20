@@ -13,25 +13,35 @@ import {
   Menu,
   X,
   Wallet,
-  BookOpen
+  BookOpen,
+  Bot,
+  Users,
+  Landmark,
+  Sparkles
 } from 'lucide-react';
 import { useState } from 'react';
 import { useScreenDetection } from '../../hooks/useScreenDetection';
 import { cn } from '../../utils/cn';
 import ChatBar from '../chat/ChatBar';
+import { useCanAccessAICenter } from '../../hooks/useAdminPermissions';
+import { useSolicitacoesPendentes } from '../../hooks/useSolicitacoesPendentes';
 
 type ModernAppLayoutProps = {
   children: ReactNode;
   requireAuth?: boolean;
 };
 
-const navigation = [
+const getNavigation = (canAccessAICenter: boolean) => [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+  { name: 'Central IA', path: '/central-ia', icon: Sparkles },
   { name: 'Contas', path: '/contas', icon: Wallet },
   { name: 'Cartões', path: '/cartoes', icon: CreditCard },
   { name: 'Lançamentos', path: '/lancamentos', icon: Receipt },
   // { name: 'Categorias', path: '/categorias', icon: Tags }, // MOVIDO PARA MENU DO USUÁRIO
   { name: 'Orçamentos', path: '/orcamentos', icon: PiggyBank },
+  { name: 'Patrimônio', path: '/patrimonio', icon: Landmark },
+  { name: 'Juntos', path: '/juntos', icon: Users },
+  ...(canAccessAICenter ? [{ name: 'Admin IA', path: '/admin/ai-center', icon: Bot }] : []),
   // { name: 'Sua História', path: '/sua-historia', icon: BookOpen }, // TEMPORARIAMENTE OCULTO
   // { name: 'Configurações', path: '/configuracoes', icon: Settings }, // MOVIDO PARA MENU DO USUÁRIO
 ];
@@ -41,6 +51,8 @@ export default function ModernAppLayout({ children, requireAuth = true }: Modern
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { size } = useScreenDetection();
+  const canAccessAICenter = useCanAccessAICenter();
+  const { count: solicitacoesPendentes } = useSolicitacoesPendentes();
 
   // Show loading state
   if (loading) {
@@ -59,6 +71,8 @@ export default function ModernAppLayout({ children, requireAuth = true }: Modern
   const handleSignOut = async () => {
     await signOut();
   };
+
+  const navigation = getNavigation(canAccessAICenter);
 
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
@@ -84,11 +98,12 @@ export default function ModernAppLayout({ children, requireAuth = true }: Modern
                 {navigation.map((item) => {
                   const isActive = location.pathname === item.path;
                   const Icon = item.icon;
+                  const showBadge = item.name === 'Juntos' && solicitacoesPendentes > 0;
                   return (
                     <Link
                       key={item.name}
                       to={item.path}
-                      className={`flex items-center px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+                      className={`relative flex items-center px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
                         isActive
                           ? 'bg-coral-500 text-white shadow-lg shadow-coral-500/25'
                           : 'text-slate-600 hover:text-coral-600 hover:bg-white/60'
@@ -96,6 +111,11 @@ export default function ModernAppLayout({ children, requireAuth = true }: Modern
                     >
                       <Icon className="w-4 h-4 mr-2" />
                       <span>{item.name}</span>
+                      {showBadge && (
+                        <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-coral-600 rounded-full shadow-sm">
+                          {solicitacoesPendentes > 9 ? '9+' : solicitacoesPendentes}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}
@@ -175,15 +195,16 @@ export default function ModernAppLayout({ children, requireAuth = true }: Modern
             {mobileMenuOpen && (
               <div className="md:hidden border-t border-slate-200/60 bg-white/95 backdrop-blur-md">
                 <nav className="py-4 space-y-2 px-4">
-                  {navigation.map((item) => {
+                  {getNavigation(canAccessAICenter).map((item) => {
                     const isActive = location.pathname === item.path;
                     const Icon = item.icon;
+                    const showBadge = item.name === 'Juntos' && solicitacoesPendentes > 0;
                     return (
                       <Link
                         key={item.name}
                         to={item.path}
                         onClick={() => setMobileMenuOpen(false)}
-                        className={`flex items-center px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 w-full ${
+                        className={`relative flex items-center px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 w-full ${
                           isActive
                             ? 'bg-coral-500 text-white shadow-lg shadow-coral-500/25'
                             : 'text-slate-600 hover:text-coral-600 hover:bg-white/80 active:bg-coral-50'
@@ -191,6 +212,11 @@ export default function ModernAppLayout({ children, requireAuth = true }: Modern
                       >
                         <Icon className="w-5 h-5 mr-3 flex-shrink-0" />
                         <span className="font-medium">{item.name}</span>
+                        {showBadge && (
+                          <span className="ml-auto flex items-center justify-center min-w-[20px] h-[20px] px-1.5 text-[11px] font-bold text-white bg-coral-600 rounded-full">
+                            {solicitacoesPendentes > 9 ? '9+' : solicitacoesPendentes}
+                          </span>
+                        )}
                       </Link>
                     );
                   })}

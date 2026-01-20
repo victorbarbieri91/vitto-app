@@ -129,15 +129,26 @@ const MiniCalendario = () => {
     return () => clearTimeout(timer);
   }, [transactionsByDay, getDayTransactions]);
 
+  // Estilo padrao consistente com outros cards
+  const cardStyle = 'bg-white border border-slate-200 rounded-xl shadow-sm h-full flex flex-col';
+  const headerStyle = 'px-4 py-3 border-b border-slate-100 flex items-center gap-2';
+
   return (
-    <ModernCard className={cn(
-      size === 'mobile' ? 'p-2' : classes.padding,
-      'flex flex-col overflow-hidden h-full',
+    <div className={cn(
+      cardStyle,
       size === 'mobile' ? 'min-h-[240px]' : ''
     )}>
+      {/* Header padrao */}
+      <div className={headerStyle}>
+        <Calendar className="w-4 h-4 text-slate-400" />
+        <h3 className="font-medium text-slate-700 text-sm">Calendario</h3>
+      </div>
 
-      <div className="flex-1 flex items-center justify-center">
-        <div className="calendario-mini w-full">
+      <div className={cn(
+        size === 'mobile' ? 'p-1' : 'p-2',
+        'flex-1 flex items-center justify-center'
+      )}>
+        <div className="calendario-mini w-full h-full flex items-center justify-center">
           <DayPicker
             onDayClick={(date) => {
               // Apenas dias com transações são clicáveis
@@ -452,7 +463,7 @@ const MiniCalendario = () => {
           </motion.div>
         )}
       </AnimatePresence>
-    </ModernCard>
+    </div>
   );
 };
 

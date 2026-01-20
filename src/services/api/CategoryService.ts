@@ -170,23 +170,23 @@ export class CategoryService extends BaseApi {
       // Get date range for the period
       const { startDate, endDate } = this.getDateRangeByPeriod(period);
 
-      // Get all expenses for the period
+      // Get all expenses for the period (including card expenses)
       const { data: transactions, error: transactionError } = await this.supabase
         .from('app_transacoes')
         .select('valor, categoria_id')
         .eq('user_id', user.id)
-        .eq('tipo', 'despesa')
+        .in('tipo', ['despesa', 'despesa_cartao'])
         .eq('status', 'confirmado')
         .gte('data', startDate)
         .lte('data', endDate);
 
       if (transactionError) throw transactionError;
 
-      // Get all categories
+      // Get all categories (user's + system default categories)
       const { data: categories, error: categoryError } = await this.supabase
         .from('app_categoria')
         .select('id, nome, cor')
-        .eq('user_id', user.id)
+        .or(`user_id.eq.${user.id},user_id.is.null`)
         .or('tipo.eq.despesa,tipo.eq.ambos');
 
       if (categoryError) throw categoryError;

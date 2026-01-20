@@ -12,6 +12,7 @@ export { IndicatorsService } from './IndicatorsService';
 export { RecurrentTransactionService } from './RecurrentTransactionService';
 export { SaldoService } from './SaldoService';
 export { OnboardingService } from './OnboardingService';
+export { PatrimonioService } from './PatrimonioService';
 
 // Export default instances
 export { default as accountService } from './AccountService';
@@ -26,6 +27,7 @@ export { default as budgetService } from './BudgetService';
 export { automationService } from './AutomationService';
 export { saldoService } from './SaldoService';
 export { default as onboardingService } from './OnboardingService';
+export { default as patrimonioService } from './PatrimonioService';
 
 // Export types
 export type { Account, NewAccount } from './AccountService';
@@ -90,3 +92,12 @@ export type {
   OnboardingData,
   OnboardingStatus
 } from './OnboardingService';
+export type {
+  PatrimonioAtivo,
+  NewPatrimonioAtivo,
+  UpdatePatrimonioAtivo,
+  PatrimonioPorCategoria,
+  EvolucaoPatrimonial,
+  PatrimonioConsolidado,
+  CategoriaAtivo
+} from '../../types/patrimonio';

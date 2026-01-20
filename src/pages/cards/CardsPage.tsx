@@ -3,8 +3,15 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard as CreditCardIcon, AlertCircle, Loader2 } from 'lucide-react';
-import { ModernCard, ModernButton, MetricCard } from '../../components/ui/modern';
+import {
+  CreditCard as CreditCardIcon,
+  AlertCircle,
+  Loader2,
+  Plus,
+  Calendar,
+  Wallet
+} from 'lucide-react';
+import { ModernCard, ModernButton } from '../../components/ui/modern';
 import CreditCardItem from '../../components/cards/CreditCardItem';
 import CreditCardForm from '../../components/forms/CreditCardForm';
 import {
@@ -13,12 +20,9 @@ import {
   CreateCreditCardRequest,
   UpdateCreditCardRequest
 } from '../../services/api';
-import { useAuth } from '../../store/AuthContext';
-import { cn } from '../../utils/cn';
 import { formatCurrency } from '../../utils/format';
 
 export default function CardsPage() {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [cards, setCards] = useState<CreditCardWithUsage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -97,13 +101,22 @@ export default function CardsPage() {
     navigate(`/transactions?type=cartao&card_id=${card.id}&month=${currentMonth}-${currentYear}`);
   };
 
-  const getTotalLimit = () => {
-    return cards.reduce((total, card) => total + card.limite, 0);
+  const getTotalFaturas = () => {
+    return cards.reduce((total, card) => total + (card.fatura_atual || 0), 0);
   };
 
-  const getTotalUsed = () => {
-    return cards.reduce((total, card) => total + card.limite_usado, 0);
+  const getProximoVencimento = () => {
+    if (cards.length === 0) return null;
+    const hoje = new Date().getDate();
+    const cardsOrdenados = [...cards].sort((a, b) => {
+      const diaA = a.dia_vencimento >= hoje ? a.dia_vencimento : a.dia_vencimento + 30;
+      const diaB = b.dia_vencimento >= hoje ? b.dia_vencimento : b.dia_vencimento + 30;
+      return diaA - diaB;
+    });
+    return cardsOrdenados[0];
   };
+
+  const proximoVencimento = getProximoVencimento();
 
   if (isLoading) {
     return (
@@ -117,22 +130,7 @@ export default function CardsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header moderno customizado */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <div className="h-8"></div>
-          <div className="h-5"></div>
-        </div>
-        <ModernButton
-          variant="primary"
-          onClick={handleCreateCard}
-          className="bg-coral-500 hover:bg-coral-600 text-white px-6 py-3"
-        >
-          Novo Cartão
-        </ModernButton>
-      </div>
-
+    <div className="space-y-6 pt-2">
       {/* Erro */}
       {error && (
         <ModernCard variant="default" className="p-4 border-l-4 border-red-500 bg-red-50">
@@ -142,8 +140,6 @@ export default function CardsPage() {
           </div>
         </ModernCard>
       )}
-
-      {/* Resumo compacto REMOVIDO */}
 
       {/* Lista de cartões */}
       {cards.length === 0 ? (
@@ -168,23 +164,90 @@ export default function CardsPage() {
           </div>
         </ModernCard>
       ) : (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {cards.map((card, index) => (
-              <motion.div
-                key={card.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.1 }}
-              >
-                <CreditCardItem
-                  card={card}
-                  onEdit={handleEditCard}
-                  onDelete={handleDeleteCard}
-                  onViewInvoices={handleViewInvoices}
-                />
-              </motion.div>
-            ))}
+        <div className="space-y-6">
+          {/* Header com Resumo */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            {/* Card Principal - Total Faturas */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="lg:col-span-2 bg-gradient-to-br from-slate-700 to-slate-800 rounded-xl p-5 text-white shadow-lg"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white/70 text-sm font-medium">Total em Faturas</p>
+                  <p className="text-3xl font-bold mt-1">{formatCurrency(getTotalFaturas())}</p>
+                  <p className="text-white/50 text-xs mt-2">
+                    {cards.length} {cards.length === 1 ? 'cartão ativo' : 'cartões ativos'}
+                  </p>
+                </div>
+                <div className="w-14 h-14 bg-white/10 rounded-xl flex items-center justify-center">
+                  <Wallet className="w-7 h-7 text-white/80" />
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Próximo Vencimento */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="bg-gradient-to-br from-coral-500 to-coral-600 rounded-xl p-5 text-white shadow-lg"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                  <Calendar className="w-5 h-5" />
+                </div>
+                <span className="text-white/80 text-sm">Próximo Vencimento</span>
+              </div>
+              {proximoVencimento && (
+                <div>
+                  <p className="text-xl font-bold">Dia {proximoVencimento.dia_vencimento}</p>
+                  <p className="text-xs text-white/70 mt-1">{proximoVencimento.nome}</p>
+                </div>
+              )}
+            </motion.div>
+
+            {/* Botão Novo Cartão */}
+            <motion.button
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              onClick={handleCreateCard}
+              className="bg-slate-50 hover:bg-slate-100 rounded-xl p-5 border-2 border-dashed border-slate-200 hover:border-coral-300 transition-all group flex flex-col items-center justify-center gap-2"
+            >
+              <div className="w-10 h-10 bg-coral-100 group-hover:bg-coral-200 rounded-lg flex items-center justify-center transition-colors">
+                <Plus className="w-5 h-5 text-coral-600" />
+              </div>
+              <span className="text-sm font-medium text-slate-600 group-hover:text-coral-600 transition-colors">
+                Novo Cartão
+              </span>
+            </motion.button>
+          </div>
+
+          {/* Grid de Cartões */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-slate-800">Meus Cartões</h2>
+              <span className="text-sm text-slate-500">{cards.length} cartões</span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {cards.map((card, index) => (
+                <motion.div
+                  key={card.id}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.2, delay: index * 0.05 }}
+                >
+                  <CreditCardItem
+                    card={card}
+                    onEdit={handleEditCard}
+                    onDelete={handleDeleteCard}
+                    onViewInvoices={handleViewInvoices}
+                  />
+                </motion.div>
+              ))}
+            </div>
           </div>
         </div>
       )}

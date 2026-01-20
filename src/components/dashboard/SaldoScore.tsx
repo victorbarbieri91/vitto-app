@@ -1,94 +1,70 @@
-﻿import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-} from 'recharts';
+import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useResponsiveClasses } from '../../hooks/useScreenDetection';
 import { cn } from '../../utils/cn';
-import { ModernCard } from '../ui/modern';
-
-const createChartData = (percentage: number) => [
-  { name: 'Saldo', value: percentage },
-  { name: 'Restante', value: 100 - percentage },
-];
-
-const COLORS = ['#F87060', '#475569'];
+import { Wallet } from 'lucide-react';
+import AnimatedNumber from '../ui/modern/AnimatedNumber';
 
 interface SaldoScoreProps {
   saldo: number;
   metaPercentual?: number;
   receitaMensal?: number;
+  isLoading?: boolean;
 }
 
-const SaldoScore = ({ saldo, metaPercentual = 80, receitaMensal = 0 }: SaldoScoreProps) => {
-  const { classes, size } = useResponsiveClasses();
+const SaldoScore = ({ saldo, metaPercentual = 80, receitaMensal = 0, isLoading = false }: SaldoScoreProps) => {
+  const { size } = useResponsiveClasses();
 
-  // Calcular percentual da meta de ECONOMIA
-  // metaPercentual = meta de despesas (ex: 80%)
-  // meta de economia = 100% - meta de despesas (ex: 20%)
-  const metaEconomiaPercentual = 100 - metaPercentual;
-  const metaEconomiaValor = (receitaMensal * metaEconomiaPercentual) / 100;
-
-  // Calcular quanto do objetivo de economia foi atingido
-  const percentualAtual = metaEconomiaValor > 0
-    ? Math.min(100, Math.max(0, (saldo / metaEconomiaValor) * 100))
-    : 0;
-  const percentage = Math.round(percentualAtual);
-
-  const data = createChartData(percentage);
+  if (isLoading) {
+    return (
+      <div className="bg-deep-blue rounded-xl shadow-sm h-full">
+        <div className={cn("flex-1", size === 'mobile' ? 'p-3' : 'p-4')}>
+          <div className="w-1/2 h-3 bg-slate-600 rounded-md animate-pulse mb-3" />
+          <div className="w-3/4 h-5 bg-slate-500 rounded-md animate-pulse" />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <Link to="/contas/saldo-detalhe" className="block transform transition-transform duration-300 hover:scale-[1.02]">
-      <ModernCard variant="dark" className={cn(
-        size === 'mobile' ? 'p-4' : classes.padding,
-        'h-full',
-        size === 'compact' ? 'min-h-[100px]' : ''
-      )}>
-        <div className={cn(
-          'flex flex-col sm:flex-row sm:justify-between sm:items-center',
-          size === 'compact' ? 'gap-2' : 'gap-4 sm:gap-0'
-        )}>
-          <div className="flex-1">
-            <h2 className={cn(classes.textBase, 'font-bold text-slate-200 mb-2')}>Saldo Previsto do Mês</h2>
+    <Link to="/contas/saldo-detalhe" className="block h-full">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        whileHover={{ y: -2 }}
+        transition={{ duration: 0.2 }}
+        className="bg-deep-blue rounded-xl shadow-sm h-full cursor-pointer hover:shadow-md transition-shadow"
+      >
+        <div className={cn("flex-1", size === 'mobile' ? 'p-3' : 'p-4')}>
+          <div className="flex justify-between items-start">
             <p className={cn(
-              classes.textLg === 'text-base' ? 'text-2xl' : 
-              classes.textLg === 'text-lg' ? 'text-3xl' : 'text-4xl',
-              'font-bold text-white'
-            )}>
-              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(saldo)}
-            </p>
+              size === 'mobile' ? 'text-[10px]' : 'text-xs',
+              "font-medium leading-tight text-slate-300"
+            )}>Saldo Previsto</p>
+            <Wallet className={cn(
+              size === 'mobile' ? 'w-3 h-3' : 'w-4 h-4',
+              'text-slate-400'
+            )} />
           </div>
 
-          <div className="w-full sm:w-28 text-center">
-            <div className="h-16 sm:h-20">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={data}
-                    cx="50%"
-                    cy="100%"
-                    startAngle={180}
-                    endAngle={0}
-                    innerRadius={30}
-                    outerRadius={40}
-                    dataKey="value"
-                    stroke="none"
-                  >
-                    {data.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <p className={cn(classes.textSm, 'text-slate-300 mt-1')}>
-              {percentage}% da meta de economia
+          <div className={size === 'mobile' ? 'mt-1' : 'mt-2'}>
+            <p className={cn(
+              size === 'mobile' ? 'text-sm' : 'text-lg',
+              "font-bold text-white"
+            )}>
+              <AnimatedNumber
+                value={saldo}
+                format={(v) => new Intl.NumberFormat('pt-BR', {
+                  style: 'currency',
+                  currency: 'BRL',
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                }).format(v)}
+              />
             </p>
           </div>
         </div>
-      </ModernCard>
+      </motion.div>
     </Link>
   );
 };

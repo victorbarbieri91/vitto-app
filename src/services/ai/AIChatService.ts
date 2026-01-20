@@ -14,21 +14,30 @@ import { aiRateLimiter } from './AIRateLimiter';
 import { aiSentimentAnalyzer } from './AISentimentAnalyzer';
 import { aiReportGenerator } from './AIReportGenerator';
 import { aiPredictiveAlerts } from './AIPredictiveAlerts';
+import { financialMemoryManager } from './FinancialMemoryManager';
+import { AgentConfigService } from '../api/agentConfig';
 import type { SentimentResult } from './AISentimentAnalyzer';
 import type { FinancialReport } from './AIReportGenerator';
 import type { PredictiveAlert } from './AIPredictiveAlerts';
+import type { ContextoRAG } from './FinancialMemoryManager';
 
 /**
  * AIChatService (Enhanced)
- * 
+ *
  * Serviço principal de chat com IA que integra todos os componentes avançados.
- * Orquestra o fluxo completo: rate limiting → sentiment analysis → contexto → interpretação → execução → resposta.
- * 
+ * Orquestra o fluxo completo: rate limiting → sentiment analysis → RAG → contexto → interpretação → execução → resposta.
+ *
  * ✨ NOVA FUNCIONALIDADE - Etapa 3.2:
  * - Rate limiting para controle de custos
  * - Análise de sentimento para respostas adaptadas
  * - Relatórios narrativos inteligentes
  * - Alertas preditivos baseados em ML
+ *
+ * ✨ NOVA FUNCIONALIDADE - Sistema RAG:
+ * - Memória vetorial com embeddings
+ * - Busca semântica de contexto histórico
+ * - Aprendizado contínuo de padrões do usuário
+ * - Respostas contextualizadas com histórico
  */
 export class AIChatService {
   private static instance: AIChatService;
@@ -55,17 +64,20 @@ export class AIChatService {
   }
 
   /**
-   * 🚀 ENHANCED: Processa uma mensagem do usuário com análise avançada
+   * 🚀 ENHANCED: Processa uma mensagem do usuário com análise avançada e RAG
    */
   async processMessage(
     userMessage: string,
     userId: string,
+    context?: FinancialContext,
     sessionId: string = 'default'
   ): Promise<{
-    message: string;
+    response: string;
+    confidence?: number;
     insights?: Insight[];
     sentiment?: SentimentResult;
     predictiveAlerts?: PredictiveAlert[];
+    ragContext?: ContextoRAG;
     success: boolean;
     metadata?: any;
   }> {
@@ -75,7 +87,8 @@ export class AIChatService {
     const rateLimitCheck = await aiRateLimiter.canMakeRequest(userId);
     if (!rateLimitCheck.allowed) {
       return {
-        message: `⏳ ${rateLimitCheck.reason}`,
+        response: `⏳ ${rateLimitCheck.reason}`,
+        confidence: 0,
         success: false,
         metadata: { rateLimited: true, waitTime: rateLimitCheck.waitTime }
       };
@@ -87,7 +100,8 @@ export class AIChatService {
     // Prevenir processamento simultâneo
     if (this.isProcessing) {
       return {
-        message: 'Aguarde, ainda estou processando sua mensagem anterior...',
+        response: 'Aguarde, ainda estou processando sua mensagem anterior...',
+        confidence: 0,
         success: false
       };
     }
@@ -95,38 +109,55 @@ export class AIChatService {
     this.isProcessing = true;
 
     try {
-      // 2. 📊 Construir contexto financeiro
+      // 2. 📊 Construir contexto financeiro (usar passado ou construir novo)
       console.log('📊 Construindo contexto...');
-      const context = await aiContextManager.buildContext(userId);
+      const financialContext = context || await aiContextManager.buildContext(userId);
 
       // 3. 🧠 ANÁLISE DE SENTIMENTO - Nova funcionalidade!
       console.log('🧠 Analisando sentimento...');
       const sentiment = await aiSentimentAnalyzer.analyzeSentiment(
-        userMessage, 
-        context,
+        userMessage,
+        financialContext,
         this.hasOpenAI()
       );
 
-      // 4. 🔮 ALERTAS PREDITIVOS - Gerar antes de processar comando
-      console.log('🔮 Gerando alertas preditivos...');
-      const predictiveAlerts = await aiPredictiveAlerts.generatePredictiveAlerts(context);
+      // 4. 🔍 SISTEMA RAG - Buscar contexto relevante na memória
+      console.log('🔍 Buscando contexto RAG...');
+      const ragContext = await financialMemoryManager.buscarContextoRelevante(
+        userMessage,
+        userId,
+        5, // Top 5 memórias relevantes
+        0.7 // Threshold de similaridade
+      );
 
-      // 5. Verificar se é comando financeiro ou conversa geral
+      // 5. 🔮 ALERTAS PREDITIVOS - Gerar antes de processar comando
+      console.log('🔮 Gerando alertas preditivos...');
+      const predictiveAlerts = await aiPredictiveAlerts.generatePredictiveAlerts(financialContext);
+
+      // 6. Verificar se é comando financeiro ou conversa geral
       const isCommand = this.isFinancialCommand(userMessage);
 
       let response: string;
       let insights: Insight[] = [];
-      let metadata: any = { sentiment, predictiveAlerts: predictiveAlerts.slice(0, 3) };
+      let metadata: any = {
+        sentiment,
+        predictiveAlerts: predictiveAlerts.slice(0, 3),
+        ragContext: {
+          memorias_encontradas: ragContext.memorias_relevantes.length,
+          confidence_score: ragContext.confidence_score,
+          sugestoes: ragContext.sugestoes
+        }
+      };
 
       if (isCommand) {
-        // Fluxo de comando financeiro
-        const result = await this.processFinancialCommand(userMessage, context, userId, sentiment);
+        // Fluxo de comando financeiro com RAG
+        const result = await this.processFinancialCommand(userMessage, financialContext, userId, sentiment, ragContext);
         response = result.message;
         insights = result.insights || [];
         metadata = { ...metadata, ...result.metadata };
       } else {
-        // Fluxo de conversa geral com IA (adaptado ao sentimento)
-        const result = await this.processGeneralConversation(userMessage, context, sentiment);
+        // Fluxo de conversa geral com IA e RAG
+        const result = await this.processGeneralConversation(userMessage, financialContext, sentiment, ragContext);
         response = result.message;
         insights = result.insights || [];
       }
@@ -134,19 +165,33 @@ export class AIChatService {
       // 6. Gerar insights adicionais se habilitado
       if (this.config.enable_insights && insights.length === 0) {
         console.log('💡 Gerando insights adicionais...');
-        const additionalInsights = await aiInsightGenerator.generateInsights(context);
+        const additionalInsights = await aiInsightGenerator.generateInsights(financialContext);
         insights = additionalInsights.slice(0, 3);
       }
 
-      // 7. Salvar mensagem no histórico
+      // 7. 💾 Salvar interação na memória RAG
+      await this.saveInteractionToMemory(userId, userMessage, response, sentiment, financialContext, ragContext);
+
+      // 8. Salvar mensagem no histórico
       await this.saveMessageToHistory(userId, sessionId, userMessage, response, sentiment);
+
+      // 9. Registrar métrica do agente de comunicação
+      const processingTime = Date.now() - new Date().getTime();
+      await AgentConfigService.logAgentUsage(
+        'communication',
+        true,
+        Math.max(100, processingTime), // Mínimo de 100ms para ser realista
+        sentiment?.overall_score
+      );
 
       console.log('✅ Mensagem processada com sucesso');
       return {
-        message: response,
+        response: response,
+        confidence: 0.8, // Default confidence score
         insights,
         sentiment,
         predictiveAlerts: predictiveAlerts.slice(0, 5), // Top 5 alertas
+        ragContext,
         success: true,
         metadata
       };
@@ -155,7 +200,8 @@ export class AIChatService {
       console.error('❌ Erro ao processar mensagem:', error);
       
       return {
-        message: 'Desculpe, houve um erro ao processar sua mensagem. Pode tentar novamente?',
+        response: 'Desculpe, houve um erro ao processar sua mensagem. Pode tentar novamente?',
+        confidence: 0,
         success: false
       };
     } finally {
@@ -199,13 +245,14 @@ export class AIChatService {
   }
 
   /**
-   * 🔄 ENHANCED: Processa comandos financeiros com análise de sentimento
+   * 🔄 ENHANCED: Processa comandos financeiros com análise de sentimento e RAG
    */
   private async processFinancialCommand(
     userMessage: string,
     context: FinancialContext,
     userId: string,
-    sentiment: SentimentResult
+    sentiment: SentimentResult,
+    ragContext?: ContextoRAG
   ): Promise<{
     message: string;
     insights?: Insight[];
@@ -275,12 +322,13 @@ export class AIChatService {
   }
 
   /**
-   * 🔄 ENHANCED: Processa conversas gerais com análise de sentimento
+   * 🔄 ENHANCED: Processa conversas gerais com análise de sentimento e RAG
    */
   private async processGeneralConversation(
     userMessage: string,
     context: FinancialContext,
-    sentiment: SentimentResult
+    sentiment: SentimentResult,
+    ragContext?: ContextoRAG
   ): Promise<{
     message: string;
     insights?: Insight[];
@@ -296,8 +344,8 @@ export class AIChatService {
         };
       }
 
-      // Preparar contexto para OpenAI com análise de sentimento
-      const systemPrompt = this.buildEnhancedSystemPrompt(context, sentiment);
+      // Preparar contexto para OpenAI com análise de sentimento e RAG
+      const systemPrompt = this.buildEnhancedSystemPrompt(context, sentiment, ragContext);
       const messages = [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage }
@@ -340,9 +388,9 @@ export class AIChatService {
   }
 
   /**
-   * 🆕 Constrói prompt do sistema aprimorado com análise de sentimento
+   * 🆕 Constrói prompt do sistema aprimorado com análise de sentimento e RAG
    */
-  private buildEnhancedSystemPrompt(context: FinancialContext, sentiment: SentimentResult): string {
+  private buildEnhancedSystemPrompt(context: FinancialContext, sentiment: SentimentResult, ragContext?: ContextoRAG): string {
     const { usuario, patrimonio, indicadores } = context;
     const tonalGuidance = aiSentimentAnalyzer.adaptResponseTone(sentiment);
 
@@ -372,9 +420,19 @@ ${sentiment.financialStress > 0.6 ?
   '⚠️ ATENÇÃO: Usuário com alto stress financeiro. Seja especialmente cuidadoso e oferece apoio prático.' : 
   ''}
 
-${sentiment.recommendations.length > 0 ? 
-  `RECOMENDAÇÕES CONTEXTUAIS: ${sentiment.recommendations.join('; ')}` : 
+${sentiment.recommendations.length > 0 ?
+  `RECOMENDAÇÕES CONTEXTUAIS: ${sentiment.recommendations.join('; ')}` :
   ''}
+
+${ragContext && ragContext.memorias_relevantes.length > 0 ?
+  `CONTEXTO HISTÓRICO RELEVANTE (${ragContext.memorias_relevantes.length} memórias encontradas):
+${ragContext.memorias_relevantes.slice(0, 3).map(m =>
+  `- ${m.tipo_conteudo}: ${(m.resumo || m.conteudo).substring(0, 150)}...`
+).join('\n')}
+
+CONFIDENCE SCORE: ${ragContext.confidence_score.toFixed(2)} (quanto maior, mais relevante)
+${ragContext.sugestoes.length > 0 ? `SUGESTÕES BASEADAS NO HISTÓRICO: ${ragContext.sugestoes.join('; ')}` : ''}
+` : ''}
 
 SUAS CAPACIDADES:
 - Analisar situação financeira considerando o estado emocional
@@ -487,6 +545,65 @@ Fale naturalmente comigo!`;
   }
 
   /**
+   * 💾 Salva interação na memória RAG para aprendizado contínuo
+   */
+  private async saveInteractionToMemory(
+    userId: string,
+    userMessage: string,
+    aiResponse: string,
+    sentiment: SentimentResult,
+    context: FinancialContext,
+    ragContext?: ContextoRAG
+  ): Promise<void> {
+    try {
+      // Determinar tipo de conteúdo baseado na interação
+      const isCommand = this.isFinancialCommand(userMessage);
+      const tipoConteudo = isCommand ? 'transacao' : 'conversa';
+
+      // Criar resumo da interação
+      const resumo = `Usuário: ${userMessage.substring(0, 100)}... | AI: ${aiResponse.substring(0, 100)}...`;
+
+      // Contexto financeiro relevante
+      const contextoFinanceiro = {
+        saldo_total: context.patrimonio.saldo_total,
+        receitas_mes: context.indicadores.mes_atual.receitas_mes,
+        despesas_mes: context.indicadores.mes_atual.despesas_mes,
+        saude_financeira: context.indicadores.saude_financeira.nivel,
+        sentiment: sentiment.sentiment,
+        financial_stress: sentiment.financialStress
+      };
+
+      // Metadados da interação
+      const metadata = {
+        tipo_comando: isCommand,
+        confidence_score: ragContext?.confidence_score || 0,
+        sentiment_detected: sentiment.sentiment,
+        stress_level: sentiment.financialStress,
+        sugestoes_rag: ragContext?.sugestoes || [],
+        timestamp: new Date().toISOString()
+      };
+
+      // Salvar na memória vetorial
+      await financialMemoryManager.armazenarInteracao({
+        userId,
+        tipo: tipoConteudo,
+        conteudo: `${userMessage}\n\n${aiResponse}`,
+        resumo,
+        metadata,
+        contextoFinanceiro
+      });
+
+      console.log('💾 Interação salva na memória RAG:', {
+        userId,
+        tipo: tipoConteudo,
+        resumo: resumo.substring(0, 50) + '...'
+      });
+    } catch (error) {
+      console.warn('⚠️ Não foi possível salvar interação na memória RAG:', error);
+    }
+  }
+
+  /**
    * 🔄 ENHANCED: Salva mensagem no histórico com sentimento
    */
   private async saveMessageToHistory(
@@ -498,9 +615,9 @@ Fale naturalmente comigo!`;
   ): Promise<void> {
     try {
       // TODO: Implementar salvamento no banco de dados com sentimento
-      console.log('💾 Salvando no histórico (Enhanced):', { 
-        userId, 
-        sessionId, 
+      console.log('💾 Salvando no histórico (Enhanced):', {
+        userId,
+        sessionId,
         userMessage: userMessage.substring(0, 50),
         sentiment: sentiment?.sentiment,
         financialStress: sentiment?.financialStress

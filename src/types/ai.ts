@@ -132,6 +132,21 @@ export interface Mensagem {
   };
 }
 
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  isStreaming?: boolean;
+}
+
+export interface ChatResponse {
+  response: string;
+  confidence?: number;
+  insights?: Insight[];
+  metadata?: any;
+}
+
 export interface Intencao {
   tipo: IntentType;
   confianca: number;
@@ -198,6 +213,29 @@ export interface FinancialContext {
     operacoes_realizadas: OperacaoRealizada[];
     preferencias_contextuais: PreferenciaContextual[];
   };
+
+  // Contexto RAG híbrido
+  ragContext?: {
+    knowledgeBaseSources: Array<{
+      content: string;
+      title?: string;
+      category: string;
+      similarity: number;
+    }>;
+    userMemorySources: Array<{
+      content: string;
+      summary?: string;
+      similarity: number;
+    }>;
+    contextSummary: string;
+    confidenceScore: number;
+    recommendedAction: string;
+  };
+
+  // Dados adicionais para contexto
+  currentMonth?: number;
+  currentYear?: number;
+  userFinancialData?: Record<string, any>;
 }
 
 // Processamento de linguagem natural

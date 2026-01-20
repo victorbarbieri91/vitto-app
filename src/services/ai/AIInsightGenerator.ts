@@ -403,26 +403,215 @@ export class AIInsightGenerator {
 
   private async detectGastoAnomalies(context: FinancialContext): Promise<Anomaly[]> {
     const anomalies: Anomaly[] = [];
-    
-    // TODO: Implementar detecção real de anomalias de gastos
-    // Por enquanto retorna array vazio
-    
+
+    try {
+      // Buscar histórico de 3 meses para análise estatística
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+      // Agrupar gastos por categoria para detecção de anomalias
+      const categoriaStats = new Map<string, { valores: number[]; media: number; desvio: number }>();
+
+      // Calcular estatísticas por categoria dos últimos 3 meses
+      for (const transacao of context.historico.lancamentos_recentes) {
+        if (transacao.tipo === 'despesa') {
+          const categoria = transacao.categoria_nome || 'Sem categoria';
+
+          if (!categoriaStats.has(categoria)) {
+            categoriaStats.set(categoria, { valores: [], media: 0, desvio: 0 });
+          }
+
+          categoriaStats.get(categoria)!.valores.push(Number(transacao.valor));
+        }
+      }
+
+      // Calcular média e desvio padrão por categoria
+      categoriaStats.forEach((stats, categoria) => {
+        if (stats.valores.length > 2) {
+          const media = stats.valores.reduce((a, b) => a + b, 0) / stats.valores.length;
+          const variancia = stats.valores.reduce((sum, val) => sum + Math.pow(val - media, 2), 0) / stats.valores.length;
+          const desvio = Math.sqrt(variancia);
+
+          stats.media = media;
+          stats.desvio = desvio;
+
+          // Detectar valores anômalos (> 2 desvios padrão)
+          stats.valores.forEach(valor => {
+            if (Math.abs(valor - media) > 2 * desvio && desvio > 0) {
+              anomalies.push({
+                tipo: 'gasto_alto',
+                descricao: `Gasto incomum em ${categoria}: ${this.formatCurrency(valor)}`,
+                valor_detectado: valor,
+                valor_esperado: media,
+                categoria,
+                confianca: Math.min(0.95, (Math.abs(valor - media) / desvio) * 0.3),
+                sugestao_acao: valor > media
+                  ? `Revise este gasto. Está ${((valor / media - 1) * 100).toFixed(0)}% acima da média`
+                  : `Economia detectada! ${((1 - valor / media) * 100).toFixed(0)}% abaixo da média`
+              });
+            }
+          });
+        }
+      });
+
+      // Detectar categorias novas com valores altos
+      const categoriasNovas = context.historico.categorias_preferidas.filter(
+        cat => cat.ultimo_uso && this.daysSince(cat.ultimo_uso) < 7 && cat.uso_mensal === 1
+      );
+
+      categoriasNovas.forEach(cat => {
+        if (cat.valor_total_mes > context.indicadores.mes_atual.despesas_mes * 0.2) {
+          anomalies.push({
+            tipo: 'categoria_nova',
+            descricao: `Nova categoria com gasto significativo: ${cat.categoria_nome}`,
+            valor_detectado: cat.valor_total_mes,
+            valor_esperado: 0,
+            categoria: cat.categoria_nome,
+            confianca: 0.8,
+            sugestao_acao: 'Nova categoria de gasto detectada. Considere criar um orçamento para ela'
+          });
+        }
+      });
+
+    } catch (error) {
+      console.warn('Erro ao detectar anomalias:', error);
+    }
+
     return anomalies;
   }
 
   private async detectPadraoAnomalies(context: FinancialContext): Promise<Anomaly[]> {
     const anomalies: Anomaly[] = [];
-    
-    // TODO: Implementar detecção de mudanças de padrão
-    
+
+    try {
+      // Analisar mudanças de padrão baseado no histórico
+      for (const padrao of context.historico.padroes_gastos) {
+        // Verificar se houve mudança significativa no valor médio
+        const ultimasTransacoes = context.historico.lancamentos_recentes.filter(
+          t => t.categoria_id === padrao.categoria_id && t.tipo === 'despesa'
+        );
+
+        if (ultimasTransacoes.length > 0) {
+          const valorMedioRecente = ultimasTransacoes
+            .slice(0, 5)
+            .reduce((sum, t) => sum + Number(t.valor), 0) / Math.min(ultimasTransacoes.length, 5);
+
+          const variacaoPercentual = ((valorMedioRecente - padrao.valor_medio) / padrao.valor_medio) * 100;
+
+          if (Math.abs(variacaoPercentual) > 50) {
+            anomalies.push({
+              tipo: 'padrao_quebrado',
+              descricao: `Mudança de padrão detectada na categoria ${padrao.categoria_id}`,
+              valor_detectado: valorMedioRecente,
+              valor_esperado: padrao.valor_medio,
+              categoria: `Categoria ${padrao.categoria_id}`,
+              confianca: Math.min(0.9, Math.abs(variacaoPercentual) / 100),
+              sugestao_acao: variacaoPercentual > 0
+                ? `Gastos aumentaram ${variacaoPercentual.toFixed(0)}%. Revise se é intencional`
+                : `Gastos diminuíram ${Math.abs(variacaoPercentual).toFixed(0)}%. Ótima economia!`
+            });
+          }
+        }
+      }
+
+      // Detectar mudanças na frequência de gastos
+      const frequenciaAtual = context.historico.lancamentos_recentes.filter(
+        t => t.tipo === 'despesa'
+      ).length;
+
+      const frequenciaEsperada = context.historico.padroes_gastos.reduce(
+        (sum, p) => sum + p.frequencia_mensal, 0
+      );
+
+      if (frequenciaEsperada > 0 && Math.abs(frequenciaAtual - frequenciaEsperada) > frequenciaEsperada * 0.5) {
+        anomalies.push({
+          tipo: 'padrao_quebrado',
+          descricao: 'Mudança significativa na frequência de gastos',
+          valor_detectado: frequenciaAtual,
+          valor_esperado: frequenciaEsperada,
+          categoria: 'Geral',
+          confianca: 0.75,
+          sugestao_acao: frequenciaAtual > frequenciaEsperada
+            ? 'Você está gastando com mais frequência que o normal'
+            : 'Você está gastando menos frequentemente. Parabéns!'
+        });
+      }
+
+    } catch (error) {
+      console.warn('Erro ao detectar mudanças de padrão:', error);
+    }
+
     return anomalies;
   }
 
   private async detectCategoriaAnomalies(context: FinancialContext): Promise<Anomaly[]> {
     const anomalies: Anomaly[] = [];
-    
-    // TODO: Implementar detecção de categorias com gastos incomuns
-    
+
+    try {
+      // Analisar gastos incomuns por categoria
+      const categoriasComGastos = new Map<string, number>();
+
+      // Somar gastos do mês atual por categoria
+      context.historico.lancamentos_recentes.forEach(t => {
+        if (t.tipo === 'despesa' && t.categoria_nome) {
+          const atual = categoriasComGastos.get(t.categoria_nome) || 0;
+          categoriasComGastos.set(t.categoria_nome, atual + Number(t.valor));
+        }
+      });
+
+      // Comparar com médias históricas das categorias preferidas
+      context.historico.categorias_preferidas.forEach(cat => {
+        const gastoAtual = categoriasComGastos.get(cat.categoria_nome) || 0;
+        const gastoEsperado = cat.valor_total_mes;
+
+        if (gastoEsperado > 0) {
+          const variacao = ((gastoAtual - gastoEsperado) / gastoEsperado) * 100;
+
+          if (variacao > 100) {
+            anomalies.push({
+              tipo: 'gasto_incomum',
+              descricao: `Gasto muito elevado em ${cat.categoria_nome}`,
+              valor_detectado: gastoAtual,
+              valor_esperado: gastoEsperado,
+              categoria: cat.categoria_nome,
+              confianca: Math.min(0.95, variacao / 200),
+              sugestao_acao: `Gastos ${variacao.toFixed(0)}% acima da média. Verifique se há gastos desnecessários`
+            });
+          } else if (variacao < -50 && gastoAtual > 0) {
+            anomalies.push({
+              tipo: 'gasto_incomum',
+              descricao: `Gasto reduzido em ${cat.categoria_nome}`,
+              valor_detectado: gastoAtual,
+              valor_esperado: gastoEsperado,
+              categoria: cat.categoria_nome,
+              confianca: 0.7,
+              sugestao_acao: `Economia de ${Math.abs(variacao).toFixed(0)}% nesta categoria!`
+            });
+          }
+        }
+      });
+
+      // Detectar categorias sem gastos quando deveriam ter
+      context.historico.categorias_preferidas
+        .filter(cat => cat.uso_mensal > 3) // Categorias frequentes
+        .forEach(cat => {
+          if (!categoriasComGastos.has(cat.categoria_nome)) {
+            anomalies.push({
+              tipo: 'gasto_incomum',
+              descricao: `Nenhum gasto em ${cat.categoria_nome} este mês`,
+              valor_detectado: 0,
+              valor_esperado: cat.valor_total_mes,
+              categoria: cat.categoria_nome,
+              confianca: 0.6,
+              sugestao_acao: 'Categoria usual sem gastos. Isso é intencional?'
+            });
+          }
+        });
+
+    } catch (error) {
+      console.warn('Erro ao detectar anomalias de categoria:', error);
+    }
+
     return anomalies;
   }
 
@@ -456,26 +645,183 @@ export class AIInsightGenerator {
 
   private async predictGastosCategorias(context: FinancialContext): Promise<Prediction[]> {
     const predictions: Prediction[] = [];
-    
-    // TODO: Implementar predições por categoria baseadas no histórico
-    
+
+    try {
+      // Analisar tendências por categoria
+      context.indicadores.tendencias.forEach(tendencia => {
+        if (tendencia.tendencia === 'crescente' && tendencia.variacao_percentual > 20) {
+          const valorProjetado = tendencia.mes_atual * (1 + tendencia.variacao_percentual / 100);
+
+          predictions.push({
+            tipo: 'gasto_categoria',
+            valor_previsto: valorProjetado,
+            data_previsao: this.endOfCurrentMonth(),
+            confianca: Math.min(0.85, 0.5 + tendencia.variacao_percentual / 100),
+            fatores: [
+              `Tendência ${tendencia.tendencia}`,
+              `Variação de ${tendencia.variacao_percentual.toFixed(0)}%`,
+              `Média histórica: ${this.formatCurrency(tendencia.media_mensal)}`
+            ],
+            recomendacao: `${tendencia.categoria_nome} em alta. Considere definir um orçamento de ${this.formatCurrency(valorProjetado * 0.9)}`
+          });
+        }
+      });
+
+      // Predição baseada em sazonalidade (categorias com padrões)
+      context.historico.padroes_gastos.forEach(padrao => {
+        if (padrao.frequencia_mensal > 2) {
+          const diasRestantes = this.daysUntilEndOfMonth();
+          const gastosProjetados = padrao.valor_medio * padrao.frequencia_mensal;
+
+          predictions.push({
+            tipo: 'gasto_categoria',
+            valor_previsto: gastosProjetados,
+            data_previsao: this.endOfCurrentMonth(),
+            confianca: Math.min(0.8, padrao.frequencia_mensal / 10),
+            fatores: [
+              `Frequência: ${padrao.frequencia_mensal.toFixed(1)}x/mês`,
+              `Valor médio: ${this.formatCurrency(padrao.valor_medio)}`,
+              `Dia preferido: ${this.getDayName(padrao.dia_semana_preferido)}`
+            ],
+            recomendacao: `Categoria ${padrao.categoria_id} tem padrão regular. Previsto: ${this.formatCurrency(gastosProjetados)}`
+          });
+        }
+      });
+
+    } catch (error) {
+      console.warn('Erro ao prever gastos por categoria:', error);
+    }
+
     return predictions;
   }
 
   private async predictMetasAtingidas(context: FinancialContext): Promise<Prediction[]> {
     const predictions: Prediction[] = [];
-    
-    // TODO: Implementar predições de quando metas serão atingidas
-    
+
+    try {
+      context.planejamento.metas_ativas.forEach(meta => {
+        if (meta.valor_atual < meta.valor_meta) {
+          const faltante = meta.valor_meta - meta.valor_atual;
+          const diasRestantes = this.daysBetween(new Date(), new Date(meta.data_fim));
+          const economiaMedia = context.indicadores.mes_atual.fluxo_liquido;
+
+          if (economiaMedia > 0) {
+            const mesesNecessarios = faltante / economiaMedia;
+            const diasNecessarios = mesesNecessarios * 30;
+
+            predictions.push({
+              tipo: 'meta_atingida',
+              valor_previsto: meta.valor_meta,
+              data_previsao: new Date(Date.now() + diasNecessarios * 24 * 60 * 60 * 1000),
+              confianca: diasNecessarios <= diasRestantes ? 0.8 : 0.4,
+              fatores: [
+                `Faltam ${this.formatCurrency(faltante)}`,
+                `Economia média: ${this.formatCurrency(economiaMedia)}/mês`,
+                `Progresso: ${((meta.valor_atual / meta.valor_meta) * 100).toFixed(0)}%`
+              ],
+              recomendacao: diasNecessarios <= diasRestantes
+                ? `Meta será atingida no prazo se mantiver economia de ${this.formatCurrency(economiaMedia)}/mês`
+                : `Aumente economia para ${this.formatCurrency(faltante / (diasRestantes / 30))}/mês para atingir no prazo`
+            });
+          } else {
+            predictions.push({
+              tipo: 'meta_atingida',
+              valor_previsto: meta.valor_meta,
+              data_previsao: new Date(meta.data_fim),
+              confianca: 0.2,
+              fatores: [
+                `Fluxo negativo: ${this.formatCurrency(economiaMedia)}`,
+                `Faltam ${this.formatCurrency(faltante)}`,
+                `Dias restantes: ${diasRestantes}`
+              ],
+              recomendacao: 'Com fluxo negativo, meta não será atingida. Reduza gastos ou aumente receitas'
+            });
+          }
+        }
+      });
+
+    } catch (error) {
+      console.warn('Erro ao prever metas:', error);
+    }
+
     return predictions;
   }
 
   private async predictOrcamentosExcedidos(context: FinancialContext): Promise<Prediction[]> {
     const predictions: Prediction[] = [];
-    
-    // TODO: Implementar predições de orçamentos que podem ser excedidos
-    
+
+    try {
+      const diasPassados = new Date().getDate();
+      const diasNoMes = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+      const percentualMes = diasPassados / diasNoMes;
+
+      context.planejamento.orcamentos_ativos.forEach(orcamento => {
+        // Buscar gastos atuais da categoria
+        const gastosCategoria = context.historico.lancamentos_recentes
+          .filter(t => t.categoria_id === orcamento.categoria_id && t.tipo === 'despesa')
+          .reduce((sum, t) => sum + Number(t.valor), 0);
+
+        const percentualGasto = gastosCategoria / orcamento.valor;
+
+        // Se já gastou mais que o proporcional ao tempo do mês
+        if (percentualGasto > percentualMes) {
+          const taxaGastoDiario = gastosCategoria / diasPassados;
+          const gastoProjetado = taxaGastoDiario * diasNoMes;
+
+          predictions.push({
+            tipo: 'orcamento_excedido',
+            valor_previsto: gastoProjetado,
+            data_previsao: this.endOfCurrentMonth(),
+            confianca: Math.min(0.9, percentualGasto),
+            fatores: [
+              `Orçamento: ${this.formatCurrency(orcamento.valor)}`,
+              `Já gasto: ${this.formatCurrency(gastosCategoria)} (${(percentualGasto * 100).toFixed(0)}%)`,
+              `Taxa diária: ${this.formatCurrency(taxaGastoDiario)}`
+            ],
+            recomendacao: gastoProjetado > orcamento.valor * 1.2
+              ? `ALERTA: Projeção ${((gastoProjetado / orcamento.valor - 1) * 100).toFixed(0)}% acima. Reduza gastos imediatamente`
+              : `Atenção: Pode exceder em ${this.formatCurrency(gastoProjetado - orcamento.valor)}`
+          });
+        }
+      });
+
+      // Predição geral de orçamento total
+      const orcamentoTotal = context.planejamento.orcamentos_ativos.reduce((sum, o) => sum + o.valor, 0);
+      const gastosTotal = context.indicadores.mes_atual.despesas_mes;
+
+      if (orcamentoTotal > 0) {
+        const taxaGastoMensal = gastosTotal / diasPassados * diasNoMes;
+
+        if (taxaGastoMensal > orcamentoTotal) {
+          predictions.push({
+            tipo: 'orcamento_excedido',
+            valor_previsto: taxaGastoMensal,
+            data_previsao: this.endOfCurrentMonth(),
+            confianca: 0.75,
+            fatores: [
+              `Orçamento total: ${this.formatCurrency(orcamentoTotal)}`,
+              `Projeção mensal: ${this.formatCurrency(taxaGastoMensal)}`,
+              `Excesso previsto: ${this.formatCurrency(taxaGastoMensal - orcamentoTotal)}`
+            ],
+            recomendacao: 'Orçamento geral em risco. Revise gastos em todas as categorias'
+          });
+        }
+      }
+
+    } catch (error) {
+      console.warn('Erro ao prever orçamentos:', error);
+    }
+
     return predictions;
+  }
+
+  private getDayName(day: number): string {
+    const days = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+    return days[day] || 'Dia';
+  }
+
+  private daysBetween(date1: Date, date2: Date): number {
+    return Math.floor((date2.getTime() - date1.getTime()) / (1000 * 60 * 60 * 24));
   }
 
   // Métodos auxiliares

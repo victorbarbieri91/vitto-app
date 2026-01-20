@@ -1,8 +1,10 @@
 import { ReactNode } from 'react';
+import { motion } from 'framer-motion';
 import { cn } from '../../../utils/cn';
 import { useResponsiveClasses } from '../../../hooks/useScreenDetection';
 import AnimatedNumber from './AnimatedNumber';
-import ModernCard from './ModernCard';
+
+type ColorScheme = 'blue' | 'green' | 'coral' | 'auto' | 'neutral';
 
 interface SimpleMetricCardProps {
   title: string;
@@ -11,6 +13,7 @@ interface SimpleMetricCardProps {
   isLoading?: boolean;
   className?: string;
   onClick?: () => void;
+  colorScheme?: ColorScheme;
 }
 
 export default function SimpleMetricCard({
@@ -20,57 +23,120 @@ export default function SimpleMetricCard({
   isLoading = false,
   className,
   onClick,
+  colorScheme = 'neutral',
 }: SimpleMetricCardProps) {
-  const { classes, size } = useResponsiveClasses();
-  
+  const { size } = useResponsiveClasses();
+
+  // Paleta definida pelo usuário
+  const getColorClasses = () => {
+    const effectiveScheme = colorScheme === 'auto'
+      ? (value && value >= 0 ? 'green' : 'coral')
+      : colorScheme;
+
+    switch (effectiveScheme) {
+      case 'blue':
+        // Saldo das Contas - Cinza escuro
+        return {
+          bg: 'bg-slate-700',
+          value: 'text-white',
+          title: 'text-slate-300',
+          icon: 'text-slate-400',
+        };
+      case 'green':
+        // Receitas - Verde escuro
+        return {
+          bg: 'bg-teal-700',
+          value: 'text-white',
+          title: 'text-teal-100',
+          icon: 'text-teal-200',
+        };
+      case 'coral':
+        // Despesas - Coral
+        return {
+          bg: 'bg-coral-500',
+          value: 'text-white',
+          title: 'text-coral-100',
+          icon: 'text-coral-200',
+        };
+      default:
+        // Economia - Fundo branco com texto verde escuro
+        return {
+          bg: 'bg-white border-slate-200',
+          value: 'text-teal-700',
+          title: 'text-teal-600',
+          icon: 'text-teal-500',
+        };
+    }
+  };
+
+  const colors = getColorClasses();
+
   if (isLoading) {
     return (
-      <div className={cn(classes.padding, "rounded-3xl bg-white/60", className)}>
-        <div className={cn("w-1/2 bg-slate-200 rounded-md animate-pulse", classes.textSm === 'text-xs' ? 'h-3 mb-2' : 'h-4 mb-3')}></div>
-        <div className={cn("w-3/4 bg-slate-200 rounded-md animate-pulse", classes.textLg === 'text-base' ? 'h-6 mb-2' : 'h-8 mb-3')}></div>
-        <div className={cn("w-1/4 bg-slate-200 rounded-md animate-pulse", classes.textSm === 'text-xs' ? 'h-2' : 'h-3')}></div>
+      <div className={cn(
+        "rounded-xl shadow-sm border h-full",
+        colors.bg,
+        className
+      )}>
+        <div className={cn("h-full", size === 'mobile' ? 'p-3' : 'p-4')}>
+          <div className="w-1/2 h-3 bg-slate-200/60 rounded-md animate-pulse mb-3" />
+          <div className="w-3/4 h-5 bg-slate-100/60 rounded-md animate-pulse" />
+        </div>
       </div>
     );
   }
 
-  // Garantir que sempre temos um número válido
   const displayValue = value ?? 0;
 
   return (
-    <ModernCard
-      variant="metric-interactive"
-      padding={size === 'mobile' ? 'sm' : 'md'}
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={onClick ? { y: -2 } : undefined}
+      transition={{ duration: 0.2 }}
       className={cn(
-        size === 'mobile' ? 'p-3' : classes.padding,
-        onClick && 'cursor-pointer',
+        "rounded-xl shadow-sm border h-full",
+        colors.bg,
+        onClick && 'cursor-pointer hover:shadow-md transition-shadow',
         className
       )}
       onClick={onClick}
     >
-      <div className="flex justify-between items-start text-slate-500 group-hover:text-deep-blue transition-colors duration-300">
-        <p className={cn(
-          size === 'mobile' ? 'text-[10px]' : classes.textSm,
-          "font-medium leading-tight"
-        )}>{title}</p>
-        {icon && <div className="group-hover:text-deep-blue transition-colors duration-300">{icon}</div>}
-      </div>
+      <div className={cn(
+        "h-full",
+        size === 'mobile' ? 'p-3' : 'p-4'
+      )}>
+        <div className="flex justify-between items-start">
+          <p className={cn(
+            size === 'mobile' ? 'text-[10px]' : 'text-xs',
+            "font-medium leading-tight",
+            colors.title
+          )}>{title}</p>
+          {icon && (
+            <div className={cn(colors.icon)}>
+              {icon}
+            </div>
+          )}
+        </div>
 
-      <div className={size === 'mobile' ? 'mt-1' : 'mt-3'}>
-        <p className={cn(
-          size === 'mobile' ? 'text-xs' : classes.textLg,
-          "font-bold text-deep-blue transition-colors duration-300"
-        )}>
-          <AnimatedNumber
-            value={displayValue}
-            format={(v) => new Intl.NumberFormat('pt-BR', {
-              style: 'currency',
-              currency: 'BRL',
-              minimumFractionDigits: size === 'mobile' ? 0 : 2,
-              maximumFractionDigits: size === 'mobile' ? 0 : 2,
-            }).format(v)}
-          />
-        </p>
+        <div className={size === 'mobile' ? 'mt-1' : 'mt-2'}>
+          <p className={cn(
+            size === 'mobile' ? 'text-sm' : 'text-lg',
+            "font-bold",
+            colors.value
+          )}>
+            <AnimatedNumber
+              value={displayValue}
+              format={(v) => new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }).format(v)}
+            />
+          </p>
+        </div>
       </div>
-    </ModernCard>
+    </motion.div>
   );
 }

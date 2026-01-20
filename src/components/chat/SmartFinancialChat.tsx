@@ -1,15 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Loader, User, Bot, HelpCircle, ChevronDown } from 'lucide-react';
+import { Send, Loader, User, Bot, HelpCircle, ChevronDown, Paperclip, X, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { ModernCard } from '../ui/modern';
 import { useResponsiveClasses } from '../../hooks/useScreenDetection';
 import { useAuth } from '../../store/AuthContext';
 import { cn } from '../../utils/cn';
+import { documentProcessor } from '../../services/ai/DocumentProcessor';
+import { agentCoordinator } from '../../services/ai/multi-agent/AgentCoordinator';
+import { aiContextManager } from '../../services/ai/AIContextManager';
+import { ragEnhancedChatService } from '../../services/ai/RAGEnhancedChatService';
+import type { RAGChatResponse, RAGChatMessage } from '../../services/ai/RAGEnhancedChatService';
 
-interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
+interface ChatMessage extends RAGChatMessage {
   isStreaming?: boolean;
 }
 
@@ -58,9 +59,13 @@ export default function SmartFinancialChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [showFAQ, setShowFAQ] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<'consultas' | 'ações' | 'análises'>('consultas');
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [isProcessingFile, setIsProcessingFile] = useState(false);
+  const useRAG = true; // Always use RAG mode
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const faqRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = (smooth = false) => {
     if (scrollContainerRef.current) {
@@ -101,20 +106,70 @@ export default function SmartFinancialChat() {
     }
   }, [showFAQ]);
 
+  const handleFileAttach = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Verificar se é um tipo de arquivo suportado
+      const supportedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+      if (supportedTypes.includes(file.type)) {
+        setAttachedFile(file);
+      } else {
+        alert('Tipo de arquivo não suportado. Use: JPG, PNG, WebP ou PDF');
+      }
+    }
+    // Reset input para permitir selecionar o mesmo arquivo novamente
+    event.target.value = '';
+  };
+
+  const removeAttachedFile = () => {
+    setAttachedFile(null);
+  };
+
+  // Determina se deve usar sistema multi-agente baseado na complexidade da requisição
+  const shouldUseMultiAgent = (message: string, hasFile: boolean): boolean => {
+    const complexKeywords = [
+      'analise', 'compare', 'relatório', 'padrão', 'tendência', 'anomalia',
+      'organize', 'categorize', 'importe', 'processe', 'validar',
+      'documento', 'extrato', 'cupom', 'comprovante', 'fatura'
+    ];
+
+    const hasComplexKeywords = complexKeywords.some(keyword =>
+      message.toLowerCase().includes(keyword)
+    );
+
+    const hasMultipleActions = (message.match(/\be\b/g) || []).length > 2;
+    const isLongMessage = message.length > 100;
+
+    return hasFile || hasComplexKeywords || hasMultipleActions || isLongMessage;
+  };
+
   const handleSendMessage = async (messageText?: string) => {
     const text = messageText || input.trim();
-    if (!text || isLoading || !user) return;
+    if ((!text && !attachedFile) || isLoading || !user) return;
+
+    // Preparar conteúdo da mensagem
+    let messageContent = text;
+    if (attachedFile) {
+      messageContent = text || 'Documento anexado para análise';
+      messageContent += `\n\n📎 **Arquivo**: ${attachedFile.name} (${(attachedFile.size / 1024 / 1024).toFixed(1)}MB)`;
+    }
 
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
-      content: text,
+      content: messageContent,
       timestamp: new Date()
     };
 
     // Add user message
     setMessages(prev => [...prev, userMessage]);
     setInput('');
+    const currentFile = attachedFile;
+    setAttachedFile(null); // Remove arquivo após enviar
     setIsLoading(true);
 
     // Create assistant message placeholder with initial content
@@ -130,99 +185,322 @@ export default function SmartFinancialChat() {
     setMessages(prev => [...prev, assistantMessage]);
 
     try {
-      // Call Supabase Edge Function
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      if (!supabaseUrl) {
-        throw new Error('VITE_SUPABASE_URL não configurada');
-      }
+      if (useRAG) {
+        // Usar novo sistema RAG enhancedhat
+        await handleRAGRequest(text, currentFile, assistantMessageId, userMessage);
+      } else {
+        // Verificar se deve usar sistema multi-agente (legacy mode)
+        const useMultiAgent = shouldUseMultiAgent(text, !!currentFile);
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/ai-chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          messages: [...messages, userMessage].map(m => ({
-            role: m.role,
-            content: m.content
-          })),
-          userId: user.id
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-
-      if (!reader) {
-        throw new Error('No reader available');
-      }
-
-      let accumulatedContent = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n').filter(line => line.trim() !== '');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-
-            if (data === '[DONE]') {
-              break;
-            }
-
-            try {
-              const parsed = JSON.parse(data);
-              const content = parsed.choices?.[0]?.delta?.content;
-
-              if (content) {
-                accumulatedContent += content;
-
-                // Update the assistant message with accumulated content
-                setMessages(prev => prev.map(msg =>
-                  msg.id === assistantMessageId
-                    ? { ...msg, content: accumulatedContent || 'Pensando...', isStreaming: true }
-                    : msg
-                ));
-              }
-            } catch (parseError) {
-              console.warn('Error parsing streaming data:', parseError);
-            }
-          }
+        if (useMultiAgent) {
+          // Usar sistema multi-agente para requisições complexas
+          await handleMultiAgentRequest(text, currentFile, assistantMessageId);
+        } else {
+          // Usar Edge Function simples para consultas básicas
+          await handleSimpleRequest(text, currentFile, assistantMessageId, userMessage);
         }
       }
-
-      // Mark streaming as complete
-      setMessages(prev => prev.map(msg =>
-        msg.id === assistantMessageId
-          ? { ...msg, isStreaming: false }
-          : msg
-      ));
-
     } catch (error) {
-      console.error('Chat error:', error);
-
-      // Update assistant message with error
+      console.error('Error in chat:', error);
       setMessages(prev => prev.map(msg =>
         msg.id === assistantMessageId
           ? {
               ...msg,
-              content: 'Desculpe, houve um erro ao processar sua mensagem. Por favor, tente novamente.',
+              content: '❌ Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.',
               isStreaming: false
             }
           : msg
       ));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Processa requisições complexas com sistema multi-agente
+  const handleMultiAgentRequest = async (text: string, file: File | null, assistantMessageId: string) => {
+    setMessages(prev => prev.map(msg =>
+      msg.id === assistantMessageId
+        ? { ...msg, content: '🤖 Coordenando equipe de agentes especializados...', isStreaming: true }
+        : msg
+    ));
+
+    let documentAnalysis = '';
+
+    // Processar documento se houver
+    if (file) {
+      setIsProcessingFile(true);
+      setMessages(prev => prev.map(msg =>
+        msg.id === assistantMessageId
+          ? { ...msg, content: '📄 Processando documento com IA Vision...', isStreaming: true }
+          : msg
+      ));
+
+      try {
+        const result = await documentProcessor.processDocument(file);
+        if (result.success && result.data) {
+          documentAnalysis = documentProcessor.formatExtractedDataForUser(result.data);
+        }
+      } catch (docError) {
+        console.error('Erro no processamento do documento:', docError);
+        documentAnalysis = '❌ Erro no processamento do documento.';
+      } finally {
+        setIsProcessingFile(false);
+      }
+    }
+
+    // Usar AgentCoordinator para processar a requisição
+    try {
+      setMessages(prev => prev.map(msg =>
+        msg.id === assistantMessageId
+          ? { ...msg, content: '⚡ Executando análise multi-agente...', isStreaming: true }
+          : msg
+      ));
+
+      const context = await aiContextManager.buildContext(user!.id);
+      const workflowResult = await agentCoordinator.processRequest(
+        text,
+        user!.id,
+        context,
+        file || undefined,
+        documentAnalysis || undefined
+      );
+
+      if (workflowResult.success && workflowResult.results.message) {
+        setMessages(prev => prev.map(msg =>
+          msg.id === assistantMessageId
+            ? {
+                ...msg,
+                content: workflowResult.results.message,
+                isStreaming: false
+              }
+            : msg
+        ));
+      } else {
+        throw new Error('Falha no processamento multi-agente');
+      }
+    } catch (multiAgentError) {
+      console.error('Erro no sistema multi-agente:', multiAgentError);
+      // Fallback para Edge Function simples
+      await handleSimpleRequest(text, file, assistantMessageId, {
+        id: `user-${Date.now()}`,
+        role: 'user' as const,
+        content: text,
+        timestamp: new Date()
+      });
+    }
+  };
+
+  // Processa requisições simples com Edge Function
+  const handleSimpleRequest = async (
+    text: string,
+    file: File | null,
+    assistantMessageId: string,
+    userMessage: ChatMessage
+  ) => {
+    let documentAnalysis = '';
+
+    // Se há arquivo anexado, processar primeiro
+    if (file) {
+      setIsProcessingFile(true);
+
+      // Atualizar mensagem para mostrar que está processando
+      setMessages(prev => prev.map(msg =>
+        msg.id === assistantMessageId
+          ? { ...msg, content: 'Analisando documento...', isStreaming: true }
+          : msg
+      ));
+
+      try {
+        const result = await documentProcessor.processDocument(file);
+
+        if (result.success && result.data) {
+          documentAnalysis = documentProcessor.formatExtractedDataForUser(result.data);
+
+          // Se a confiança for baixa, avisar o usuário
+          if (result.data.confianca < 0.5) {
+            documentAnalysis += '\n\n⚠️ **Atenção**: A qualidade da imagem pode estar comprometendo a análise. Tente uma imagem mais clara se os dados não estiverem corretos.';
+          }
+        } else {
+          documentAnalysis = `❌ **Erro no processamento**: ${result.error}\n\nTente anexar uma imagem mais clara ou em melhor qualidade.`;
+        }
+      } catch (docError) {
+        console.error('Erro no processamento do documento:', docError);
+        documentAnalysis = '❌ **Erro**: Não foi possível processar o documento. Tente novamente com uma imagem mais clara.';
+      } finally {
+        setIsProcessingFile(false);
+      }
+
+      // Se só tem documento (sem texto), responder apenas com análise
+      if (!text.trim()) {
+        setMessages(prev => prev.map(msg =>
+          msg.id === assistantMessageId
+            ? {
+                ...msg,
+                content: `🔍 **Análise do Documento**\n\n${documentAnalysis}`,
+                isStreaming: false
+              }
+            : msg
+        ));
+        return;
+      }
+
+      // Atualizar para mostrar que vai processar com IA
+      setMessages(prev => prev.map(msg =>
+        msg.id === assistantMessageId
+          ? { ...msg, content: 'Processando com IA financeira...', isStreaming: true }
+          : msg
+      ));
+    }
+
+    // Call Supabase Edge Function
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    if (!supabaseUrl) {
+      throw new Error('VITE_SUPABASE_URL não configurada');
+    }
+
+    const response = await fetch(`${supabaseUrl}/functions/v1/ai-chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({
+        messages: [...messages, userMessage].map(m => ({
+          role: m.role,
+          content: m.content
+        })),
+        userId: user!.id,
+        documentAnalysis: documentAnalysis || undefined // Incluir análise se houver
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+
+    if (!reader) {
+      throw new Error('No reader available');
+    }
+
+    let accumulatedContent = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+
+      const chunk = decoder.decode(value);
+      const lines = chunk.split('\n').filter(line => line.trim() !== '');
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+
+          if (data === '[DONE]') {
+            break;
+          }
+
+          try {
+            const parsed = JSON.parse(data);
+            const content = parsed.choices?.[0]?.delta?.content;
+
+            if (content) {
+              accumulatedContent += content;
+
+              // Update the assistant message with accumulated content
+              setMessages(prev => prev.map(msg =>
+                msg.id === assistantMessageId
+                  ? { ...msg, content: accumulatedContent || 'Pensando...', isStreaming: true }
+                  : msg
+              ));
+            }
+          } catch (parseError) {
+            console.warn('Error parsing streaming data:', parseError);
+          }
+        }
+      }
+    }
+
+    // Mark streaming as complete
+    setMessages(prev => prev.map(msg =>
+      msg.id === assistantMessageId
+        ? { ...msg, isStreaming: false }
+        : msg
+    ));
+  };
+
+  // New RAG-enhanced request handler
+  const handleRAGRequest = async (text: string, file: File | null, assistantMessageId: string, userMessage: ChatMessage) => {
+    setMessages(prev => prev.map(msg =>
+      msg.id === assistantMessageId
+        ? { ...msg, content: '🤖 Analisando sua pergunta...', isStreaming: true }
+        : msg
+    ));
+
+    try {
+      // Build financial context
+      const context = await aiContextManager.buildContext(user!.id);
+
+      // Process message with RAG-enhanced service
+      const ragResponse = await ragEnhancedChatService.processMessage(
+        text,
+        user!.id,
+        context
+      );
+
+      if (ragResponse.success) {
+        // Update message with RAG response
+        setMessages(prev => prev.map(msg =>
+          msg.id === assistantMessageId
+            ? {
+                ...msg,
+                content: ragResponse.response,
+                isStreaming: false,
+                ragEnhanced: ragResponse.enhancedByRAG,
+                sources: ragResponse.ragContext?.sourcesUsed,
+                feedbackEnabled: ragResponse.enhancedByRAG
+              }
+            : msg
+        ));
+      } else {
+        throw new Error('RAG service failed');
+      }
+    } catch (error) {
+      console.error('Erro no RAG request:', error);
+
+      // Fallback to simple request
+      await handleSimpleRequest(text, file, assistantMessageId, userMessage);
+    }
+  };
+
+  // Handle user feedback on RAG responses
+  const handleRAGFeedback = async (messageId: string, feedback: 'helpful' | 'not_helpful') => {
+    const message = messages.find(m => m.id === messageId);
+    const userMessage = messages.find(m => m.role === 'user' && messages.indexOf(m) === messages.indexOf(message!) - 1);
+
+    if (message && userMessage && user) {
+      try {
+        await ragEnhancedChatService.recordUserFeedback(
+          messageId,
+          userMessage.content, // Query original do usuário
+          user.id,
+          feedback,
+          undefined, // comment
+          message.content // response do assistente
+        );
+
+        // Update UI to show feedback was recorded
+        setMessages(prev => prev.map(msg =>
+          msg.id === messageId
+            ? { ...msg, feedbackEnabled: false }
+            : msg
+        ));
+      } catch (error) {
+        console.error('Erro ao registrar feedback:', error);
+      }
     }
   };
 
@@ -309,32 +587,56 @@ export default function SmartFinancialChat() {
                 </div>
               )}
 
-              <div
-                className={cn(
-                  'max-w-[85%] rounded-2xl px-3 py-2 break-words',
-                  size === 'mobile' ? 'text-xs' : classes.textSm,
-                  message.role === 'user'
-                    ? 'bg-coral-500 text-white'
-                    : 'bg-white/80 text-slate-800 shadow-sm',
-                )}
-              >
-                {message.isStreaming && message.content === 'Pensando...' ? (
-                  <div className="flex items-center gap-1">
-                    <span>Pensando</span>
-                    <div className="flex gap-0.5">
-                      <div className="w-1 h-1 bg-slate-400 rounded-full animate-pulse" style={{animationDelay: '0ms'}}></div>
-                      <div className="w-1 h-1 bg-slate-400 rounded-full animate-pulse" style={{animationDelay: '150ms'}}></div>
-                      <div className="w-1 h-1 bg-slate-400 rounded-full animate-pulse" style={{animationDelay: '300ms'}}></div>
+              <div className="max-w-[85%]">
+                <div
+                  className={cn(
+                    'rounded-2xl px-3 py-2 break-words',
+                    size === 'mobile' ? 'text-xs' : classes.textSm,
+                    message.role === 'user'
+                      ? 'bg-coral-500 text-white'
+                      : 'bg-white/80 text-slate-800 shadow-sm',
+                  )}
+                >
+                  {message.isStreaming && message.content === 'Pensando...' ? (
+                    <div className="flex items-center gap-1">
+                      <span>Pensando</span>
+                      <div className="flex gap-0.5">
+                        <div className="w-1 h-1 bg-slate-400 rounded-full animate-pulse" style={{animationDelay: '0ms'}}></div>
+                        <div className="w-1 h-1 bg-slate-400 rounded-full animate-pulse" style={{animationDelay: '150ms'}}></div>
+                        <div className="w-1 h-1 bg-slate-400 rounded-full animate-pulse" style={{animationDelay: '300ms'}}></div>
+                      </div>
                     </div>
+                  ) : (
+                    <>
+                      {formatMessageContent(message.content)}
+                      <span className={cn(
+                        'inline-block w-2 h-4 ml-1',
+                        message.isStreaming ? 'bg-slate-400 animate-pulse' : 'bg-transparent'
+                      )} />
+                    </>
+                  )}
+                </div>
+
+
+                {/* Feedback Buttons for RAG responses */}
+                {message.role === 'assistant' && message.feedbackEnabled && !message.isStreaming && (
+                  <div className="mt-2 flex items-center gap-1">
+                    <span className="text-xs text-slate-500 mr-2">Esta resposta foi útil?</span>
+                    <button
+                      onClick={() => handleRAGFeedback(message.id, 'helpful')}
+                      className="p-1 hover:bg-green-100 rounded transition-colors"
+                      title="Resposta útil"
+                    >
+                      <ThumbsUp className="w-3 h-3 text-green-600" />
+                    </button>
+                    <button
+                      onClick={() => handleRAGFeedback(message.id, 'not_helpful')}
+                      className="p-1 hover:bg-red-100 rounded transition-colors"
+                      title="Resposta não útil"
+                    >
+                      <ThumbsDown className="w-3 h-3 text-red-600" />
+                    </button>
                   </div>
-                ) : (
-                  <>
-                    {formatMessageContent(message.content)}
-                    <span className={cn(
-                      'inline-block w-2 h-4 ml-1',
-                      message.isStreaming ? 'bg-slate-400 animate-pulse' : 'bg-transparent'
-                    )} />
-                  </>
                 )}
               </div>
 
@@ -419,25 +721,83 @@ export default function SmartFinancialChat() {
           )}
       </div>
 
-      {/* Input Area - Compact and centered */}
+      {/* File Preview - Show when file is attached */}
+      {attachedFile && (
+        <div className="mb-2 p-2 bg-slate-50 border border-slate-200 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Paperclip className="w-4 h-4 text-slate-400" />
+              <span className={cn(
+                size === 'mobile' ? 'text-xs' : 'text-sm',
+                'text-slate-600 truncate max-w-[200px]'
+              )}>
+                {attachedFile.name}
+              </span>
+              <span className={cn(
+                size === 'mobile' ? 'text-xs' : 'text-xs',
+                'text-slate-400'
+              )}>
+                ({(attachedFile.size / 1024 / 1024).toFixed(1)}MB)
+              </span>
+            </div>
+            <button
+              onClick={removeAttachedFile}
+              className="p-1 hover:bg-slate-200 rounded transition-colors"
+              title="Remover arquivo"
+            >
+              <X className="w-3 h-3 text-slate-400" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Input Area - Compact and centered with attachment button */}
       <div className="relative">
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyPress={handleKeyPress}
-          placeholder="Digite sua pergunta ou comando financeiro..."
+          placeholder={attachedFile ? "Descreva o que você quer saber sobre este documento..." : "Digite sua pergunta ou comando financeiro..."}
           disabled={isLoading || !user}
           rows={1}
           className={cn(
             'w-full bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-coral-500 focus:outline-none transition-shadow resize-none',
-            size === 'mobile' ? 'pl-3 pr-12 text-xs' : 'pl-4 pr-14 text-sm',
+            size === 'mobile' ? 'pl-3 pr-20 text-xs' : 'pl-4 pr-24 text-sm', // Mais espaço para 2 botões
             'disabled:opacity-50 disabled:cursor-not-allowed py-2'
           )}
           style={{ minHeight: size === 'mobile' ? '32px' : '40px' }}
         />
+
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,application/pdf"
+          onChange={handleFileSelect}
+          className="hidden"
+        />
+
+        {/* Attachment button */}
+        <button
+          onClick={handleFileAttach}
+          disabled={isLoading || !user || isProcessingFile}
+          className={cn(
+            'absolute top-1/2 -translate-y-1/2',
+            'text-slate-400 hover:text-slate-600 transition-colors',
+            'disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none',
+            'w-8 h-8 flex items-center justify-center',
+            size === 'mobile' ? 'right-12' : 'right-14' // Posição antes do botão Send
+          )}
+          style={{ transform: 'translateY(calc(-50% - 3.2px))' }}
+          title="Anexar documento (PDF, JPG, PNG)"
+        >
+          <Paperclip className="w-3 h-3" />
+        </button>
+
+        {/* Send button */}
         <button
           onClick={() => handleSendMessage()}
-          disabled={isLoading || !input.trim() || !user}
+          disabled={isLoading || (!input.trim() && !attachedFile) || !user}
           className={cn(
             'absolute right-2 top-1/2 -translate-y-1/2',
             'bg-coral-500 hover:bg-coral-600 text-white rounded-lg transition-all',
@@ -446,7 +806,7 @@ export default function SmartFinancialChat() {
           )}
           style={{ transform: 'translateY(calc(-50% - 3.2px))' }}
         >
-          {isLoading ? (
+          {isLoading || isProcessingFile ? (
             <Loader className="w-3 h-3 animate-spin" />
           ) : (
             <Send className="w-3 h-3" />

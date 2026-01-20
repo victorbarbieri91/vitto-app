@@ -83,34 +83,34 @@ export default function CreditCardItem({
     <button
       onClick={handleViewInvoices}
       className={cn(
-        "group relative p-6 rounded-xl transition-all duration-300 text-left",
-        "bg-gradient-to-br shadow-lg hover:shadow-xl",
-        "transform hover:-translate-y-1 hover:scale-105",
+        "group relative p-4 rounded-lg transition-all duration-300 text-left",
+        "bg-gradient-to-br shadow-md hover:shadow-lg",
+        "transform hover:-translate-y-0.5 hover:scale-[1.02]",
         "border border-transparent hover:border-white/20",
-        "aspect-[3/2] w-full max-w-md",
+        "aspect-[2/1] w-full",
         `bg-gradient-to-br ${getCardGradient(card.cor || '#F87060')}`,
         className
       )}
     >
       {/* Card Background Effect */}
-      <div className="absolute inset-0 bg-black bg-opacity-10 rounded-xl"></div>
+      <div className="absolute inset-0 bg-black bg-opacity-10 rounded-lg"></div>
 
       {/* Card Content */}
       <div className="relative z-10 text-white h-full flex flex-col justify-between">
         {/* Header */}
         <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <CreditCardIcon className="w-6 h-6" />
+          <div className="flex items-center gap-2">
+            <CreditCardIcon className="w-4 h-4" />
             <div>
-              <h3 className="font-bold text-lg">{card.nome}</h3>
-              <p className="text-white/80 text-sm">
+              <h3 className="font-semibold text-sm">{card.nome}</h3>
+              <p className="text-white/80 text-xs">
                 {getCardNumber(card)}
               </p>
             </div>
           </div>
 
           {/* Actions */}
-          <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center space-x-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
             {onEdit && (
               <ModernButton
                 variant="ghost"
@@ -119,9 +119,9 @@ export default function CreditCardItem({
                   e.stopPropagation();
                   onEdit(card);
                 }}
-                className="text-white/80 hover:text-white hover:bg-white/20 h-8 w-8 p-0"
+                className="text-white/80 hover:text-white hover:bg-white/20 h-6 w-6 p-0"
               >
-                <Edit className="w-4 h-4" />
+                <Edit className="w-3 h-3" />
               </ModernButton>
             )}
             {onDelete && (
@@ -132,9 +132,9 @@ export default function CreditCardItem({
                   e.stopPropagation();
                   onDelete(card);
                 }}
-                className="text-white/80 hover:text-white hover:bg-red-500/30 h-8 w-8 p-0"
+                className="text-white/80 hover:text-white hover:bg-red-500/30 h-6 w-6 p-0"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-3 h-3" />
               </ModernButton>
             )}
           </div>
@@ -143,14 +143,14 @@ export default function CreditCardItem({
         {/* Bottom Section */}
         <div className="flex items-end justify-between">
           {/* Left: Fatura and Dates */}
-          <div className="space-y-2">
+          <div className="space-y-1">
             <div>
-              <p className="text-white/80 text-xs">Fatura {getMonthName()}</p>
-              <p className="text-white text-xl font-bold">
+              <p className="text-white/80 text-[10px]">Fatura {getMonthName()}</p>
+              <p className="text-white text-base font-bold">
                 {formatCurrency(card.fatura_atual)}
               </p>
             </div>
-            <div className="flex gap-4 text-xs">
+            <div className="flex gap-3 text-[10px]">
               <div>
                 <p className="text-white/70">Fecha</p>
                 <p className="text-white font-medium">Dia {card.dia_fechamento}</p>
@@ -170,7 +170,7 @@ export default function CreditCardItem({
               e.stopPropagation();
               handleViewInvoices();
             }}
-            className="bg-white/10 border-white/30 text-white hover:bg-white/20 hover:border-white/50"
+            className="bg-white/10 border-white/30 text-white hover:bg-white/20 hover:border-white/50 text-xs px-2 py-1 h-7"
           >
             Ver Faturas
           </ModernButton>
@@ -178,7 +178,7 @@ export default function CreditCardItem({
       </div>
 
       {/* Shine Effect */}
-      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 hover:opacity-10 transition-opacity duration-300 rounded-xl transform rotate-12 translate-x-full hover:translate-x-[-100%] transition-transform duration-700"></div>
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 hover:opacity-10 transition-opacity duration-300 rounded-lg transform rotate-12 translate-x-full hover:translate-x-[-100%] transition-transform duration-700"></div>
     </button>
   );
 } 

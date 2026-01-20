@@ -15,6 +15,7 @@ interface ChatMessage {
 interface ChatRequest {
   messages: ChatMessage[]
   userId: string
+  documentAnalysis?: string
 }
 
 interface QueryClassification {
@@ -29,8 +30,12 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  const startTime = Date.now()
+  let activeAgent = 'communication' // Default agent
+  let conversationData = ''
+
   try {
-    const { messages, userId }: ChatRequest = await req.json()
+    const { messages, userId, documentAnalysis }: ChatRequest = await req.json()
 
     if (!messages || !userId) {
       throw new Error('Messages and userId are required')
@@ -60,8 +65,11 @@ serve(async (req) => {
     const classification = await classifyQuery(lastUserMessage.content, deepseekApiKey)
     console.log('Query classification:', classification)
 
+    // Determine active agent based on classification
+    activeAgent = getActiveAgentForQuery(classification.type)
+
     // Step 2: Build context and tools based on classification
-    const contextualMessages = await buildContextualMessages(messages, userId, classification, supabase)
+    const contextualMessages = await buildContextualMessages(messages, userId, classification, supabase, documentAnalysis)
     const tools = getToolsForQueryType(classification.type)
 
     // Step 3: Call DeepSeek API with streaming
@@ -145,7 +153,21 @@ serve(async (req) => {
 
                   // Handle regular content
                   if (parsed.choices?.[0]?.delta?.content) {
+                    conversationData += parsed.choices[0].delta.content
                     controller.enqueue(new TextEncoder().encode(`data: ${data}\n\n`))
+                  }
+
+                  // Handle conversation completion
+                  if (parsed.choices?.[0]?.finish_reason === 'stop') {
+                    // Log conversation and metrics
+                    await logConversationAndMetrics(
+                      supabase,
+                      userId,
+                      activeAgent,
+                      lastUserMessage.content,
+                      conversationData,
+                      startTime
+                    )
                   }
 
                 } catch (parseError) {
@@ -255,10 +277,11 @@ async function buildContextualMessages(
   messages: ChatMessage[],
   userId: string,
   classification: QueryClassification,
-  supabase: any
+  supabase: any,
+  documentAnalysis?: string
 ): Promise<ChatMessage[]> {
 
-  const systemPrompt = await buildSystemPrompt(userId, classification, supabase)
+  const systemPrompt = await buildSystemPrompt(userId, classification, supabase, documentAnalysis)
 
   const contextualMessages: ChatMessage[] = [
     {
@@ -271,9 +294,36 @@ async function buildContextualMessages(
   return contextualMessages
 }
 
+// Get agent configurations from database
+async function getAgentConfigs(supabase: any): Promise<Record<string, any>> {
+  try {
+    const { data, error } = await supabase
+      .from('app_agente_config')
+      .select('tipo, prompt_system, parametros')
+      .eq('ativo', true)
+
+    if (error) {
+      console.warn('Error fetching agent configs:', error)
+      return {}
+    }
+
+    return data.reduce((acc: Record<string, any>, config: any) => {
+      acc[config.tipo] = config
+      return acc
+    }, {})
+  } catch (error) {
+    console.warn('Exception fetching agent configs:', error)
+    return {}
+  }
+}
+
 // Build system prompt based on user and query type
-async function buildSystemPrompt(userId: string, classification: QueryClassification, supabase: any): Promise<string> {
-  let basePrompt = `Você é o Vitto, o assistente financeiro pessoal inteligente e empático do usuário.
+async function buildSystemPrompt(userId: string, classification: QueryClassification, supabase: any, documentAnalysis?: string): Promise<string> {
+  // Get dynamic prompts from database
+  const agentConfigs = await getAgentConfigs(supabase)
+
+  // Use dynamic prompt for communication agent or fallback to default
+  let basePrompt = agentConfigs?.communication?.prompt_system || `Você é o Vitto, o assistente financeiro pessoal inteligente e empático do usuário.
 
 PERSONALIDADE:
 - Seja natural, amigável e profissional
@@ -312,6 +362,19 @@ REGRAS IMPORTANTES:
     }
   } catch (error) {
     console.warn('Error building user context:', error)
+  }
+
+  // Add document analysis if available
+  if (documentAnalysis) {
+    basePrompt += `\n\nDOCUMENTO ANALISADO:
+${documentAnalysis}
+
+INSTRUÇÕES PARA DOCUMENTO:
+- O usuário anexou um documento financeiro que foi analisado
+- Use as informações extraídas para contextualizar sua resposta
+- Se o documento contém transações, ofereça para importá-las
+- Se há discrepâncias nos dados, aponte e ofereça correções
+- Seja específico sobre os dados encontrados`
   }
 
   return basePrompt
@@ -576,5 +639,86 @@ async function executeCreateTransaction(userId: string, args: any, supabase: any
     success: true,
     transaction,
     message: `✅ Transação criada com sucesso!\n\n${type === 'receita' ? 'Receita' : 'Despesa'} de R$ ${amount.toFixed(2)}\nDescrição: ${description}\nCategoria: ${category}\nData: ${transactionDate}\n\n⚠️ Status: Pendente (confirme no dashboard para finalizar)`
+  }
+}
+
+// Function to determine active agent based on query type
+function getActiveAgentForQuery(queryType: string): string {
+  const agentMapping: Record<string, string> = {
+    'direct_query': 'communication',
+    'financial_action': 'execution',
+    'complex_analysis': 'analysis',
+    'report_request': 'analysis',
+    'document_processing': 'document',
+    'anomaly_detection': 'validation'
+  }
+
+  return agentMapping[queryType] || 'communication'
+}
+
+// Function to log conversation and update metrics
+async function logConversationAndMetrics(
+  supabase: any,
+  userId: string,
+  agentType: string,
+  userMessage: string,
+  agentResponse: string,
+  startTime: number
+): Promise<void> {
+  try {
+    const responseTime = Date.now() - startTime
+    const success = !agentResponse.toLowerCase().includes('erro') &&
+                   !agentResponse.toLowerCase().includes('desculpe') &&
+                   agentResponse.trim().length > 10
+
+    // Get agent config for prompt
+    const { data: agentConfig } = await supabase
+      .from('app_agente_config')
+      .select('prompt_system')
+      .eq('tipo', agentType)
+      .eq('ativo', true)
+      .single()
+
+    // Log conversation
+    const { error: logError } = await supabase
+      .from('app_conversas_log')
+      .insert({
+        usuario_id: userId,
+        agente_tipo: agentType,
+        mensagem_usuario: userMessage,
+        resposta_agente: agentResponse,
+        prompt_usado: agentConfig?.prompt_system?.substring(0, 500) || '',
+        tokens_entrada: Math.ceil(userMessage.length / 4), // Aproximação
+        tokens_saida: Math.ceil(agentResponse.length / 4), // Aproximação
+        tempo_resposta_ms: responseTime,
+        contexto_usado: JSON.stringify({
+          query_classified: true,
+          agent_used: agentType,
+          response_time: responseTime
+        })
+      })
+
+    if (logError) {
+      console.warn('Error logging conversation:', logError)
+    }
+
+    // Update metrics
+    const today = new Date().toISOString().split('T')[0]
+    const { error: metricsError } = await supabase.rpc('update_agent_metrics', {
+      p_agente_tipo: agentType,
+      p_data_metricas: today,
+      p_sucesso: success,
+      p_tempo_resposta_ms: responseTime,
+      p_feedback: null
+    })
+
+    if (metricsError) {
+      console.warn('Error updating metrics:', metricsError)
+    }
+
+    console.log(`Metrics logged: Agent=${agentType}, Success=${success}, Time=${responseTime}ms`)
+
+  } catch (error) {
+    console.warn('Exception in logConversationAndMetrics:', error)
   }
 }

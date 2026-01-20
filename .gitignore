@@ -54,3 +54,6 @@ android/gradlew
 android/gradlew.bat
 android/local.properties
 android/app/src/main/assets/
+
+*storybook.log
+storybook-static

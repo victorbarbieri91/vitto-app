@@ -1,321 +1,235 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../store/AuthContext';
+import { motion } from 'framer-motion';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useBudget } from '../../hooks/useBudget';
-import { useCategories } from '../../hooks/useCategories';
-import { ModernCard, ModernButton, ModernInput } from '../../components/ui/modern';
+import { BudgetCard, AddBudgetCard, BudgetModal } from '../../components/budgets';
+import { ModernCard } from '../../components/ui/modern';
+import { cn } from '../../utils/cn';
+import type { BudgetWithCategory } from '../../services/api';
 
 export default function BudgetsPage() {
-  const { user } = useAuth();
-  const { 
-    budgets, 
-    budgetStatus, 
-    loading, 
-    error, 
-    addBudget, 
-    updateBudget, 
+  const {
+    budgetStatus,
+    loading,
+    error,
+    addBudget,
+    updateBudget,
     deleteBudget,
-    getBudgetsForMonth,
-    getCategoriesWithoutBudget 
+    getCategoriesWithoutBudget
   } = useBudget();
-  const { categories } = useCategories();
 
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [editingBudget, setEditingBudget] = useState<any>(null);
-  const [formData, setFormData] = useState({
-    categoria_id: '',
-    mes: currentMonth,
-    ano: currentYear,
-    valor: ''
-  });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingBudget, setEditingBudget] = useState<BudgetWithCategory | null>(null);
   const [availableCategories, setAvailableCategories] = useState<any[]>([]);
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
-  };
 
   const monthNames = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
   ];
 
-  const handleAddBudget = async () => {
-    const categoriesWithoutBudget = await getCategoriesWithoutBudget(currentMonth, currentYear);
-    setAvailableCategories(categoriesWithoutBudget);
-    setFormData({
-      categoria_id: '',
-      mes: currentMonth,
-      ano: currentYear,
-      valor: ''
-    });
-    setEditingBudget(null);
-    setIsAddModalOpen(true);
-  };
-
-  const handleEditBudget = (budget: any) => {
-    setFormData({
-      categoria_id: budget.categoria_id.toString(),
-      mes: budget.mes,
-      ano: budget.ano,
-      valor: budget.valor.toString()
-    });
-    setEditingBudget(budget);
-    setIsAddModalOpen(true);
-  };
-
-  const handleSaveBudget = async () => {
-    try {
-      const budgetData = {
-        categoria_id: parseInt(formData.categoria_id),
-        mes: formData.mes,
-        ano: formData.ano,
-        valor: parseFloat(formData.valor)
-      };
-
-      if (editingBudget) {
-        await updateBudget(editingBudget.id, budgetData);
+  // Navegar entre meses
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    if (direction === 'prev') {
+      if (currentMonth === 1) {
+        setCurrentMonth(12);
+        setCurrentYear(currentYear - 1);
       } else {
-        await addBudget(budgetData);
+        setCurrentMonth(currentMonth - 1);
       }
-
-      setIsAddModalOpen(false);
-    } catch (error) {
-      console.error('Erro ao salvar orçamento:', error);
-    }
-  };
-
-  const handleDeleteBudget = async (budget: any) => {
-    if (window.confirm(`Tem certeza que deseja excluir o orçamento para ${budget.categoria.nome}?`)) {
-      try {
-        await deleteBudget(budget.id);
-      } catch (error) {
-        console.error('Erro ao excluir orçamento:', error);
+    } else {
+      if (currentMonth === 12) {
+        setCurrentMonth(1);
+        setCurrentYear(currentYear + 1);
+      } else {
+        setCurrentMonth(currentMonth + 1);
       }
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'verde': return 'bg-green-500';
-      case 'amarelo': return 'bg-yellow-500';
-      case 'vermelho': return 'bg-red-500';
-      default: return 'bg-gray-500';
+  // Abrir modal para novo orçamento
+  const handleAddBudget = async () => {
+    const categories = await getCategoriesWithoutBudget(currentMonth, currentYear);
+    setAvailableCategories(categories);
+    setEditingBudget(null);
+    setIsModalOpen(true);
+  };
+
+  // Abrir modal para editar
+  const handleEditBudget = (budget: BudgetWithCategory) => {
+    setEditingBudget(budget);
+    setIsModalOpen(true);
+  };
+
+  // Salvar orçamento (criar ou atualizar)
+  const handleSaveBudget = async (data: { categoria_id: number; valor: number; mes: number; ano: number }) => {
+    if (editingBudget) {
+      await updateBudget(editingBudget.id, data);
+    } else {
+      await addBudget(data);
     }
   };
 
+  // Excluir orçamento
+  const handleDeleteBudget = async (budgetId: number) => {
+    await deleteBudget(budgetId);
+  };
+
+  // Animações para o grid
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.08,
+      },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 },
+  };
+
+  // Loading state
   if (loading) {
     return (
-      <ModernCard variant="default" className="p-6">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="h-32 bg-gray-200 rounded"></div>
-              ))}
-            </div>
-          </div>
-        </ModernCard>
+      <div className="space-y-6">
+        {/* Header skeleton */}
+        <div className="flex items-center justify-center gap-4 py-4">
+          <div className="w-10 h-10 bg-slate-200 rounded-xl animate-pulse" />
+          <div className="w-40 h-8 bg-slate-200 rounded-lg animate-pulse" />
+          <div className="w-10 h-10 bg-slate-200 rounded-xl animate-pulse" />
+        </div>
+
+        {/* Grid skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="h-52 bg-slate-100 rounded-2xl animate-pulse" />
+          ))}
+        </div>
+      </div>
     );
   }
 
+  // Error state
   if (error) {
     return (
-      <ModernCard variant="default" className="p-6">
-          <div className="text-center text-red-600">
-            <p>Erro ao carregar orçamentos: {error}</p>
-            <ModernButton 
-              variant="outline" 
-              className="mt-4" 
-              onClick={() => window.location.reload()}
-            >
-              Tentar novamente
-            </ModernButton>
-          </div>
-        </ModernCard>
+      <ModernCard variant="default" className="p-8 text-center">
+        <div className="text-rose-500 mb-4">
+          <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        <p className="text-slate-600 mb-4">Erro ao carregar orçamentos</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="text-coral-500 hover:text-coral-600 font-medium"
+        >
+          Tentar novamente
+        </button>
+      </ModernCard>
     );
   }
 
   return (
-    <>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <div className="h-8"></div>
-          <div className="h-5"></div>
-        </div>
-        <ModernButton 
-          variant="primary"
-          onClick={handleAddBudget}
-          className="bg-coral-500 hover:bg-coral-600 text-white"
+    <div className="space-y-6">
+      {/* Header com navegação de mês */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-center justify-center gap-3"
+      >
+        <button
+          onClick={() => navigateMonth('prev')}
+          className={cn(
+            "p-2.5 rounded-xl",
+            "bg-white/80 border border-slate-200/60",
+            "hover:bg-slate-50 hover:border-slate-300",
+            "text-slate-600 hover:text-deep-blue",
+            "transition-all duration-200",
+            "shadow-sm hover:shadow"
+          )}
         >
-          Novo Orçamento
-        </ModernButton>
-      </div>
-      
-      <ModernCard variant="default" className="p-6">
+          <ChevronLeft className="w-5 h-5" />
+        </button>
 
-        {/* Seletor de mês/ano */}
-        <div className="flex gap-4 mb-6">
-          <select 
-            value={currentMonth} 
-            onChange={(e) => setCurrentMonth(parseInt(e.target.value))}
-            className="px-3 py-2 border rounded-lg"
-          >
-            {monthNames.map((month, index) => (
-              <option key={index} value={index + 1}>{month}</option>
-            ))}
-          </select>
-          <select 
-            value={currentYear} 
-            onChange={(e) => setCurrentYear(parseInt(e.target.value))}
-            className="px-3 py-2 border rounded-lg"
-          >
-            {[2023, 2024, 2025, 2026].map(year => (
-              <option key={year} value={year}>{year}</option>
-            ))}
-          </select>
+        <div className="min-w-[180px] text-center">
+          <h2 className="text-xl font-bold text-deep-blue">
+            {monthNames[currentMonth - 1]}
+          </h2>
+          <p className="text-sm text-slate-500">{currentYear}</p>
         </div>
 
-        {/* Lista de orçamentos */}
-        {budgetStatus.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-gray-400 mb-4">
-              <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-medium text-gray-700 mb-2">Nenhum orçamento encontrado</h3>
-            <p className="text-gray-500 mb-4">
-              Comece criando seu primeiro orçamento para {monthNames[currentMonth - 1]} de {currentYear}
-            </p>
-            <ModernButton onClick={handleAddBudget}>
-              Criar Primeiro Orçamento
-            </ModernButton>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {budgetStatus.map((budgetItem) => (
-              <ModernCard key={budgetItem.budget.id} variant="metric" className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center">
-                    <div 
-                      className="w-4 h-4 rounded-full mr-3"
-                      style={{ backgroundColor: budgetItem.budget.categoria.cor || '#6B7280' }}
-                    ></div>
-                    <h3 className="font-medium text-deep-blue">
-                      {budgetItem.budget.categoria.nome}
-                    </h3>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEditBudget(budgetItem.budget)}
-                      className="text-blue-600 hover:text-blue-800 text-sm"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => handleDeleteBudget(budgetItem.budget)}
-                      className="text-red-600 hover:text-red-800 text-sm"
-                    >
-                      Excluir
-                    </button>
-                  </div>
-                </div>
+        <button
+          onClick={() => navigateMonth('next')}
+          className={cn(
+            "p-2.5 rounded-xl",
+            "bg-white/80 border border-slate-200/60",
+            "hover:bg-slate-50 hover:border-slate-300",
+            "text-slate-600 hover:text-deep-blue",
+            "transition-all duration-200",
+            "shadow-sm hover:shadow"
+          )}
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
+      </motion.div>
 
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Planejado:</span>
-                    <span className="font-medium">{formatCurrency(budgetItem.budget.valor)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Gasto:</span>
-                    <span className="font-medium">{formatCurrency(budgetItem.gastoAtual)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Restante:</span>
-                    <span className={`font-medium ${budgetItem.saldoRestante >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {formatCurrency(budgetItem.saldoRestante)}
-                    </span>
-                  </div>
+      {/* Grid de orçamentos */}
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+      >
+        {/* Cards de orçamento existentes */}
+        {budgetStatus.map((budgetItem) => (
+          <motion.div key={budgetItem.budget.id} variants={itemVariants}>
+            <BudgetCard
+              budget={budgetItem}
+              onEdit={handleEditBudget}
+              onDelete={handleDeleteBudget}
+            />
+          </motion.div>
+        ))}
 
-                  {/* Barra de progresso */}
-                  <div className="mt-3">
-                    <div className="flex justify-between text-xs mb-1">
-                      <span>Progresso</span>
-                      <span>{budgetItem.percentualGasto.toFixed(1)}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className={`h-2 rounded-full ${getStatusColor(budgetItem.status)}`}
-                        style={{ width: `${Math.min(budgetItem.percentualGasto, 100)}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                </div>
-              </ModernCard>
-            ))}
-          </div>
-        )}
-      </ModernCard>
+        {/* Card de adicionar */}
+        <motion.div variants={itemVariants}>
+          <AddBudgetCard onClick={handleAddBudget} />
+        </motion.div>
+      </motion.div>
 
-      {/* Modal de adicionar/editar orçamento */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">
-              {editingBudget ? 'Editar Orçamento' : 'Novo Orçamento'}
-            </h2>
-
-            <div className="space-y-4">
-              {!editingBudget && (
-                <div>
-                  <label className="block text-sm font-medium mb-1">Categoria</label>
-                  <select
-                    value={formData.categoria_id}
-                    onChange={(e) => setFormData({ ...formData, categoria_id: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    required
-                  >
-                    <option value="">Selecione uma categoria</option>
-                    {availableCategories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.nome}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Valor Planejado</label>
-                <ModernInput
-                  type="number"
-                  step="0.01"
-                  value={formData.valor}
-                  onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
-                  placeholder="0,00"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 mt-6">
-              <ModernButton 
-                variant="outline" 
-                onClick={() => setIsAddModalOpen(false)}
-              >
-                Cancelar
-              </ModernButton>
-              <ModernButton onClick={handleSaveBudget}>
-                {editingBudget ? 'Salvar' : 'Criar'}
-              </ModernButton>
-            </div>
-          </div>
-        </div>
+      {/* Estado vazio (quando não há orçamentos) */}
+      {budgetStatus.length === 0 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center py-8"
+        >
+          <p className="text-slate-500">
+            Você ainda não tem orçamentos para {monthNames[currentMonth - 1]} de {currentYear}.
+          </p>
+          <p className="text-slate-400 text-sm mt-1">
+            Clique no card acima para criar seu primeiro orçamento.
+          </p>
+        </motion.div>
       )}
-    </>
+
+      {/* Modal */}
+      <BudgetModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingBudget(null);
+        }}
+        onSave={handleSaveBudget}
+        editingBudget={editingBudget}
+        availableCategories={availableCategories}
+        currentMonth={currentMonth}
+        currentYear={currentYear}
+      />
+    </div>
   );
 }

@@ -7,7 +7,7 @@ import { useIsMobile } from '../../hooks/useIsMobile';
 import { TransactionCard } from './TransactionCard';
 import { cn } from '../../utils/cn';
 import { formatLocalDate } from '../../utils/format';
-import { transactionService, TransactionFilters } from '../../services/api';
+import transactionService, { TransactionFilters } from '../../services/api/TransactionService';
 import { fixedTransactionService } from '../../services/api/FixedTransactionService';
 // A view retorna uma estrutura diferente, então vamos usar um tipo mais flexível por enquanto.
 // O ideal seria gerar os tipos para a view, mas isso resolve o problema imediato.

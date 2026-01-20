@@ -4,36 +4,21 @@ import { useAccounts } from '../../hooks/useAccounts';
 import type { Account, AccountFormData } from '../../services/api/AccountService';
 import AccountForm from '../../components/forms/AccountForm';
 import { TransferModal } from '../../components/modals/TransferModal';
-import { ModernButton } from '../../components/ui/modern';
-import { ModernCard } from '../../components/ui/modern';
+import { ModernButton, ModernCard } from '../../components/ui/modern';
 import AccountsDashboard from '../../components/accounts/AccountsDashboard';
-import AccountBankCard from '../../components/accounts/AccountBankCard';
-import { DollarSign, Edit, Plus, Trash2, Zap, Building2 } from 'lucide-react';
-import { Link } from 'react-router-dom';
-
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(value);
-};
-
-const getBalanceColor = (balance: number) => {
-  if (balance > 0) return 'text-green-500';
-  if (balance < 0) return 'text-red-500';
-  return 'text-slate-500';
-};
+import AccountCompactCard from '../../components/accounts/AccountCompactCard';
+import { Plus, Building2, ArrowLeftRight } from 'lucide-react';
 
 export default function AccountsPage() {
-  const { 
-    accounts, 
-    loading, 
-    error, 
-    addAccount, 
-    updateAccount, 
-    deleteAccount 
+  const {
+    accounts,
+    loading,
+    error,
+    addAccount,
+    updateAccount,
+    deleteAccount
   } = useAccounts();
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
@@ -53,8 +38,6 @@ export default function AccountsPage() {
   };
 
   const handleBalanceAdjusted = () => {
-    // Recarregar dados das contas após ajuste de saldo
-    // O hook useAccounts já tem um mecanismo interno de refresh
     window.location.reload();
   };
 
@@ -77,176 +60,161 @@ export default function AccountsPage() {
     }
   };
 
-  const renderAccountCard = (account: Account) => (
-    <ModernCard key={account.id} className="group relative p-6 flex flex-col justify-between">
-      <div>
-        <div className="flex justify-between items-start">
-          <Link to={`/contas/${account.id}`} className="block">
-            <h3 className="font-semibold text-lg text-deep-blue group-hover:text-white transition-colors duration-300">{account.nome}</h3>
-            <p className="text-sm text-slate-500 group-hover:text-slate-200 transition-colors duration-300 capitalize">{account.tipo}</p>
-          </Link>
-          <div className="p-2 bg-slate-100 rounded-lg group-hover:bg-white/20 transition-colors duration-300">
-            <DollarSign className="w-5 h-5 text-slate-500 group-hover:text-white transition-colors duration-300" />
-          </div>
-        </div>
-        <p className={`text-3xl font-bold mt-4 ${getBalanceColor(account.saldo_atual)} group-hover:text-white transition-colors duration-300`}>
-          {formatCurrency(account.saldo_atual)}
-        </p>
-      </div>
-      <div className="absolute top-4 right-4 flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-        <ModernButton size="sm" variant="ghost" className="p-2 h-auto" onClick={(e) => { e.preventDefault(); handleOpenModal(account); }}>
-          <Edit className="w-4 h-4 text-slate-500 group-hover:text-white" />
-        </ModernButton>
-        <ModernButton size="sm" variant="ghost" className="p-2 h-auto" onClick={(e) => { e.preventDefault(); handleDelete(account); }}>
-          <Trash2 className="w-4 h-4 text-red-500 group-hover:text-white" />
-        </ModernButton>
-      </div>
-    </ModernCard>
-  );
-
-  const renderSkeletonCard = () => (
-    <ModernCard className="p-6">
-      <div className="animate-pulse flex flex-col justify-between h-full">
-        <div>
-          <div className="flex justify-between items-start">
-            <div>
-              <div className="h-5 bg-slate-200 rounded w-3/4"></div>
-              <div className="h-4 bg-slate-200 rounded w-1/2 mt-2"></div>
-            </div>
-            <div className="w-10 h-10 bg-slate-200 rounded-lg"></div>
-          </div>
-          <div className="h-8 bg-slate-200 rounded w-1/3 mt-4"></div>
-        </div>
-      </div>
-    </ModernCard>
-  );
-
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <div className="h-8"></div>
-          <div className="h-5"></div>
-        </div>
-        <div className="flex items-center gap-3">
-          <ModernButton
-            onClick={() => setIsTransferModalOpen(true)}
-            variant="secondary"
-            size="sm"
-          >
-            Transferir
-          </ModernButton>
-          <ModernButton
-            onClick={() => handleOpenModal()}
-            variant="primary"
-            size="sm"
-          >
-            Adicionar Conta
-          </ModernButton>
-        </div>
+    <div className="space-y-4">
+      {/* Header com botões */}
+      <div className="flex justify-end items-center gap-2">
+        <ModernButton
+          onClick={() => setIsTransferModalOpen(true)}
+          variant="secondary"
+          size="sm"
+        >
+          Transferir
+        </ModernButton>
+        <ModernButton
+          onClick={() => handleOpenModal()}
+          variant="primary"
+          size="sm"
+        >
+          Nova Conta
+        </ModernButton>
       </div>
 
-      <AccountsDashboard accounts={accounts} />
-
-
+      {/* Modal de Transferência */}
       <TransferModal
         isOpen={isTransferModalOpen}
         onClose={() => setIsTransferModalOpen(false)}
         onSuccess={handleTransferSuccess}
       />
 
+      {/* Modal de Criar/Editar Conta */}
       {isModalOpen && (
-         <ModernCard variant="glass" className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-                <ModernCard className="p-6">
-                    <h2 className="text-xl font-bold mb-4 text-deep-blue">
-                        {editingAccount ? 'Editar Conta' : 'Nova Conta'}
-                    </h2>
-                    <AccountForm
-                        account={editingAccount || undefined}
-                        onSubmit={handleEditSubmit}
-                        onCancel={handleCloseModal}
-                    />
-                </ModernCard>
-            </div>
-         </ModernCard>
-      )}
-
-      {error && (
-        <ModernCard variant="default" className="bg-red-50 border-red-200 p-4">
-            <p className="text-red-700">{error}</p>
-        </ModernCard>
-      )}
-      
-      {/* Grid de Cards dos Bancos */}
-      {!loading && accounts.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5 }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          onClick={handleCloseModal}
         >
-          {accounts.map((account, index) => (
-            <motion.div
-              key={account.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: index * 0.1 }}
-            >
-              <AccountBankCard
-                account={account}
-                onEdit={handleOpenModal}
-                onDelete={handleDelete}
-                onBalanceAdjusted={handleBalanceAdjusted}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ModernCard className="p-6">
+              <h2 className="text-lg font-bold mb-4 text-deep-blue">
+                {editingAccount ? 'Editar Conta' : 'Nova Conta'}
+              </h2>
+              <AccountForm
+                account={editingAccount || undefined}
+                onSubmit={handleEditSubmit}
+                onCancel={handleCloseModal}
               />
-            </motion.div>
-          ))}
-        </motion.div>
-      )}
-
-      {/* Loading State */}
-      {loading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3, delay: i * 0.1 }}
-              className="aspect-[3/2] rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 animate-pulse"
-            />
-          ))}
+            </ModernCard>
+          </motion.div>
         </div>
       )}
 
-      {/* Empty State */}
-      {!loading && accounts.length === 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center py-16"
-        >
-          <div className="max-w-md mx-auto">
-            <div className="w-24 h-24 bg-gradient-to-br from-slate-100 to-slate-200 rounded-3xl flex items-center justify-center mx-auto mb-6">
-              <Building2 className="w-12 h-12 text-slate-400" />
-            </div>
-            <h3 className="text-2xl font-bold text-deep-blue mb-2">
-              Bem-vindo ao seu banco digital
-            </h3>
-            <p className="text-slate-500 mb-8">
-              Comece criando sua primeira conta para organizar suas finanças com estilo.
-            </p>
-            <ModernButton
-              onClick={() => handleOpenModal()}
-              variant="primary"
-              className="bg-coral-500 hover:bg-coral-600 text-white px-8 py-3"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Criar Primeira Conta
-            </ModernButton>
-          </div>
-        </motion.div>
+      {/* Mensagem de erro */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+          <p className="text-sm text-red-700">{error}</p>
+        </div>
       )}
+
+      {/* Layout Principal: KPIs à esquerda, Contas à direita */}
+      <div className="flex gap-6 lg:gap-8">
+        {/* Coluna Esquerda - KPIs */}
+        <div className="w-48 flex-shrink-0 hidden lg:block">
+          <AccountsDashboard accounts={accounts} />
+        </div>
+
+        {/* Coluna Direita - Grid de Contas */}
+        <div className="flex-1 min-w-0">
+          {/* KPIs em mobile/tablet - horizontal no topo */}
+          <div className="lg:hidden mb-4">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-slate-800 rounded-xl p-3">
+                <p className="text-[10px] text-slate-400 uppercase">Saldo Total</p>
+                <p className="text-lg font-bold text-white">
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0 }).format(
+                    accounts.reduce((sum, acc) => sum + acc.saldo_atual, 0)
+                  )}
+                </p>
+              </div>
+              <div className="bg-white rounded-xl p-3 border border-slate-200">
+                <p className="text-[10px] text-slate-400 uppercase">Contas</p>
+                <p className="text-lg font-bold text-slate-700">{accounts.length}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Grid de Cards */}
+          {!loading && accounts.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+              className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3"
+            >
+              {accounts.map((account, index) => (
+                <motion.div
+                  key={account.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2, delay: index * 0.03 }}
+                >
+                  <AccountCompactCard
+                    account={account}
+                    onEdit={handleOpenModal}
+                    onDelete={handleDelete}
+                    onBalanceAdjusted={handleBalanceAdjusted}
+                  />
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+
+          {/* Loading State */}
+          {loading && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-24 rounded-xl bg-slate-100 animate-pulse"
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!loading && accounts.length === 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center py-12"
+            >
+              <div className="max-w-sm mx-auto">
+                <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <Building2 className="w-8 h-8 text-slate-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-deep-blue mb-2">
+                  Nenhuma conta cadastrada
+                </h3>
+                <p className="text-sm text-slate-500 mb-6">
+                  Adicione sua primeira conta para começar a organizar suas finanças.
+                </p>
+                <ModernButton
+                  onClick={() => handleOpenModal()}
+                  variant="primary"
+                  size="sm"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Criar Primeira Conta
+                </ModernButton>
+              </div>
+            </motion.div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

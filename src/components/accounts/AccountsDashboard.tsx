@@ -1,25 +1,27 @@
 import { useMemo } from 'react';
+import { motion } from 'framer-motion';
 import type { Account } from '../../services/api/AccountService';
-import { ModernCard, AnimatedNumber } from '../ui/modern';
-import { Banknote, Landmark, TrendingDown, TrendingUp } from 'lucide-react';
+import { AnimatedNumber } from '../ui/modern';
+import { Banknote, Landmark, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface AccountsDashboardProps {
   accounts: Account[];
 }
 
 const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
 };
 
-// Função utilitária para padronizar o roxo
-const getAccountColor = (cor?: string) => {
-  if (!cor) return '#102542';
-  const roxos = ['#a259cf', '#8e44ad', '#9b59b6', '#7c3aed', '#6d28d9', '#8b5cf6', '#a78bfa'];
-  if (roxos.includes(cor.toLowerCase())) return '#9A279E';
-  return cor;
+const formatCurrencyFull = (value: number) => {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(value);
 };
 
 const AccountsDashboard = ({ accounts }: AccountsDashboardProps) => {
@@ -48,59 +50,92 @@ const AccountsDashboard = ({ accounts }: AccountsDashboardProps) => {
     };
   }, [accounts]);
 
-
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      {/* Saldo Total */}
-      <ModernCard variant="metric" className="p-5 bg-white border-slate-200">
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Saldo Total</h3>
-          <Banknote className="w-5 h-5 text-slate-400" />
+    <div className="flex flex-col gap-2">
+      {/* Saldo Total - Cinza escuro */}
+      <motion.div
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.2 }}
+        className="bg-slate-700 rounded-xl p-3 shadow-sm"
+      >
+        <div className="flex justify-between items-start mb-1">
+          <p className="text-[10px] font-medium text-slate-300 uppercase tracking-wide">
+            Saldo Total
+          </p>
+          <Banknote className="w-3.5 h-3.5 text-slate-400" />
         </div>
         <AnimatedNumber
           value={stats.totalBalance}
-          className="text-3xl font-bold text-deep-blue tracking-tight"
+          className="text-lg font-bold text-white"
           format={formatCurrency}
-          duration={2000}
+          duration={1500}
         />
-      </ModernCard>
+      </motion.div>
 
-      {/* Total de Contas */}
-      <ModernCard variant="metric" className="p-5 bg-white border-slate-200">
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Total de Contas</h3>
-          <Landmark className="w-5 h-5 text-slate-400" />
-        </div>
-        <p className="text-3xl font-bold text-deep-blue tracking-tight">{stats.accountCount}</p>
-      </ModernCard>
-
-      {/* Maior Saldo */}
-      <ModernCard variant="metric" className="p-5 bg-white border-slate-200">
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Maior Saldo</h3>
-          <TrendingUp className="w-5 h-5 text-slate-400" />
-        </div>
-        <div className="min-w-0 overflow-hidden">
-          <p className="text-xl font-bold truncate text-deep-blue tracking-tight mb-1 max-w-full min-w-0" title={stats.highestBalanceAccount?.nome}>
-            {stats.highestBalanceAccount?.nome || '-'}
+      {/* Número de Contas - Branco */}
+      <motion.div
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.2, delay: 0.05 }}
+        className="bg-white rounded-xl p-3 shadow-sm border border-slate-200"
+      >
+        <div className="flex justify-between items-start mb-1">
+          <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">
+            Contas
           </p>
-          <p className="text-sm font-medium text-slate-500">{formatCurrency(stats.highestBalanceAccount?.saldo_atual || 0)}</p>
+          <Landmark className="w-3.5 h-3.5 text-slate-400" />
         </div>
-      </ModernCard>
+        <p className="text-lg font-bold text-slate-800">{stats.accountCount}</p>
+      </motion.div>
 
-      {/* Menor Saldo */}
-      <ModernCard variant="metric" className="p-5 bg-white border-slate-200">
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Menor Saldo</h3>
-          <TrendingDown className="w-5 h-5 text-slate-400" />
-        </div>
-        <div className="min-w-0 overflow-hidden">
-          <p className="text-xl font-bold truncate text-deep-blue tracking-tight mb-1 max-w-full min-w-0" title={stats.lowestBalanceAccount?.nome}>
-            {stats.lowestBalanceAccount?.nome || '-'}
+      {/* Maior Saldo - Verde/Teal */}
+      <motion.div
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.2, delay: 0.1 }}
+        className="bg-teal-700 rounded-xl p-3 shadow-sm"
+      >
+        <div className="flex justify-between items-start mb-1">
+          <p className="text-[10px] font-medium text-teal-100 uppercase tracking-wide">
+            Maior Saldo
           </p>
-          <p className="text-sm font-medium text-slate-500">{formatCurrency(stats.lowestBalanceAccount?.saldo_atual || 0)}</p>
+          <TrendingUp className="w-3.5 h-3.5 text-teal-200" />
         </div>
-      </ModernCard>
+        <p
+          className="text-sm font-semibold text-white truncate mb-0.5"
+          title={stats.highestBalanceAccount?.nome}
+        >
+          {stats.highestBalanceAccount?.nome || '-'}
+        </p>
+        <p className="text-xs text-teal-100">
+          {formatCurrencyFull(stats.highestBalanceAccount?.saldo_atual || 0)}
+        </p>
+      </motion.div>
+
+      {/* Menor Saldo - Coral */}
+      <motion.div
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.2, delay: 0.15 }}
+        className="bg-coral-500 rounded-xl p-3 shadow-sm"
+      >
+        <div className="flex justify-between items-start mb-1">
+          <p className="text-[10px] font-medium text-coral-100 uppercase tracking-wide">
+            Menor Saldo
+          </p>
+          <TrendingDown className="w-3.5 h-3.5 text-coral-200" />
+        </div>
+        <p
+          className="text-sm font-semibold text-white truncate mb-0.5"
+          title={stats.lowestBalanceAccount?.nome}
+        >
+          {stats.lowestBalanceAccount?.nome || '-'}
+        </p>
+        <p className="text-xs text-coral-100">
+          {formatCurrencyFull(stats.lowestBalanceAccount?.saldo_atual || 0)}
+        </p>
+      </motion.div>
     </div>
   );
 };

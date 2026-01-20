@@ -10,7 +10,7 @@ import { MonthNavigator, ModernButton } from '../../components/ui/modern';
 import MonthlyTotals from '../../components/transactions/MonthlyTotals';
 import { fixedTransactionService, FixedTransactionWithDetails } from '../../services/api/FixedTransactionService';
 import { creditCardService, CreditCard } from '../../services/api/CreditCardService';
-import { transactionService, TransactionWithDetails } from '../../services/api/TransactionService';
+import transactionService, { TransactionWithDetails } from '../../services/api/TransactionService';
 import { Calendar, TrendingUp, TrendingDown, DollarSign, Edit2, Trash2, Power, PowerOff, CreditCard as CreditCardIcon, Settings } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { supabase } from '../../services/supabase/client';

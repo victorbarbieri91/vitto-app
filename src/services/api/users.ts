@@ -5,6 +5,7 @@ export interface UserProfile {
   nome: string;
   email: string;
   avatar_url: string | null;
+  tipo_usuario?: string;
   created_at: string;
 }
 

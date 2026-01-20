@@ -5,11 +5,11 @@ import {
   AIError,
   ContextChange
 } from '../../types/ai';
-import { transactionService } from '../api/TransactionService';
-import { accountService } from '../api/AccountService';
-import { categoryService } from '../api/CategoryService';
-import { goalService } from '../api/GoalService';
-import { budgetService } from '../api/BudgetService';
+import transactionService from '../api/TransactionService';
+import accountService from '../api/AccountService';
+import categoryService from '../api/CategoryService';
+import goalService from '../api/GoalService';
+import budgetService from '../api/BudgetService';
 import { aiContextManager } from './AIContextManager';
 import { supabase } from '../supabase/client';
 
@@ -352,12 +352,141 @@ export class AIActionExecutor {
     context: FinancialContext,
     userId: string
   ): Promise<OperationResult> {
-    // TODO: Implementar transferências via IA
-    return {
-      type: 'error',
-      message: 'Transferências via IA ainda estão em desenvolvimento',
-      suggestions: ['Use a interface de transferências por enquanto']
-    };
+    try {
+      const { valor, descricao } = command.entities;
+
+      if (!valor) {
+        return {
+          type: 'clarification_needed',
+          message: 'Preciso saber o valor da transferência',
+          suggestions: ['Ex: "transferi 500 da poupança para corrente"']
+        };
+      }
+
+      // Identificar contas de origem e destino
+      const contasDisponiveis = context.patrimonio.contas;
+
+      if (contasDisponiveis.length < 2) {
+        return {
+          type: 'error',
+          message: 'Você precisa ter pelo menos 2 contas para fazer uma transferência',
+          suggestions: ['Cadastre mais contas antes de fazer transferências']
+        };
+      }
+
+      // Tentar identificar contas mencionadas no texto
+      let contaOrigem = command.entities.conta;
+      let contaDestino = null;
+
+      // Se não identificou automaticamente, pedir esclarecimento
+      if (!contaOrigem) {
+        const contasList = contasDisponiveis.map(c => `• ${c.nome}: ${this.formatCurrency(c.saldo_atual)}`).join('\n');
+
+        return {
+          type: 'clarification_needed',
+          message: `Preciso saber de qual conta sairá o dinheiro e para qual irá.\n\nContas disponíveis:\n${contasList}`,
+          suggestions: [
+            'Ex: "transferi 500 da conta corrente para poupança"',
+            'Ex: "movi 300 da carteira para banco"'
+          ]
+        };
+      }
+
+      // Buscar a primeira conta que não seja a origem como destino (simplificação)
+      const contaDestinoObj = contasDisponiveis.find(c => c.id !== contaOrigem?.id);
+
+      if (!contaDestinoObj) {
+        return {
+          type: 'error',
+          message: 'Não consegui identificar a conta de destino',
+          suggestions: ['Especifique claramente as contas de origem e destino']
+        };
+      }
+
+      // Verificar saldo suficiente
+      const contaOrigemObj = contasDisponiveis.find(c => c.id === contaOrigem?.id);
+      if (contaOrigemObj && contaOrigemObj.saldo_atual < valor) {
+        return {
+          type: 'error',
+          message: `Saldo insuficiente na conta ${contaOrigemObj.nome}. Saldo disponível: ${this.formatCurrency(contaOrigemObj.saldo_atual)}`,
+          suggestions: [
+            `Transferir apenas ${this.formatCurrency(contaOrigemObj.saldo_atual)}`,
+            'Escolher outra conta de origem'
+          ]
+        };
+      }
+
+      // Criar duas transações: uma saída e uma entrada
+      const dataTransferencia = new Date();
+
+      // Transação de saída
+      const transacaoSaida = await this.transactionService.create({
+        descricao: descricao || `Transferência para ${contaDestinoObj.nome}`,
+        valor,
+        tipo: 'despesa',
+        categoria_id: await this.getTransferenciaCategoryId(),
+        conta_id: contaOrigem!.id,
+        data: dataTransferencia,
+        user_id: userId,
+        observacoes: `Transferência interna para conta ${contaDestinoObj.nome}`
+      });
+
+      // Transação de entrada
+      const transacaoEntrada = await this.transactionService.create({
+        descricao: descricao || `Transferência de ${contaOrigemObj?.nome}`,
+        valor,
+        tipo: 'receita',
+        categoria_id: await this.getTransferenciaCategoryId(),
+        conta_id: contaDestinoObj.id,
+        data: dataTransferencia,
+        user_id: userId,
+        observacoes: `Transferência interna da conta ${contaOrigemObj?.nome}`
+      });
+
+      // Atualizar saldos das contas
+      if (contaOrigemObj && contaDestinoObj) {
+        await this.accountService.updateBalance(contaOrigem!.id, contaOrigemObj.saldo_atual - valor);
+        await this.accountService.updateBalance(contaDestinoObj.id, contaDestinoObj.saldo_atual + valor);
+      }
+
+      return {
+        type: 'operation_success',
+        message: `✅ Transferência de ${this.formatCurrency(valor)} realizada com sucesso!`,
+        impact: `${contaOrigemObj?.nome} → ${contaDestinoObj.nome}`,
+        data: { saida: transacaoSaida, entrada: transacaoEntrada }
+      };
+
+    } catch (error) {
+      console.error('Erro ao criar transferência:', error);
+      return {
+        type: 'error',
+        message: 'Erro ao realizar transferência',
+        suggestions: ['Verifique os dados e tente novamente']
+      };
+    }
+  }
+
+  private async getTransferenciaCategoryId(): Promise<number> {
+    // Buscar ou criar categoria de transferência
+    const categories = await this.categoryService.list();
+    const transferCategory = categories.find(c =>
+      c.nome.toLowerCase().includes('transfer') ||
+      c.nome.toLowerCase().includes('moviment')
+    );
+
+    if (transferCategory) {
+      return transferCategory.id;
+    }
+
+    // Criar categoria de transferência se não existir
+    const newCategory = await this.categoryService.create({
+      nome: 'Transferências',
+      tipo: 'despesa',
+      cor: '#6B7280',
+      icone: 'arrow-right-left'
+    });
+
+    return newCategory.id;
   }
 
   private async executeCreateParcelado(
@@ -566,12 +695,226 @@ export class AIActionExecutor {
     context: FinancialContext,
     userId: string
   ): Promise<OperationResult> {
-    // TODO: Implementar análise detalhada por categoria
-    return {
-      type: 'operation_success',
-      message: 'Análise de categorias ainda está em desenvolvimento',
-      suggestions: ['Em breve teremos análises detalhadas por categoria']
-    };
+    try {
+      const { categoria, data } = command.entities;
+
+      // Se não especificou categoria, mostrar resumo geral
+      if (!categoria) {
+        return this.executeAnaliseCategoriaGeral(context, userId);
+      }
+
+      // Análise específica da categoria
+      const mesAtual = new Date().getMonth() + 1;
+      const anoAtual = new Date().getFullYear();
+
+      // Buscar transações da categoria
+      const { data: transacoes } = await supabase
+        .from('app_transacoes')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('categoria_id', categoria.id)
+        .eq('tipo', 'despesa')
+        .gte('data', new Date(anoAtual, mesAtual - 1, 1).toISOString())
+        .lte('data', new Date(anoAtual, mesAtual, 0).toISOString());
+
+      if (!transacoes || transacoes.length === 0) {
+        return {
+          type: 'operation_success',
+          message: `Nenhum gasto encontrado em ${categoria.nome} este mês`,
+          suggestions: ['Verifique outros períodos ou categorias']
+        };
+      }
+
+      // Calcular estatísticas
+      const totalGasto = transacoes.reduce((sum, t) => sum + Number(t.valor), 0);
+      const mediaGasto = totalGasto / transacoes.length;
+      const maiorGasto = Math.max(...transacoes.map(t => Number(t.valor)));
+      const menorGasto = Math.min(...transacoes.map(t => Number(t.valor)));
+
+      // Buscar dados históricos para comparação
+      const { data: historicoTransacoes } = await supabase
+        .from('app_transacoes')
+        .select('valor, data')
+        .eq('user_id', userId)
+        .eq('categoria_id', categoria.id)
+        .eq('tipo', 'despesa')
+        .gte('data', new Date(anoAtual, mesAtual - 4, 1).toISOString())
+        .lte('data', new Date(anoAtual, mesAtual - 1, 0).toISOString());
+
+      const mediaHistorica = historicoTransacoes && historicoTransacoes.length > 0
+        ? historicoTransacoes.reduce((sum, t) => sum + Number(t.valor), 0) / 3 // média dos últimos 3 meses
+        : 0;
+
+      const variacao = mediaHistorica > 0
+        ? ((totalGasto - mediaHistorica) / mediaHistorica) * 100
+        : 0;
+
+      // Buscar orçamento da categoria se existir
+      const { data: orcamento } = await supabase
+        .from('app_orcamento')
+        .select('valor')
+        .eq('user_id', userId)
+        .eq('categoria_id', categoria.id)
+        .eq('mes', mesAtual)
+        .eq('ano', anoAtual)
+        .single();
+
+      let message = `📊 **Análise de ${categoria.nome}**\n\n`;
+      message += `💰 **Total gasto este mês**: ${this.formatCurrency(totalGasto)}\n`;
+      message += `📈 **Número de transações**: ${transacoes.length}\n`;
+      message += `💵 **Gasto médio**: ${this.formatCurrency(mediaGasto)}\n`;
+      message += `⬆️ **Maior gasto**: ${this.formatCurrency(maiorGasto)}\n`;
+      message += `⬇️ **Menor gasto**: ${this.formatCurrency(menorGasto)}\n`;
+
+      if (mediaHistorica > 0) {
+        message += `\n📊 **Comparação com histórico**\n`;
+        message += `📉 Média últimos 3 meses: ${this.formatCurrency(mediaHistorica)}\n`;
+        message += `📈 Variação: ${variacao > 0 ? '+' : ''}${variacao.toFixed(1)}%\n`;
+      }
+
+      if (orcamento) {
+        const percentualUsado = (totalGasto / orcamento.valor) * 100;
+        message += `\n💼 **Orçamento**\n`;
+        message += `📋 Limite: ${this.formatCurrency(orcamento.valor)}\n`;
+        message += `📊 Usado: ${percentualUsado.toFixed(1)}%\n`;
+        message += `💰 Disponível: ${this.formatCurrency(orcamento.valor - totalGasto)}\n`;
+      }
+
+      // Gerar insights específicos
+      const insights: Insight[] = [];
+
+      if (variacao > 30) {
+        insights.push({
+          id: `cat_${Date.now()}`,
+          tipo: 'alerta',
+          titulo: 'Aumento significativo de gastos',
+          descricao: `Gastos em ${categoria.nome} aumentaram ${variacao.toFixed(0)}%`,
+          acao: 'Revise os gastos e identifique oportunidades de economia',
+          prioridade: 'alta',
+          categoria_afetada: categoria.nome,
+          valor_impacto: totalGasto - mediaHistorica,
+          created_at: new Date()
+        });
+      }
+
+      if (orcamento && totalGasto > orcamento.valor) {
+        insights.push({
+          id: `orc_${Date.now()}`,
+          tipo: 'alerta',
+          titulo: 'Orçamento excedido!',
+          descricao: `Você ultrapassou o orçamento de ${categoria.nome} em ${this.formatCurrency(totalGasto - orcamento.valor)}`,
+          acao: 'Evite novos gastos nesta categoria este mês',
+          prioridade: 'urgente',
+          categoria_afetada: categoria.nome,
+          valor_impacto: totalGasto - orcamento.valor,
+          created_at: new Date()
+        });
+      }
+
+      return {
+        type: 'operation_success',
+        message,
+        insights,
+        data: {
+          categoria: categoria.nome,
+          total: totalGasto,
+          transacoes: transacoes.length,
+          media: mediaGasto,
+          variacao
+        }
+      };
+
+    } catch (error) {
+      console.error('Erro ao analisar categoria:', error);
+      return {
+        type: 'error',
+        message: 'Erro ao analisar categoria',
+        suggestions: ['Tente novamente ou escolha outra categoria']
+      };
+    }
+  }
+
+  private async executeAnaliseCategoriaGeral(context: FinancialContext, userId: string): Promise<OperationResult> {
+    try {
+      // Análise geral de todas as categorias
+      const mesAtual = new Date().getMonth() + 1;
+      const anoAtual = new Date().getFullYear();
+
+      const { data: gastosPorCategoria } = await supabase
+        .from('app_transacoes')
+        .select(`
+          categoria_id,
+          valor,
+          app_categoria!inner(nome)
+        `)
+        .eq('user_id', userId)
+        .eq('tipo', 'despesa')
+        .gte('data', new Date(anoAtual, mesAtual - 1, 1).toISOString())
+        .lte('data', new Date(anoAtual, mesAtual, 0).toISOString());
+
+      if (!gastosPorCategoria || gastosPorCategoria.length === 0) {
+        return {
+          type: 'operation_success',
+          message: 'Nenhum gasto encontrado este mês',
+          suggestions: ['Registre suas transações para obter análises']
+        };
+      }
+
+      // Agrupar por categoria
+      const categoriasTotais = new Map<string, { total: number; count: number }>();
+
+      gastosPorCategoria.forEach((t: any) => {
+        const nome = t.app_categoria?.nome || 'Sem categoria';
+        const atual = categoriasTotais.get(nome) || { total: 0, count: 0 };
+        categoriasTotais.set(nome, {
+          total: atual.total + Number(t.valor),
+          count: atual.count + 1
+        });
+      });
+
+      // Ordenar por valor total
+      const categoriasOrdenadas = Array.from(categoriasTotais.entries())
+        .sort((a, b) => b[1].total - a[1].total)
+        .slice(0, 10); // Top 10 categorias
+
+      let message = '📊 **Análise Geral de Categorias**\n\n';
+      message += '**Top Categorias de Gastos:**\n\n';
+
+      let totalGeral = 0;
+      categoriasOrdenadas.forEach(([nome, dados], index) => {
+        totalGeral += dados.total;
+        const emoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '📌';
+        message += `${emoji} **${nome}**: ${this.formatCurrency(dados.total)} (${dados.count} transações)\n`;
+      });
+
+      message += `\n💰 **Total Geral**: ${this.formatCurrency(totalGeral)}\n`;
+
+      // Categoria com maior gasto médio
+      const categoriasMédias = Array.from(categoriasTotais.entries())
+        .map(([nome, dados]) => ({ nome, media: dados.total / dados.count }))
+        .sort((a, b) => b.media - a.media)[0];
+
+      if (categoriasMédias) {
+        message += `\n💡 **Dica**: ${categoriasMédias.nome} tem o maior gasto médio (${this.formatCurrency(categoriasMédias.media)} por transação)`;
+      }
+
+      return {
+        type: 'operation_success',
+        message,
+        data: {
+          categorias: Object.fromEntries(categoriasTotais),
+          total: totalGeral
+        }
+      };
+
+    } catch (error) {
+      console.error('Erro na análise geral:', error);
+      return {
+        type: 'error',
+        message: 'Erro ao analisar categorias',
+        suggestions: ['Tente novamente mais tarde']
+      };
+    }
   }
 
   // Métodos auxiliares
