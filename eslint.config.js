@@ -1,5 +1,3 @@
-// For more info, see https://github.com/storybookjs/eslint-plugin-storybook#configuration-flat-config-format
-import storybook from "eslint-plugin-storybook";
 import jsdoc from 'eslint-plugin-jsdoc';
 
 import js from '@eslint/js'
@@ -41,4 +39,4 @@ export default tseslint.config({ ignores: ['dist'] }, {
     'jsdoc/require-param-description': 'warn',
     'jsdoc/require-returns-description': 'warn',
   },
-}, storybook.configs["flat/recommended"]);
+});
