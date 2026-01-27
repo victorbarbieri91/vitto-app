@@ -20,6 +20,7 @@ export function CentralIAPage() {
     pendingAction,
     dataRequest,
     sendMessage,
+    addMessage,
     confirmAction,
     rejectAction,
     submitUserData,
@@ -108,6 +109,7 @@ export function CentralIAPage() {
           messages={messages}
           isLoading={isLoading}
           onSendMessage={sendMessage}
+          onAddMessage={addMessage}
           disabled={!!pendingAction || !!dataRequest}
           isCentered={!hasMessages}
         />

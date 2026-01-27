@@ -69,7 +69,8 @@ export default function CardsPage() {
       await fetchCards();
     } catch (err) {
       console.error('Erro ao excluir cartão:', err);
-      setError('Erro ao excluir cartão');
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao excluir cartão';
+      setError(errorMessage);
     }
   };
 

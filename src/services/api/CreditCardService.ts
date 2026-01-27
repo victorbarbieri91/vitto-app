@@ -187,6 +187,10 @@ export class CreditCardService {
 
   /**
    * Remove um cartão de crédito
+   * Permite exclusão se:
+   * - Não há faturas
+   * - Todas as faturas não pagas têm valor zero (serão excluídas junto)
+   * Bloqueia se houver faturas com valor > 0 não pagas
    */
   async delete(id: number): Promise<void> {
     const { data: { user } } = await supabase.auth.getUser();
@@ -196,19 +200,43 @@ export class CreditCardService {
     const existing = await this.getById(id);
     if (!existing) throw new Error('Cartão não encontrado');
 
-    // Verificar se há faturas pendentes
+    // Verificar se há faturas pendentes COM VALOR
     const { data: pendingInvoices, error: invoicesError } = await supabase
       .from('app_fatura')
-      .select('id')
+      .select('id, valor_total, status')
       .eq('cartao_id', id)
       .neq('status', 'paga');
 
     if (invoicesError) throw invoicesError;
 
-    if (pendingInvoices && pendingInvoices.length > 0) {
-      throw new Error('Não é possível excluir cartão com faturas pendentes');
+    // Verificar se alguma fatura pendente tem valor > 0
+    const invoicesWithValue = pendingInvoices?.filter(
+      inv => Number(inv.valor_total) > 0
+    ) || [];
+
+    if (invoicesWithValue.length > 0) {
+      const totalPendente = invoicesWithValue.reduce(
+        (sum, inv) => sum + Number(inv.valor_total), 0
+      );
+      throw new Error(
+        `Não é possível excluir cartão com faturas pendentes. ` +
+        `Existem ${invoicesWithValue.length} fatura(s) com valor total de R$ ${totalPendente.toFixed(2)}. ` +
+        `Pague ou exclua as faturas primeiro.`
+      );
     }
 
+    // Excluir faturas vazias (valor = 0) antes de excluir o cartão
+    if (pendingInvoices && pendingInvoices.length > 0) {
+      const { error: deleteInvoicesError } = await supabase
+        .from('app_fatura')
+        .delete()
+        .eq('cartao_id', id)
+        .eq('valor_total', 0);
+
+      if (deleteInvoicesError) throw deleteInvoicesError;
+    }
+
+    // Excluir o cartão
     const { error } = await supabase
       .from('app_cartao_credito')
       .delete()

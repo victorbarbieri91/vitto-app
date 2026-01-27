@@ -158,6 +158,7 @@ export class CategoryService extends BaseApi {
    * Get expense distribution by category for a period
    */
   async getExpenseDistributionByCategory(period: 'week' | 'month' | 'year'): Promise<{
+    categoryId: number | null;
     categoryName: string;
     categoryColor: string;
     amount: number;
@@ -199,6 +200,7 @@ export class CategoryService extends BaseApi {
       const categoryMap = new Map();
       categories.forEach(category => {
         categoryMap.set(category.id, {
+          id: category.id,
           name: category.nome,
           color: category.cor,
           amount: 0
@@ -207,6 +209,7 @@ export class CategoryService extends BaseApi {
 
       // Add 'Sem categoria' for transactions without a category
       categoryMap.set('null', {
+        id: null,
         name: 'Sem categoria',
         color: '#CCCCCC',
         amount: 0
@@ -234,12 +237,118 @@ export class CategoryService extends BaseApi {
       const result = Array.from(categoryMap.values())
         .filter(item => item.amount > 0)
         .map(item => ({
+          categoryId: item.id,
           categoryName: item.name,
           categoryColor: item.color,
           amount: item.amount,
           percentage: totalExpenses > 0 ? (item.amount / totalExpenses) * 100 : 0
         }))
         .sort((a, b) => b.amount - a.amount);
+
+      return result;
+    } catch (error) {
+      throw this.handleError(error, 'Falha ao buscar distribuição de despesas por categoria');
+    }
+  }
+
+  /**
+   * Get expense distribution by category for a specific month/year
+   * This is the accurate method that uses the selected month from dashboard
+   */
+  async getExpenseDistributionForMonth(mes: number, ano: number): Promise<{
+    categoryId: number | null;
+    categoryName: string;
+    categoryColor: string;
+    amount: number;
+    percentage: number;
+  }[]> {
+    try {
+      const user = await this.getCurrentUser();
+      if (!user) return [];
+
+      // Calculate exact start and end dates for the month
+      const startDate = `${ano}-${String(mes).padStart(2, '0')}-01`;
+      const lastDay = new Date(ano, mes, 0).getDate();
+      const endDate = `${ano}-${String(mes).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+      console.log(`📊 Buscando distribuição de categorias para ${mes}/${ano}:`, { startDate, endDate });
+
+      // Get all expenses for the month (including card expenses)
+      const { data: transactions, error: transactionError } = await this.supabase
+        .from('app_transacoes')
+        .select('valor, categoria_id')
+        .eq('user_id', user.id)
+        .in('tipo', ['despesa', 'despesa_cartao'])
+        .eq('status', 'confirmado')
+        .gte('data', startDate)
+        .lte('data', endDate);
+
+      if (transactionError) throw transactionError;
+
+      console.log(`📊 Transações encontradas: ${transactions?.length || 0}`);
+
+      // Get all categories (user's + system default categories)
+      const { data: categories, error: categoryError } = await this.supabase
+        .from('app_categoria')
+        .select('id, nome, cor')
+        .or(`user_id.eq.${user.id},user_id.is.null`)
+        .or('tipo.eq.despesa,tipo.eq.ambos');
+
+      if (categoryError) throw categoryError;
+
+      if (!transactions || !categories || transactions.length === 0) {
+        return [];
+      }
+
+      // Create a map of categories for easy lookup
+      const categoryMap = new Map();
+      categories.forEach(category => {
+        categoryMap.set(category.id, {
+          id: category.id,
+          name: category.nome,
+          color: category.cor || '#6B7280',
+          amount: 0
+        });
+      });
+
+      // Add 'Sem categoria' for transactions without a category
+      categoryMap.set('null', {
+        id: null,
+        name: 'Sem categoria',
+        color: '#94A3B8',
+        amount: 0
+      });
+
+      // Sum expenses by category
+      let totalExpenses = 0;
+      transactions.forEach(transaction => {
+        const categoryId = transaction.categoria_id || 'null';
+        const category = categoryMap.get(categoryId);
+
+        if (category) {
+          category.amount += Number(transaction.valor);
+          totalExpenses += Number(transaction.valor);
+        } else {
+          // Handle transactions with a category that no longer exists
+          const unknownCategory = categoryMap.get('null');
+          unknownCategory.amount += Number(transaction.valor);
+          totalExpenses += Number(transaction.valor);
+        }
+      });
+
+      // Convert to array and calculate percentages
+      const result = Array.from(categoryMap.values())
+        .filter(item => item.amount > 0)
+        .map(item => ({
+          categoryId: item.id,
+          categoryName: item.name,
+          categoryColor: item.color,
+          amount: item.amount,
+          percentage: totalExpenses > 0 ? (item.amount / totalExpenses) * 100 : 0
+        }))
+        .sort((a, b) => b.amount - a.amount);
+
+      console.log(`📊 Distribuição calculada:`, result.map(r => `${r.categoryName}: R$ ${r.amount.toFixed(2)}`));
 
       return result;
     } catch (error) {

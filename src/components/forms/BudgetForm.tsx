@@ -30,7 +30,8 @@ export default function BudgetForm({
     categoria_id: 0,
     mes: currentDate.getMonth() + 1,
     ano: currentDate.getFullYear(),
-    valor: 0
+    valor: 0,
+    tipo: 'despesa'
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -42,7 +43,8 @@ export default function BudgetForm({
         categoria_id: budget.categoria_id,
         mes: budget.mes,
         ano: budget.ano,
-        valor: budget.valor
+        valor: budget.valor,
+        tipo: budget.tipo || 'despesa'
       });
     }
   }, [budget]);

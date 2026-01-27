@@ -8,9 +8,10 @@ import { cn } from '../../utils/cn';
 interface MessageListProps {
   messages: ChatMessage[];
   isLoading: boolean;
+  onInteractiveAction?: (action: string, value?: string) => void;
 }
 
-export function MessageList({ messages, isLoading }: MessageListProps) {
+export function MessageList({ messages, isLoading, onInteractiveAction }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -41,6 +42,7 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
               key={message.id || `${message.role}-${index}`}
               message={message}
               isLast={index === messages.length - 1}
+              onInteractiveAction={onInteractiveAction}
             />
           ))}
         </AnimatePresence>

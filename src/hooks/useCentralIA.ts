@@ -21,6 +21,7 @@ interface UseCentralIAReturn {
 
   // Ações
   sendMessage: (content: string) => Promise<void>;
+  addMessage: (message: ChatMessage) => void;
   confirmAction: () => Promise<void>;
   rejectAction: () => Promise<void>;
   submitUserData: (data: Record<string, unknown>) => Promise<void>;
@@ -273,6 +274,14 @@ export function useCentralIA(): UseCentralIAReturn {
     setState(prev => ({ ...prev, messages: [], currentSession: null }));
   }, []);
 
+  // Adiciona uma mensagem diretamente (para uso em fluxos externos como importação)
+  const addMessage = useCallback((message: ChatMessage) => {
+    setState(prev => ({
+      ...prev,
+      messages: [...prev.messages, message],
+    }));
+  }, []);
+
   return {
     messages: state.messages,
     isLoading: state.isLoading,
@@ -281,6 +290,7 @@ export function useCentralIA(): UseCentralIAReturn {
     pendingAction: state.pendingAction,
     dataRequest: state.dataRequest,
     sendMessage,
+    addMessage,
     confirmAction,
     rejectAction,
     submitUserData,

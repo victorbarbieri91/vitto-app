@@ -13,6 +13,7 @@ export { RecurrentTransactionService } from './RecurrentTransactionService';
 export { SaldoService } from './SaldoService';
 export { OnboardingService } from './OnboardingService';
 export { PatrimonioService } from './PatrimonioService';
+export { ResetService } from './ResetService';
 
 // Export default instances
 export { default as accountService } from './AccountService';
@@ -28,6 +29,7 @@ export { automationService } from './AutomationService';
 export { saldoService } from './SaldoService';
 export { default as onboardingService } from './OnboardingService';
 export { default as patrimonioService } from './PatrimonioService';
+export { default as resetService } from './ResetService';
 
 // Export types
 export type { Account, NewAccount } from './AccountService';
@@ -81,7 +83,8 @@ export type {
   Budget,
   NewBudget,
   BudgetWithCategory,
-  BudgetStatus
+  BudgetStatus,
+  BudgetTipo
 } from './BudgetService';
 export type {
   SaldoHistorico,
@@ -101,3 +104,7 @@ export type {
   PatrimonioConsolidado,
   CategoriaAtivo
 } from '../../types/patrimonio';
+export type {
+  DataSummary,
+  ResetResult
+} from './ResetService';

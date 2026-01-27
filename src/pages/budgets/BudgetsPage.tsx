@@ -1,11 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Wallet, Target, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
 import { useBudget } from '../../hooks/useBudget';
 import { BudgetCard, AddBudgetCard, BudgetModal } from '../../components/budgets';
 import { ModernCard } from '../../components/ui/modern';
+import SimpleMetricCard from '../../components/ui/modern/SimpleMetricCard';
 import { cn } from '../../utils/cn';
-import type { BudgetWithCategory } from '../../services/api';
+import budgetService from '../../services/api/BudgetService';
+import type { BudgetWithCategory, BudgetTipo } from '../../services/api/BudgetService';
+
+interface Category {
+  id: number;
+  nome: string;
+  tipo: string;
+  cor?: string;
+  icone?: string;
+}
 
 export default function BudgetsPage() {
   const {
@@ -15,19 +25,31 @@ export default function BudgetsPage() {
     addBudget,
     updateBudget,
     deleteBudget,
-    getCategoriesWithoutBudget
   } = useBudget();
 
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<BudgetWithCategory | null>(null);
-  const [availableCategories, setAvailableCategories] = useState<any[]>([]);
+  const [availableCategories, setAvailableCategories] = useState<Category[]>([]);
 
   const monthNames = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
   ];
+
+  // Carregar categorias disponíveis (tanto receita quanto despesa)
+  const loadAvailableCategories = useCallback(async () => {
+    try {
+      const [despesas, receitas] = await Promise.all([
+        budgetService.getCategoriesWithoutBudget(currentMonth, currentYear, 'despesa'),
+        budgetService.getCategoriesWithoutBudget(currentMonth, currentYear, 'receita'),
+      ]);
+      setAvailableCategories([...despesas, ...receitas]);
+    } catch (error) {
+      console.error('Erro ao carregar categorias:', error);
+    }
+  }, [currentMonth, currentYear]);
 
   // Navegar entre meses
   const navigateMonth = (direction: 'prev' | 'next') => {
@@ -50,8 +72,7 @@ export default function BudgetsPage() {
 
   // Abrir modal para novo orçamento
   const handleAddBudget = async () => {
-    const categories = await getCategoriesWithoutBudget(currentMonth, currentYear);
-    setAvailableCategories(categories);
+    await loadAvailableCategories();
     setEditingBudget(null);
     setIsModalOpen(true);
   };
@@ -63,50 +84,83 @@ export default function BudgetsPage() {
   };
 
   // Salvar orçamento (criar ou atualizar)
-  const handleSaveBudget = async (data: { categoria_id: number; valor: number; mes: number; ano: number }) => {
+  const handleSaveBudget = async (data: { categoria_id: number; valor: number; mes: number; ano: number; tipo: BudgetTipo }) => {
     if (editingBudget) {
       await updateBudget(editingBudget.id, data);
     } else {
       await addBudget(data);
     }
+    await loadAvailableCategories();
+  };
+
+  // Criar nova categoria
+  const handleCreateCategory = async (data: { nome: string; tipo: BudgetTipo; cor: string }): Promise<Category> => {
+    const newCategory = await budgetService.createCategory(data);
+    setAvailableCategories(prev => [...prev, newCategory]);
+    return newCategory;
   };
 
   // Excluir orçamento
   const handleDeleteBudget = async (budgetId: number) => {
     await deleteBudget(budgetId);
+    await loadAvailableCategories();
   };
 
-  // Animações para o grid
+  // Calcular métricas de cumprimento
+  const despesasBudgets = budgetStatus.filter(b => b.budget.tipo !== 'receita');
+  const receitasBudgets = budgetStatus.filter(b => b.budget.tipo === 'receita');
+
+  // KPIs de cumprimento
+  const budgetsNoLimite = budgetStatus.filter(b => b.status === 'verde').length;
+  const budgetsEmRisco = budgetStatus.filter(b => b.status === 'amarelo').length;
+  const budgetsExcedidos = budgetStatus.filter(b => b.status === 'vermelho').length;
+
+  // Taxa média de cumprimento (para despesas: quanto menor o %, melhor)
+  const taxaCumprimento = budgetStatus.length > 0
+    ? budgetStatus.reduce((sum, b) => {
+        // Para despesas: 100% - percentual gasto (economia)
+        // Para receitas: percentual recebido
+        if (b.budget.tipo === 'receita') {
+          return sum + Math.min(b.percentualGasto, 100);
+        } else {
+          return sum + Math.max(0, 100 - b.percentualGasto);
+        }
+      }, 0) / budgetStatus.length
+    : 0;
+
+  // Animações
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: {
-        staggerChildren: 0.08,
-      },
+      transition: { staggerChildren: 0.03 },
     },
   };
 
   const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
+    hidden: { opacity: 0, y: 10 },
     visible: { opacity: 1, y: 0 },
   };
 
   // Loading state
   if (loading) {
     return (
-      <div className="space-y-6">
-        {/* Header skeleton */}
-        <div className="flex items-center justify-center gap-4 py-4">
-          <div className="w-10 h-10 bg-slate-200 rounded-xl animate-pulse" />
-          <div className="w-40 h-8 bg-slate-200 rounded-lg animate-pulse" />
-          <div className="w-10 h-10 bg-slate-200 rounded-xl animate-pulse" />
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-center">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-slate-200 rounded-lg animate-pulse" />
+            <div className="w-40 h-7 bg-slate-200 rounded animate-pulse" />
+            <div className="w-8 h-8 bg-slate-200 rounded-lg animate-pulse" />
+          </div>
         </div>
-
-        {/* Grid skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-52 bg-slate-100 rounded-2xl animate-pulse" />
+        <div className="grid grid-cols-3 gap-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="h-20 bg-slate-100 rounded-xl animate-pulse" />
+          ))}
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="h-[120px] bg-slate-100 rounded-xl animate-pulse" />
           ))}
         </div>
       </div>
@@ -116,104 +170,231 @@ export default function BudgetsPage() {
   // Error state
   if (error) {
     return (
-      <ModernCard variant="default" className="p-8 text-center">
-        <div className="text-rose-500 mb-4">
-          <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-        </div>
-        <p className="text-slate-600 mb-4">Erro ao carregar orçamentos</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="text-coral-500 hover:text-coral-600 font-medium"
-        >
-          Tentar novamente
-        </button>
-      </ModernCard>
+      <div className="p-6">
+        <ModernCard variant="default" className="p-8 text-center max-w-md mx-auto">
+          <div className="text-coral-500 mb-4">
+            <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <p className="text-deep-blue font-medium mb-2">Erro ao carregar orçamentos</p>
+          <p className="text-slate-500 text-sm mb-4">Não foi possível carregar seus orçamentos.</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-coral-500 hover:bg-coral-600 text-white rounded-lg font-medium text-sm transition-colors"
+          >
+            Tentar novamente
+          </button>
+        </ModernCard>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header com navegação de mês */}
+    <div className="p-6 space-y-6 min-h-full">
+      {/* Header com navegação de mês CENTRALIZADA */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-center gap-3"
+        className="flex items-center justify-center"
       >
-        <button
-          onClick={() => navigateMonth('prev')}
-          className={cn(
-            "p-2.5 rounded-xl",
-            "bg-white/80 border border-slate-200/60",
-            "hover:bg-slate-50 hover:border-slate-300",
-            "text-slate-600 hover:text-deep-blue",
-            "transition-all duration-200",
-            "shadow-sm hover:shadow"
-          )}
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigateMonth('prev')}
+            className={cn(
+              "p-2.5 rounded-xl",
+              "bg-white border border-slate-200",
+              "hover:bg-slate-50 hover:border-coral-300",
+              "text-slate-600 hover:text-coral-500",
+              "transition-all duration-150"
+            )}
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
 
-        <div className="min-w-[180px] text-center">
-          <h2 className="text-xl font-bold text-deep-blue">
-            {monthNames[currentMonth - 1]}
-          </h2>
-          <p className="text-sm text-slate-500">{currentYear}</p>
+          <div className="min-w-[180px] text-center">
+            <h1 className="text-xl font-bold text-deep-blue">
+              {monthNames[currentMonth - 1]} {currentYear}
+            </h1>
+          </div>
+
+          <button
+            onClick={() => navigateMonth('next')}
+            className={cn(
+              "p-2.5 rounded-xl",
+              "bg-white border border-slate-200",
+              "hover:bg-slate-50 hover:border-coral-300",
+              "text-slate-600 hover:text-coral-500",
+              "transition-all duration-150"
+            )}
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
         </div>
+      </motion.div>
 
-        <button
-          onClick={() => navigateMonth('next')}
-          className={cn(
-            "p-2.5 rounded-xl",
-            "bg-white/80 border border-slate-200/60",
-            "hover:bg-slate-50 hover:border-slate-300",
-            "text-slate-600 hover:text-deep-blue",
-            "transition-all duration-200",
-            "shadow-sm hover:shadow"
-          )}
+      {/* KPIs de Cumprimento - Usando SimpleMetricCard pattern */}
+      {budgetStatus.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="grid grid-cols-3 gap-3"
         >
-          <ChevronRight className="w-5 h-5" />
-        </button>
-      </motion.div>
+          {/* No Limite */}
+          <div className={cn(
+            "rounded-xl shadow-sm border p-4",
+            "bg-teal-700"
+          )}>
+            <div className="flex justify-between items-start">
+              <p className="text-[10px] font-medium text-teal-100 uppercase tracking-wide">
+                No Limite
+              </p>
+              <CheckCircle2 className="w-4 h-4 text-teal-200" />
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-white">{budgetsNoLimite}</span>
+              <span className="text-xs text-teal-200">orçamentos</span>
+            </div>
+          </div>
 
-      {/* Grid de orçamentos */}
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-      >
-        {/* Cards de orçamento existentes */}
-        {budgetStatus.map((budgetItem) => (
-          <motion.div key={budgetItem.budget.id} variants={itemVariants}>
-            <BudgetCard
-              budget={budgetItem}
-              onEdit={handleEditBudget}
-              onDelete={handleDeleteBudget}
-            />
-          </motion.div>
-        ))}
+          {/* Em Risco */}
+          <div className={cn(
+            "rounded-xl shadow-sm border p-4",
+            "bg-amber-500"
+          )}>
+            <div className="flex justify-between items-start">
+              <p className="text-[10px] font-medium text-amber-100 uppercase tracking-wide">
+                Em Risco
+              </p>
+              <AlertTriangle className="w-4 h-4 text-amber-100" />
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-white">{budgetsEmRisco}</span>
+              <span className="text-xs text-amber-100">orçamentos</span>
+            </div>
+          </div>
 
-        {/* Card de adicionar */}
-        <motion.div variants={itemVariants}>
-          <AddBudgetCard onClick={handleAddBudget} />
+          {/* Excedidos */}
+          <div className={cn(
+            "rounded-xl shadow-sm border p-4",
+            "bg-coral-500"
+          )}>
+            <div className="flex justify-between items-start">
+              <p className="text-[10px] font-medium text-coral-100 uppercase tracking-wide">
+                Excedidos
+              </p>
+              <XCircle className="w-4 h-4 text-coral-100" />
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-white">{budgetsExcedidos}</span>
+              <span className="text-xs text-coral-100">orçamentos</span>
+            </div>
+          </div>
         </motion.div>
+      )}
+
+      {/* Seção de Despesas */}
+      {despesasBudgets.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-2">
+              <TrendingDown className="w-4 h-4 text-coral-400" />
+              Limites de Gastos
+            </h2>
+            <span className="text-xs text-slate-400">{despesasBudgets.length} orçamentos</span>
+          </div>
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
+          >
+            {despesasBudgets.map((budgetItem) => (
+              <motion.div key={budgetItem.budget.id} variants={itemVariants}>
+                <BudgetCard
+                  budget={budgetItem}
+                  onEdit={handleEditBudget}
+                  onDelete={handleDeleteBudget}
+                />
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      )}
+
+      {/* Seção de Receitas */}
+      {receitasBudgets.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-emerald-400" />
+              Metas de Receita
+            </h2>
+            <span className="text-xs text-slate-400">{receitasBudgets.length} orçamentos</span>
+          </div>
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
+          >
+            {receitasBudgets.map((budgetItem) => (
+              <motion.div key={budgetItem.budget.id} variants={itemVariants}>
+                <BudgetCard
+                  budget={budgetItem}
+                  onEdit={handleEditBudget}
+                  onDelete={handleDeleteBudget}
+                />
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      )}
+
+      {/* Botão de adicionar - sempre visível */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.2 }}
+        className="pt-2"
+      >
+        <div className="max-w-xs">
+          <AddBudgetCard onClick={handleAddBudget} />
+        </div>
       </motion.div>
 
-      {/* Estado vazio (quando não há orçamentos) */}
+      {/* Estado vazio */}
       {budgetStatus.length === 0 && (
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-center py-8"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col items-center justify-center py-12"
         >
-          <p className="text-slate-500">
-            Você ainda não tem orçamentos para {monthNames[currentMonth - 1]} de {currentYear}.
+          <div className="p-4 bg-slate-100 rounded-2xl mb-4">
+            <Wallet className="w-12 h-12 text-slate-400" />
+          </div>
+          <h3 className="text-lg font-semibold text-deep-blue mb-2">
+            Nenhum orçamento definido
+          </h3>
+          <p className="text-slate-500 text-sm text-center max-w-md mb-6">
+            Crie orçamentos para {monthNames[currentMonth - 1]} de {currentYear} e
+            tenha controle total sobre seus gastos e receitas.
           </p>
-          <p className="text-slate-400 text-sm mt-1">
-            Clique no card acima para criar seu primeiro orçamento.
-          </p>
+          <button
+            onClick={handleAddBudget}
+            className={cn(
+              "px-6 py-3 rounded-xl",
+              "bg-coral-500 hover:bg-coral-600",
+              "text-white font-medium",
+              "flex items-center gap-2",
+              "transition-colors duration-150",
+              "shadow-md hover:shadow-lg"
+            )}
+          >
+            <Target className="w-5 h-5" />
+            Criar primeiro orçamento
+          </button>
         </motion.div>
       )}
 
@@ -225,6 +406,7 @@ export default function BudgetsPage() {
           setEditingBudget(null);
         }}
         onSave={handleSaveBudget}
+        onCreateCategory={handleCreateCategory}
         editingBudget={editingBudget}
         availableCategories={availableCategories}
         currentMonth={currentMonth}

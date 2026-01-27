@@ -1,11 +1,14 @@
 import { BaseApi } from './BaseApi';
 
+export type BudgetTipo = 'receita' | 'despesa';
+
 export type Budget = {
   id: number;
   categoria_id: number;
   mes: number;
   ano: number;
   valor: number;
+  tipo: BudgetTipo;
   user_id: string;
   created_at: string;
 };
@@ -208,29 +211,35 @@ export class BudgetService extends BaseApi {
   }
 
   /**
-   * Calculate spending for a category in a month
+   * Calculate spending/income for a category in a month
+   * @param categoriaId - Category ID
+   * @param mes - Month
+   * @param ano - Year
+   * @param tipo - Transaction type to sum ('receita' or 'despesa')
    */
-  async getCategorySpending(categoriaId: number, mes: number, ano: number): Promise<number> {
+  async getCategorySpending(categoriaId: number, mes: number, ano: number, tipo: BudgetTipo = 'despesa'): Promise<number> {
     try {
       const user = await this.getCurrentUser();
       if (!user) return 0;
 
-      // Get spending from app_transacoes for the category/month
+      // Get spending/income from app_transacoes for the category/month
+      const tiposTransacao = tipo === 'despesa' ? ['despesa', 'despesa_cartao'] : ['receita'];
+
       const { data, error } = await this.supabase
         .from('app_transacoes')
         .select('valor')
         .eq('user_id', user.id)
         .eq('categoria_id', categoriaId)
-        .eq('tipo', 'despesa')
+        .in('tipo', tiposTransacao)
         .gte('data', `${ano}-${mes.toString().padStart(2, '0')}-01`)
         .lt('data', `${ano}-${(mes + 1).toString().padStart(2, '0')}-01`);
 
       if (error) throw error;
-      
+
       const total = data?.reduce((sum, item) => sum + Number(item.valor), 0) || 0;
       return total;
     } catch (error) {
-      throw this.handleError(error, 'Falha ao calcular gastos da categoria');
+      throw this.handleError(error, 'Falha ao calcular valores da categoria');
     }
   }
 
@@ -244,30 +253,44 @@ export class BudgetService extends BaseApi {
       const targetAno = ano || currentDate.getFullYear();
 
       const budgets = await this.getBudgetsForMonth(targetMes, targetAno);
-      
+
       const budgetsStatus: BudgetStatus[] = [];
 
       for (const budget of budgets) {
-        const gastoAtual = await this.getCategorySpending(budget.categoria_id, targetMes, targetAno);
-        const percentualGasto = (gastoAtual / budget.valor) * 100;
-        const saldoRestante = budget.valor - gastoAtual;
+        // Use the budget type to get correct spending/income
+        const budgetTipo = budget.tipo || 'despesa';
+        const valorAtual = await this.getCategorySpending(budget.categoria_id, targetMes, targetAno, budgetTipo);
+        const percentualGasto = (valorAtual / budget.valor) * 100;
+        const saldoRestante = budget.valor - valorAtual;
 
         // Calculate days remaining in month
         const lastDayOfMonth = new Date(targetAno, targetMes, 0).getDate();
         const today = currentDate.getDate();
         const diasRestantes = Math.max(0, lastDayOfMonth - today);
 
-        // Determine status
+        // Determine status (different logic for receita vs despesa)
         let status: 'verde' | 'amarelo' | 'vermelho' = 'verde';
-        if (percentualGasto >= 100) {
-          status = 'vermelho';
-        } else if (percentualGasto >= 80) {
-          status = 'amarelo';
+        if (budgetTipo === 'despesa') {
+          // For expenses: green < 80%, yellow 80-100%, red > 100%
+          if (percentualGasto >= 100) {
+            status = 'vermelho';
+          } else if (percentualGasto >= 80) {
+            status = 'amarelo';
+          }
+        } else {
+          // For income: green >= 100%, yellow 50-99%, red < 50%
+          if (percentualGasto >= 100) {
+            status = 'verde';
+          } else if (percentualGasto >= 50) {
+            status = 'amarelo';
+          } else {
+            status = 'vermelho';
+          }
         }
 
         budgetsStatus.push({
           budget,
-          gastoAtual,
+          gastoAtual: valorAtual,
           percentualGasto: Math.round(percentualGasto * 100) / 100,
           saldoRestante,
           status,
@@ -321,28 +344,37 @@ export class BudgetService extends BaseApi {
 
   /**
    * Get categories without budget for a month
+   * @param mes - Month (1-12)
+   * @param ano - Year
+   * @param tipo - Budget type: 'receita' or 'despesa'
    */
-  async getCategoriesWithoutBudget(mes: number, ano: number): Promise<Array<{ id: number; nome: string; tipo: string; cor?: string; icone?: string }>> {
+  async getCategoriesWithoutBudget(
+    mes: number,
+    ano: number,
+    tipo: BudgetTipo = 'despesa'
+  ): Promise<Array<{ id: number; nome: string; tipo: string; cor?: string; icone?: string }>> {
     try {
       const user = await this.getCurrentUser();
       if (!user) return [];
 
-      // Get all expense categories
+      // Get all categories by type
       const { data: allCategories, error: categoriesError } = await this.supabase
         .from('app_categoria')
         .select('id, nome, tipo, cor, icone')
-        .eq('tipo', 'despesa')
-        .or(`user_id.is.null,user_id.eq.${user.id}`);
+        .eq('tipo', tipo)
+        .or(`user_id.is.null,user_id.eq.${user.id}`)
+        .order('nome');
 
       if (categoriesError) throw categoriesError;
 
-      // Get categories that already have budgets
+      // Get categories that already have budgets for this type
       const { data: budgetedCategories, error: budgetError } = await this.supabase
         .from('app_orcamento')
         .select('categoria_id')
         .eq('user_id', user.id)
         .eq('mes', mes)
-        .eq('ano', ano);
+        .eq('ano', ano)
+        .eq('tipo', tipo);
 
       if (budgetError) throw budgetError;
 
@@ -351,6 +383,56 @@ export class BudgetService extends BaseApi {
       return allCategories.filter(cat => !budgetedIds.includes(cat.id));
     } catch (error) {
       throw this.handleError(error, 'Falha ao buscar categorias sem orçamento');
+    }
+  }
+
+  /**
+   * Get all categories by type (for budget creation)
+   */
+  async getCategoriesByType(tipo: BudgetTipo): Promise<Array<{ id: number; nome: string; tipo: string; cor?: string; icone?: string }>> {
+    try {
+      const user = await this.getCurrentUser();
+      if (!user) return [];
+
+      const { data, error } = await this.supabase
+        .from('app_categoria')
+        .select('id, nome, tipo, cor, icone')
+        .eq('tipo', tipo)
+        .or(`user_id.is.null,user_id.eq.${user.id}`)
+        .order('nome');
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      throw this.handleError(error, 'Falha ao buscar categorias');
+    }
+  }
+
+  /**
+   * Create a new category (for quick category creation in budget modal)
+   */
+  async createCategory(categoria: { nome: string; tipo: BudgetTipo; cor?: string; icone?: string }): Promise<{ id: number; nome: string; tipo: string; cor?: string; icone?: string }> {
+    try {
+      const user = await this.getCurrentUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
+      const { data, error } = await this.supabase
+        .from('app_categoria')
+        .insert({
+          nome: categoria.nome,
+          tipo: categoria.tipo,
+          cor: categoria.cor || '#6B7280',
+          icone: categoria.icone || 'tag',
+          user_id: user.id,
+          is_default: false
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      throw this.handleError(error, 'Falha ao criar categoria');
     }
   }
 

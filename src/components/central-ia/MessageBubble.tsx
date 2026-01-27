@@ -3,17 +3,20 @@ import { motion } from 'framer-motion';
 import { User, Wrench } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { MarkdownRenderer } from './MarkdownRenderer';
+import { InteractiveMessage } from './interactive';
 import type { ChatMessage } from '../../types/central-ia';
 
 interface MessageBubbleProps {
   message: ChatMessage;
   isLast?: boolean;
+  onInteractiveAction?: (action: string, value?: string) => void;
 }
 
 export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
-  function MessageBubble({ message, isLast }, ref) {
+  function MessageBubble({ message, isLast, onInteractiveAction }, ref) {
     const isUser = message.role === 'user';
     const isTool = message.role === 'tool';
+    const hasInteractive = message.interactive && message.interactive.elements.length > 0;
 
     // Não renderiza mensagens de sistema ou tool (mas pode mostrar indicador de tool)
     if (message.role === 'system') return null;
@@ -67,12 +70,14 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
           )}
         >
           {/* Renderização de Markdown */}
-          <div className="text-sm leading-relaxed">
-            <MarkdownRenderer
-              content={message.content}
-              isUser={isUser}
-            />
-          </div>
+          {message.content && (
+            <div className="text-sm leading-relaxed">
+              <MarkdownRenderer
+                content={message.content}
+                isUser={isUser}
+              />
+            </div>
+          )}
 
           {/* Indicador de tool calls */}
           {message.tool_calls && message.tool_calls.length > 0 && (
@@ -84,6 +89,17 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                 </span>
               </div>
             </div>
+          )}
+
+          {/* Conteúdo interativo (botões, cards, etc.) */}
+          {hasInteractive && !isUser && (
+            <InteractiveMessage
+              interactive={message.interactive!}
+              onButtonClick={(value) => onInteractiveAction?.('button', value)}
+              onConfirm={() => onInteractiveAction?.('confirm')}
+              onCancel={() => onInteractiveAction?.('cancel')}
+              disabled={!isLast}
+            />
           )}
         </div>
       </motion.div>

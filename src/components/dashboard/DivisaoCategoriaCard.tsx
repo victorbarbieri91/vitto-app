@@ -1,12 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Sector } from 'recharts';
 import { PieChart as PieChartIcon } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useResponsiveClasses } from '../../hooks/useScreenDetection';
 import { categoryService } from '../../services/api/CategoryService';
+import { useMonthlyDashboard } from '../../contexts/MonthlyDashboardContext';
 
 interface CategoryDistribution {
+  categoryId: number | null;
   categoryName: string;
   categoryColor: string;
   amount: number;
@@ -17,18 +20,76 @@ interface DivisaoCategoriaCardProps {
   className?: string;
 }
 
+// Função para formatar valor como moeda completa
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+};
+
+// Função para formatar valor compacto (para o centro do gráfico)
+const formatCompactCurrency = (value: number) => {
+  if (value >= 1000) {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 1,
+      notation: 'compact',
+    }).format(value);
+  }
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+};
+
+// Custom active shape for hover effect
+const renderActiveShape = (props: any) => {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload } = props;
+
+  return (
+    <g>
+      <Sector
+        cx={cx}
+        cy={cy}
+        innerRadius={innerRadius}
+        outerRadius={outerRadius + 5}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        fill={fill}
+        style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.2))', cursor: 'pointer' }}
+      />
+      <text x={cx} y={cy - 4} textAnchor="middle" fill="#1e293b" fontSize={10} fontWeight={500}>
+        {payload.name.length > 10 ? payload.name.substring(0, 10) + '...' : payload.name}
+      </text>
+      <text x={cx} y={cy + 10} textAnchor="middle" fill="#64748b" fontSize={9}>
+        {formatCompactCurrency(payload.value)}
+      </text>
+    </g>
+  );
+};
+
 export default function DivisaoCategoriaCard({ className }: DivisaoCategoriaCardProps) {
   const { size } = useResponsiveClasses();
-  const isMobile = size === 'mobile';
+  const navigate = useNavigate();
+  const { currentMonth, currentYear } = useMonthlyDashboard();
 
   const [data, setData] = useState<CategoryDistribution[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const distribution = await categoryService.getExpenseDistributionByCategory('month');
+        // Usa o mês e ano selecionados no dashboard para dados precisos
+        const distribution = await categoryService.getExpenseDistributionForMonth(currentMonth, currentYear);
         setData(distribution);
       } catch (error) {
         console.error('Erro ao buscar distribuicao:', error);
@@ -38,12 +99,13 @@ export default function DivisaoCategoriaCard({ className }: DivisaoCategoriaCard
     };
 
     fetchData();
-  }, []);
+  }, [currentMonth, currentYear]);
 
   const chartData = useMemo(() => {
     // Limitar a top 5 categorias
     const top5 = data.slice(0, 5);
     return top5.map(item => ({
+      id: item.categoryId,
       name: item.categoryName,
       value: item.amount,
       percentage: item.percentage,
@@ -51,27 +113,30 @@ export default function DivisaoCategoriaCard({ className }: DivisaoCategoriaCard
     }));
   }, [data]);
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
+
+  // Handle click on pie segment
+  const handlePieClick = (data: any, index: number) => {
+    const categoryId = chartData[index]?.id;
+    if (categoryId) {
+      // Navigate to transactions page with category filter
+      navigate(`/lancamentos?categoria=${categoryId}&month=${currentMonth}-${currentYear}`);
+    }
   };
 
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const item = payload[0].payload;
-      return (
-        <div className="bg-white rounded-lg shadow-lg border border-slate-200 p-3">
-          <p className="font-semibold text-slate-800">{item.name}</p>
-          <p className="text-sm text-slate-600">{formatCurrency(item.value)}</p>
-          <p className="text-xs text-slate-500">{item.percentage.toFixed(1)}% do total</p>
-        </div>
-      );
+  // Handle mouse enter/leave for active shape
+  const onPieEnter = (_: any, index: number) => {
+    setActiveIndex(index);
+  };
+
+  const onPieLeave = () => {
+    setActiveIndex(null);
+  };
+
+  // Handle legend click
+  const handleLegendClick = (categoryId: number | null) => {
+    if (categoryId) {
+      navigate(`/lancamentos?categoria=${categoryId}&month=${currentMonth}-${currentYear}`);
     }
-    return null;
   };
 
   // Estilo padrao consistente com outros cards
@@ -119,60 +184,69 @@ export default function DivisaoCategoriaCard({ className }: DivisaoCategoriaCard
         <h3 className="font-medium text-slate-700 text-sm">Despesas por Categoria</h3>
       </div>
 
-      <div className="flex-1 flex flex-col min-h-0 p-3">
-        {/* Layout: Gráfico à esquerda, Legenda à direita */}
-        <div className="flex items-center gap-3 flex-1 min-h-0">
+      <div className="flex-1 flex items-center justify-center min-h-0 px-4 py-3">
+        {/* Layout centralizado: Gráfico + legenda lado a lado */}
+        <div className="flex items-center gap-4 w-full max-w-[320px]">
           {/* Gráfico */}
-          <div className="flex-shrink-0 w-28 h-28">
+          <div className="w-[90px] h-[90px] flex-shrink-0">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={chartData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={28}
-                  outerRadius={48}
+                  innerRadius={25}
+                  outerRadius={42}
                   paddingAngle={2}
                   dataKey="value"
                   animationBegin={0}
                   animationDuration={800}
+                  onClick={handlePieClick}
+                  onMouseEnter={onPieEnter}
+                  onMouseLeave={onPieLeave}
+                  activeIndex={activeIndex !== null ? activeIndex : undefined}
+                  activeShape={renderActiveShape}
+                  style={{ cursor: 'pointer' }}
                 >
                   {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={entry.color}
+                      style={{ cursor: 'pointer' }}
+                    />
                   ))}
                 </Pie>
-                <Tooltip content={<CustomTooltip />} />
               </PieChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Legenda compacta */}
-          <div className="flex-1 min-w-0 space-y-1 overflow-hidden">
-            {chartData.slice(0, 4).map((item, index) => (
-              <motion.div
+          {/* Legenda vertical com valores completos */}
+          <div className="flex flex-col justify-center gap-1 flex-1 min-w-0">
+            {chartData.slice(0, 5).map((item, index) => (
+              <motion.button
                 key={item.name}
-                initial={{ opacity: 0, x: -10 }}
+                initial={{ opacity: 0, x: 10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className="flex items-center gap-2"
+                onClick={() => handleLegendClick(item.id)}
+                className={cn(
+                  "flex items-center gap-2 py-0.5 px-1 rounded",
+                  "hover:bg-slate-50 transition-colors",
+                  "cursor-pointer text-left"
+                )}
               >
                 <div
                   className="w-2 h-2 rounded-full flex-shrink-0"
                   style={{ backgroundColor: item.color }}
                 />
-                <span className="text-[11px] font-medium text-slate-700 truncate flex-1 min-w-0">
+                <span className="text-[10px] text-slate-600 truncate flex-1 min-w-0">
                   {item.name}
                 </span>
-                <span className="text-[10px] text-slate-500 flex-shrink-0">
-                  {item.percentage.toFixed(0)}%
+                <span className="text-[10px] text-slate-700 font-semibold whitespace-nowrap">
+                  {formatCurrency(item.value)}
                 </span>
-              </motion.div>
+              </motion.button>
             ))}
-            {chartData.length > 4 && (
-              <p className="text-[10px] text-slate-400 pl-4">
-                +{chartData.length - 4} outras
-              </p>
-            )}
           </div>
         </div>
       </div>
