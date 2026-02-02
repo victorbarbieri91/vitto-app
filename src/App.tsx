@@ -1,9 +1,11 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './store/AuthContext';
+import { TransactionProvider } from './store/TransactionContext';
 import { ChatProvider } from './store/chat/ChatContext';
 import { OnboardingProvider } from './contexts/OnboardingContext';
 import { useAuth } from './store/AuthContext';
 import PrivateRoute from './components/auth/PrivateRoute';
+import AdminRoute from './components/auth/AdminRoute';
 import OnboardingPage from './pages/onboarding/OnboardingPage';
 
 // Auth Pages
@@ -26,10 +28,6 @@ import SettingsPage from './pages/settings/SettingsPage';
 import NotFoundPage from './pages/errors/NotFoundPage';
 // import JourneyGamePage from './pages/historia/JourneyGamePage'; // TEMPORARIAMENTE OCULTO
 
-// Admin Pages
-import AICenterPage from './pages/admin/AICenterPage';
-import TrainingCenterPage from './pages/admin/TrainingCenterPage';
-
 // Central IA
 import CentralIAPage from './pages/central-ia/CentralIAPage';
 
@@ -39,6 +37,13 @@ import PatrimonioPage from './pages/patrimonio/PatrimonioPage';
 // Juntos (Finanças Compartilhadas)
 import JuntosPage from './pages/juntos/JuntosPage';
 import ConviteAceitarPage from './pages/juntos/ConviteAceitarPage';
+
+// Admin Panel
+import AdminDashboardPage from './pages/admin/AdminDashboardPage';
+import BusinessPlanPage from './pages/admin/BusinessPlanPage';
+import BusinessPlanSubmodulePage from './pages/admin/BusinessPlanSubmodulePage';
+import AgendaPage from './pages/admin/AgendaPage';
+import AdminFinancePage from './pages/admin/AdminFinancePage';
 
 // Componente para redirecionar com base na autenticação e onboarding
 const RedirectBasedOnAuth = () => {
@@ -66,9 +71,10 @@ const RedirectBasedOnAuth = () => {
 function App() {
   return (
     <AuthProvider>
-      <OnboardingProvider>
-        <Router>
-          <ChatProvider>
+      <TransactionProvider>
+        <OnboardingProvider>
+          <Router>
+            <ChatProvider>
             <Routes>
             {/* Rota raiz - Redireciona com base na autenticação */}
             <Route path="/" element={<RedirectBasedOnAuth />} />
@@ -129,25 +135,29 @@ function App() {
               <Route path="/assistente" element={<CentralIAPage />} />
               <Route path="/ai-assistant" element={<CentralIAPage />} />
 
-              {/* Rotas administrativas - Protegidas por permissão */}
-              <Route path="/admin/ai-center" element={<AICenterPage />} />
-              <Route path="/admin/centro-ia" element={<AICenterPage />} />
-              <Route path="/admin/ai-center/training" element={<TrainingCenterPage />} />
-              <Route path="/admin/centro-ia/treinamento" element={<TrainingCenterPage />} />
-
               {/* TEMPORARIAMENTE OCULTO - MÓDULO HISTÓRIA */}
               {/* <Route path="/sua-historia" element={<SuaHistoriaPage />} /> */}
               {/* <Route path="/historia" element={<SuaHistoriaPage />} /> */}
               {/* <Route path="/jornada" element={<SuaHistoriaPage />} /> */}
               {/* <Route path="/game-test" element={<JourneyGamePage />} /> */}
             </Route>
-            
+
+            {/* Rotas do Painel Admin - Requerem permissão de admin */}
+            <Route element={<AdminRoute />}>
+              <Route path="/admin" element={<AdminDashboardPage />} />
+              <Route path="/admin/business-plan" element={<BusinessPlanPage />} />
+              <Route path="/admin/business-plan/:submodule" element={<BusinessPlanSubmodulePage />} />
+              <Route path="/admin/agenda" element={<AgendaPage />} />
+              <Route path="/admin/financeiro" element={<AdminFinancePage />} />
+            </Route>
+
             {/* Página 404 */}
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
-          </ChatProvider>
-        </Router>
-      </OnboardingProvider>
+            </ChatProvider>
+          </Router>
+        </OnboardingProvider>
+      </TransactionProvider>
     </AuthProvider>
   );
 }
