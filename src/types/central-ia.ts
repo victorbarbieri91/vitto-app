@@ -184,7 +184,8 @@ export type InteractiveElementType =
   | 'column_mapping'    // Mapeamento de colunas
   | 'preview_table'     // Tabela de preview
   | 'import_result'     // Resultado da importação
-  | 'confirmation';     // Confirmação de ação
+  | 'confirmation'      // Confirmação de ação
+  | 'custom';           // Elemento customizado (import_question, import_preview)
 
 // Botão interativo
 export interface InteractiveButton {
@@ -288,6 +289,13 @@ export interface ConfirmationElement {
   cancelLabel?: string;
 }
 
+// Elemento customizado para novos componentes de importação
+export interface CustomElement {
+  type: 'custom';
+  id: string;
+  data: unknown;
+}
+
 // União de todos os elementos interativos
 export type InteractiveElement =
   | ButtonsElement
@@ -295,10 +303,12 @@ export type InteractiveElement =
   | ColumnMappingElement
   | PreviewTableElement
   | ImportResultElement
-  | ConfirmationElement;
+  | ConfirmationElement
+  | CustomElement;
 
 // Mensagem com elementos interativos
 export interface InteractiveContent {
+  type?: 'default' | 'import_question' | 'import_preview'; // Tipo de conteúdo interativo
   elements: InteractiveElement[];
   contextId?: string; // ID para manter contexto da conversa (ex: importação em andamento)
 }

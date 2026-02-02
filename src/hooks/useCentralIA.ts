@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { centralIAService } from '../services/central-ia';
 import { chatSessionService } from '../services/central-ia';
 import type {
@@ -21,7 +21,7 @@ interface UseCentralIAReturn {
 
   // Ações
   sendMessage: (content: string) => Promise<void>;
-  addMessage: (message: ChatMessage) => void;
+  addMessage: (message: ChatMessage) => Promise<void>;
   confirmAction: () => Promise<void>;
   rejectAction: () => Promise<void>;
   submitUserData: (data: Record<string, unknown>) => Promise<void>;
@@ -45,6 +45,49 @@ export function useCentralIA(): UseCentralIAReturn {
   // Ref para manter mensagens atualizadas em callbacks
   const messagesRef = useRef<ChatMessage[]>([]);
   messagesRef.current = state.messages;
+
+  // Ref para sessão atual (para evitar problemas de closure)
+  const currentSessionRef = useRef<ChatSession | null>(null);
+  currentSessionRef.current = state.currentSession;
+
+  // Flag para evitar carregamento duplo
+  const hasLoadedLastSession = useRef(false);
+
+  // Carregar última sessão automaticamente ao iniciar
+  useEffect(() => {
+    if (hasLoadedLastSession.current) return;
+    hasLoadedLastSession.current = true;
+
+    const loadLastSession = async () => {
+      try {
+        const sessions = await chatSessionService.listSessions({ limit: 1 });
+        if (sessions.length > 0) {
+          const lastSession = sessions[0];
+          const messages = await chatSessionService.getSessionMessages(lastSession.id);
+
+          // Só carregar se tiver mensagens
+          if (messages.length > 0) {
+            setState({
+              messages: messages.map(m => ({
+                role: m.role,
+                content: m.content,
+                tool_calls: m.tool_calls,
+              })),
+              isLoading: false,
+              error: null,
+              currentSession: lastSession,
+              pendingAction: null,
+              dataRequest: null,
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao carregar última sessão:', error);
+      }
+    };
+
+    loadLastSession();
+  }, []);
 
   // Processa a resposta do agente
   const processResponse = useCallback((response: AgentResponse) => {
@@ -132,10 +175,37 @@ export function useCentralIA(): UseCentralIAReturn {
     }));
 
     try {
+      // Garantir que existe uma sessão
+      let sessionId = currentSessionRef.current?.id;
+
+      if (!sessionId) {
+        // Criar nova sessão com título baseado na primeira mensagem
+        const titulo = chatSessionService.generateAutoTitle(content);
+        const newSession = await chatSessionService.createSession(titulo);
+        sessionId = newSession.id;
+        setState(prev => ({ ...prev, currentSession: newSession }));
+        currentSessionRef.current = newSession;
+      }
+
+      // Salvar mensagem do usuário no banco
+      await chatSessionService.addMessage(sessionId, {
+        role: 'user',
+        content,
+      });
+
       const response = await centralIAService.sendMessage(
         [...messagesRef.current, userMessage],
-        state.currentSession?.id
+        sessionId
       );
+
+      // Salvar mensagem do assistente no banco
+      if (response.message) {
+        await chatSessionService.addMessage(sessionId, {
+          role: 'assistant',
+          content: response.message,
+        });
+      }
+
       processResponse(response);
     } catch (error) {
       setState(prev => ({
@@ -144,7 +214,7 @@ export function useCentralIA(): UseCentralIAReturn {
         error: error instanceof Error ? error.message : 'Erro ao enviar mensagem',
       }));
     }
-  }, [state.currentSession?.id, processResponse]);
+  }, [processResponse]);
 
   // Confirma ação pendente
   const confirmAction = useCallback(async () => {
@@ -275,11 +345,37 @@ export function useCentralIA(): UseCentralIAReturn {
   }, []);
 
   // Adiciona uma mensagem diretamente (para uso em fluxos externos como importação)
-  const addMessage = useCallback((message: ChatMessage) => {
+  const addMessage = useCallback(async (message: ChatMessage) => {
     setState(prev => ({
       ...prev,
       messages: [...prev.messages, message],
     }));
+
+    // Salvar no banco de dados se tiver sessão
+    try {
+      let sessionId = currentSessionRef.current?.id;
+
+      // Se não tiver sessão, criar uma
+      if (!sessionId) {
+        const titulo = message.role === 'user'
+          ? chatSessionService.generateAutoTitle(message.content)
+          : 'Importação de arquivo';
+        const newSession = await chatSessionService.createSession(titulo);
+        sessionId = newSession.id;
+        setState(prev => ({ ...prev, currentSession: newSession }));
+        currentSessionRef.current = newSession;
+      }
+
+      // Só salva se for um role válido (ignora 'tool')
+      if (message.role === 'user' || message.role === 'assistant' || message.role === 'system') {
+        await chatSessionService.addMessage(sessionId, {
+          role: message.role,
+          content: message.content,
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao salvar mensagem:', error);
+    }
   }, []);
 
   return {

@@ -5,6 +5,10 @@ import type {
   SessionFilters,
 } from '../../types/central-ia';
 
+// Cast para contornar tipos não atualizados do Supabase
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = supabase as any;
+
 /**
  * Serviço para gerenciamento de sessões de chat
  */
@@ -27,7 +31,7 @@ export class ChatSessionService {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Usuário não autenticado');
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('app_chat_sessoes')
       .insert({
         user_id: user.id,
@@ -37,14 +41,14 @@ export class ChatSessionService {
       .single();
 
     if (error) throw error;
-    return data;
+    return data as ChatSession;
   }
 
   /**
    * Lista sessões do usuário
    */
   async listSessions(filters?: SessionFilters): Promise<ChatSession[]> {
-    let query = supabase
+    let query = db
       .from('app_chat_sessoes')
       .select('*')
       .order('updated_at', { ascending: false });
@@ -67,14 +71,14 @@ export class ChatSessionService {
 
     const { data, error } = await query;
     if (error) throw error;
-    return data || [];
+    return (data || []) as ChatSession[];
   }
 
   /**
    * Busca uma sessão específica
    */
   async getSession(sessionId: string): Promise<ChatSession | null> {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('app_chat_sessoes')
       .select('*')
       .eq('id', sessionId)
@@ -84,28 +88,28 @@ export class ChatSessionService {
       if (error.code === 'PGRST116') return null; // Not found
       throw error;
     }
-    return data;
+    return data as ChatSession;
   }
 
   /**
    * Busca mensagens de uma sessão
    */
   async getSessionMessages(sessionId: string): Promise<ChatMessage[]> {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('app_chat_mensagens')
       .select('*')
       .eq('sessao_id', sessionId)
       .order('created_at', { ascending: true });
 
     if (error) throw error;
-    return data || [];
+    return (data || []) as ChatMessage[];
   }
 
   /**
    * Atualiza o título de uma sessão
    */
   async updateSessionTitle(sessionId: string, titulo: string): Promise<void> {
-    const { error } = await supabase
+    const { error } = await db
       .from('app_chat_sessoes')
       .update({ titulo })
       .eq('id', sessionId);
@@ -117,7 +121,7 @@ export class ChatSessionService {
    * Deleta uma sessão e suas mensagens
    */
   async deleteSession(sessionId: string): Promise<void> {
-    const { error } = await supabase
+    const { error } = await db
       .from('app_chat_sessoes')
       .delete()
       .eq('id', sessionId);
@@ -155,7 +159,7 @@ export class ChatSessionService {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('app_chat_sessoes')
       .select('*')
       .gte('updated_at', yesterday.toISOString())
@@ -163,19 +167,74 @@ export class ChatSessionService {
       .limit(limit);
 
     if (error) throw error;
-    return data || [];
+    return (data || []) as ChatSession[];
   }
 
   /**
    * Conta total de sessões do usuário
    */
   async countSessions(): Promise<number> {
-    const { count, error } = await supabase
+    const { count, error } = await db
       .from('app_chat_sessoes')
       .select('*', { count: 'exact', head: true });
 
     if (error) throw error;
     return count || 0;
+  }
+
+  /**
+   * Adiciona uma mensagem a uma sessão
+   */
+  async addMessage(
+    sessionId: string,
+    message: {
+      role: 'user' | 'assistant' | 'system';
+      content: string;
+      tool_calls?: unknown;
+      tool_results?: unknown;
+      metadata?: Record<string, unknown>;
+    }
+  ): Promise<ChatMessage> {
+    const { data, error } = await db
+      .from('app_chat_mensagens')
+      .insert({
+        sessao_id: sessionId,
+        role: message.role,
+        content: message.content,
+        tool_calls: message.tool_calls,
+        tool_results: message.tool_results,
+        metadata: message.metadata,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Atualizar última mensagem e contador na sessão
+    const preview = message.content.length > 100
+      ? message.content.substring(0, 97) + '...'
+      : message.content;
+
+    await db
+      .from('app_chat_sessoes')
+      .update({
+        ultima_mensagem: preview,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', sessionId);
+
+    return data as ChatMessage;
+  }
+
+  /**
+   * Cria sessão e retorna, ou retorna sessão existente se já houver
+   */
+  async getOrCreateSession(sessionId?: string | null, titulo?: string): Promise<ChatSession> {
+    if (sessionId) {
+      const existing = await this.getSession(sessionId);
+      if (existing) return existing;
+    }
+    return this.createSession(titulo);
   }
 }
 

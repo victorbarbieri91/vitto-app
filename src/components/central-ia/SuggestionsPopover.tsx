@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Lightbulb, TrendingUp, Target, Calendar, Repeat, PiggyBank, X } from 'lucide-react';
+import { Lightbulb, TrendingUp, CreditCard, Wallet, BarChart3, PlusCircle, X } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
 interface SuggestionsPopoverProps {
@@ -16,43 +16,53 @@ interface SuggestionCategory {
 
 const SUGGESTION_CATEGORIES: SuggestionCategory[] = [
   {
-    title: 'Análise',
-    icon: <TrendingUp className="w-4 h-4" />,
+    title: 'Cartões & Faturas',
+    icon: <CreditCard className="w-4 h-4" />,
+    color: 'text-rose-500 bg-rose-50',
+    suggestions: [
+      'Quanto já gastei no cartão este mês?',
+      'Mostra as despesas da minha fatura atual',
+      'Qual o limite disponível nos meus cartões?',
+    ],
+  },
+  {
+    title: 'Análise Financeira',
+    icon: <BarChart3 className="w-4 h-4" />,
     color: 'text-blue-500 bg-blue-50',
     suggestions: [
-      'Qual categoria mais consome meu orçamento?',
-      'Compare meus gastos deste mês com os últimos 3 meses',
-      'Qual dia da semana eu mais gasto dinheiro?',
+      'Como está minha saúde financeira?',
+      'Qual minha taxa de economia este mês?',
+      'Quais categorias mais consumiram meu dinheiro?',
     ],
   },
   {
-    title: 'Metas',
-    icon: <Target className="w-4 h-4" />,
+    title: 'Transações',
+    icon: <Wallet className="w-4 h-4" />,
     color: 'text-emerald-500 bg-emerald-50',
     suggestions: [
-      'Estou no caminho certo para minhas metas?',
-      'Quanto preciso economizar por mês para atingi-las?',
-      'Se eu mantiver esse ritmo, quanto terei no final do ano?',
+      'Mostra minhas últimas despesas',
+      'Quanto recebi de salário este mês?',
+      'Lista transações pendentes de confirmação',
     ],
   },
   {
-    title: 'Economia',
-    icon: <PiggyBank className="w-4 h-4" />,
-    color: 'text-amber-500 bg-amber-50',
-    suggestions: [
-      'Onde posso economizar este mês sem sacrifícios?',
-      'Quais gastos recorrentes eu poderia eliminar?',
-      'Qual foi meu maior gasto impulsivo este mês?',
-    ],
-  },
-  {
-    title: 'Agenda',
-    icon: <Calendar className="w-4 h-4" />,
+    title: 'Patrimônio',
+    icon: <TrendingUp className="w-4 h-4" />,
     color: 'text-purple-500 bg-purple-50',
     suggestions: [
-      'Quais contas vencem nos próximos 7 dias?',
-      'Quais categorias estão acima do orçamento?',
-      'Como está minha saúde financeira geral?',
+      'Qual meu patrimônio total?',
+      'Como estão meus investimentos?',
+      'Mostra meus ativos por categoria',
+    ],
+  },
+  {
+    title: 'Ações Rápidas',
+    icon: <PlusCircle className="w-4 h-4" />,
+    color: 'text-amber-500 bg-amber-50',
+    suggestions: [
+      'Registrar uma despesa no cartão',
+      'Criar uma nova transação',
+      'Pagar fatura do cartão',
     ],
   },
 ];

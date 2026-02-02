@@ -8,6 +8,15 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url
 ).toString();
 
+// Tipos de imagem suportados para Vision API
+const SUPPORTED_IMAGE_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+  'image/webp',
+  'image/gif',
+];
+
 /**
  * DocumentProcessor - Processamento de Documentos com Vision API
  *
@@ -97,7 +106,7 @@ export class DocumentProcessor {
       if (!this.isSupportedFileType(file)) {
         return {
           success: false,
-          error: 'Tipo de arquivo não suportado. Use: PDF ou planilha (XLSX, CSV)',
+          error: 'Tipo de arquivo não suportado. Use: PDF, planilha (XLSX, CSV) ou imagem (PNG, JPG)',
           processing_time_ms: Date.now() - startTime
         };
       }
@@ -111,9 +120,9 @@ export class DocumentProcessor {
         };
       }
 
-      // Verificar se é planilha - processar diretamente sem Vision API
+      // Verificar se é planilha - extrair dados e analisar com IA
       if (this.isSpreadsheet(file)) {
-        const extractedData = await this.processSpreadsheet(file);
+        const extractedData = await this.processSpreadsheetWithAI(file);
         return {
           success: true,
           data: extractedData,
@@ -141,11 +150,12 @@ export class DocumentProcessor {
         };
       }
 
-      // Para imagens, informar que precisa de OCR
+      // Para imagens, usar Vision API (GPT) via Edge Function
       if (file.type.startsWith('image/')) {
+        const extractedData = await this.processImageWithVision(file);
         return {
-          success: false,
-          error: 'Processamento de imagens não está disponível no momento. Por favor, use PDF com texto selecionável ou planilha (XLSX/CSV).',
+          success: true,
+          data: extractedData,
           processing_time_ms: Date.now() - startTime
         };
       }
@@ -165,6 +175,39 @@ export class DocumentProcessor {
         processing_time_ms: Date.now() - startTime
       };
     }
+  }
+
+  /**
+   * Processa imagem usando GPT Vision API via Edge Function
+   * ARQUITETURA HIBRIDA: Imagens -> GPT Vision | Texto -> DeepSeek
+   */
+  private async processImageWithVision(file: File): Promise<ExtractedFinancialData> {
+    // Converte imagem para base64
+    const base64Image = await this.fileToBase64(file);
+
+    // Obter usuario atual para autenticacao
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id || 'anonymous';
+
+    // Chamar Edge Function de Vision (usa GPT-5-mini)
+    const { data, error } = await supabase.functions.invoke('process-image-vision', {
+      body: {
+        imageBase64: base64Image,
+        mimeType: file.type,
+        userId: userId
+      }
+    });
+
+    if (error) {
+      console.error('Erro ao chamar Edge Function Vision:', error);
+      throw new Error(`Erro ao processar imagem: ${error.message}`);
+    }
+
+    if (!data?.success) {
+      throw new Error(data?.error || 'Erro desconhecido ao processar imagem');
+    }
+
+    return data.data as ExtractedFinancialData;
   }
 
   /**
@@ -280,7 +323,314 @@ export class DocumentProcessor {
   }
 
   /**
-   * Processa planilha XLSX/XLS/CSV diretamente
+   * Processa planilha com IA extraindo dados diretamente
+   *
+   * ARQUITETURA: A IA recebe o conteúdo COMPLETO da planilha em formato texto
+   * e retorna diretamente as transações extraídas, sem que o código precise
+   * fazer detecção de colunas ou extração manual.
+   *
+   * Isso permite que a IA entenda:
+   * - Estruturas hierárquicas (seções, subseções)
+   * - Headers que não estão na primeira linha
+   * - Diferença entre linhas de dados e linhas de totais
+   * - Contexto semântico (ex: "Parcela 3/12" indica parcelamento)
+   */
+  private async processSpreadsheetWithAI(file: File): Promise<ExtractedFinancialData> {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
+
+      // Processar todas as planilhas relevantes
+      const allSheetsContent: string[] = [];
+      const sheetsInfo: { name: string; rows: number }[] = [];
+
+      for (const sheetName of workbook.SheetNames) {
+        const sheet = workbook.Sheets[sheetName];
+        const data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' }) as any[][];
+
+        if (data.length === 0) continue;
+
+        sheetsInfo.push({ name: sheetName, rows: data.length });
+
+        // Converter planilha para texto formatado
+        const sheetText = this.convertSheetToText(sheetName, data);
+        allSheetsContent.push(sheetText);
+      }
+
+      if (allSheetsContent.length === 0) {
+        return {
+          tipo_documento: 'outro',
+          confianca: 0.1,
+          dados_extraidos: {},
+          observacoes: ['Planilha vazia'],
+          sugestoes_acao: ['Verifique se o arquivo contém dados']
+        };
+      }
+
+      // Combinar conteúdo de todas as planilhas
+      const fullContent = allSheetsContent.join('\n\n---\n\n');
+
+      // Verificar tamanho e decidir estratégia
+      const totalRows = sheetsInfo.reduce((sum, s) => sum + s.rows, 0);
+
+      console.log(`[DocumentProcessor] Processando ${sheetsInfo.length} planilha(s), ${totalRows} linhas totais`);
+
+      // Enviar para IA extrair transações diretamente
+      const aiResult = await this.extractTransactionsWithAI(fullContent, sheetsInfo);
+
+      return {
+        tipo_documento: aiResult.tipo_documento || 'outro',
+        confianca: aiResult.confianca || 0.7,
+        dados_extraidos: {
+          transacoes: aiResult.transacoes || [],
+          periodo: aiResult.periodo
+        },
+        observacoes: [
+          `${aiResult.transacoes?.length || 0} transações extraídas pela IA`,
+          `Planilha(s): ${sheetsInfo.map(s => `${s.name} (${s.rows} linhas)`).join(', ')}`,
+          ...(aiResult.observacoes || [])
+        ],
+        sugestoes_acao: aiResult.sugestoes || [
+          'Revisar as transações antes de importar',
+          'Verificar se as categorias sugeridas estão corretas'
+        ]
+      };
+    } catch (error) {
+      console.error('Erro ao processar planilha com IA:', error);
+      // Fallback para processamento local
+      return this.processSpreadsheet(file);
+    }
+  }
+
+  /**
+   * Converte uma planilha para formato texto legível pela IA
+   */
+  private convertSheetToText(sheetName: string, data: any[][]): string {
+    const lines: string[] = [];
+    lines.push(`=== PLANILHA: ${sheetName} ===`);
+    lines.push('');
+
+    // Encontrar a largura máxima de cada coluna para formatação
+    const maxCols = Math.max(...data.map(row => row.length));
+
+    data.forEach((row, rowIndex) => {
+      if (!row || row.every(cell => cell === '' || cell === null || cell === undefined)) {
+        lines.push(`[Linha ${rowIndex + 1}] (vazia)`);
+        return;
+      }
+
+      const formattedCells = row.map((cell, colIndex) => {
+        if (cell === null || cell === undefined || cell === '') return '';
+
+        // Converter diferentes tipos de dados
+        if (cell instanceof Date) {
+          return cell.toLocaleDateString('pt-BR');
+        }
+        if (typeof cell === 'number') {
+          // Detectar se pode ser data serial do Excel
+          if (cell > 40000 && cell < 50000 && Number.isInteger(cell)) {
+            const excelEpoch = new Date(1899, 11, 30);
+            const date = new Date(excelEpoch.getTime() + cell * 86400000);
+            return date.toLocaleDateString('pt-BR');
+          }
+          // Formatar números com separadores brasileiros
+          return cell.toLocaleString('pt-BR', {
+            minimumFractionDigits: cell % 1 !== 0 ? 2 : 0,
+            maximumFractionDigits: 2
+          });
+        }
+        return String(cell).trim();
+      });
+
+      // Criar linha formatada com separador de colunas
+      const lineContent = formattedCells
+        .map((cell, i) => cell || '(vazio)')
+        .join(' | ');
+
+      lines.push(`[Linha ${rowIndex + 1}] ${lineContent}`);
+    });
+
+    return lines.join('\n');
+  }
+
+  /**
+   * Envia conteúdo completo da planilha para IA extrair transações
+   */
+  private async extractTransactionsWithAI(
+    fullContent: string,
+    sheetsInfo: { name: string; rows: number }[]
+  ): Promise<{
+    tipo_documento: ExtractedFinancialData['tipo_documento'];
+    confianca: number;
+    transacoes: Array<{
+      data: string;
+      descricao: string;
+      valor: number;
+      tipo: 'credito' | 'debito';
+      categoria_sugerida?: string;
+    }>;
+    periodo?: { data_inicio: string; data_fim: string };
+    observacoes: string[];
+    sugestoes: string[];
+  }> {
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id || 'anonymous';
+
+    // Limitar conteúdo se muito grande (> 50KB de texto)
+    let contentToSend = fullContent;
+    const maxChars = 50000;
+
+    if (fullContent.length > maxChars) {
+      console.log(`[DocumentProcessor] Conteúdo muito grande (${fullContent.length} chars), truncando para ${maxChars}`);
+      contentToSend = fullContent.substring(0, maxChars) + '\n\n[... CONTEÚDO TRUNCADO - planilha muito grande ...]';
+    }
+
+    const prompt = `Você é um especialista em análise de documentos financeiros. Analise esta planilha e EXTRAIA DIRETAMENTE todas as transações financeiras que encontrar.
+
+IMPORTANTE:
+1. Entenda a ESTRUTURA da planilha - pode ter seções, subseções, headers em linhas diferentes
+2. IGNORE linhas que são totais, subtotais, títulos de seção ou cabeçalhos
+3. EXTRAIA apenas as transações individuais (despesas, receitas, parcelas, etc)
+4. Se houver parcelas (ex: "3/12"), extraia como uma transação com a parcela atual
+5. Datas podem estar em diferentes formatos - converta para YYYY-MM-DD
+6. Valores negativos ou com "-" são débitos, positivos são créditos
+7. Sugira uma categoria para cada transação baseado no contexto
+
+CONTEÚDO DA PLANILHA:
+${contentToSend}
+
+RESPONDA OBRIGATORIAMENTE EM JSON COM ESTA ESTRUTURA EXATA:
+{
+  "tipo_documento": "fatura_cartao|extrato_bancario|planilha_orcamento|controle_despesas|outro",
+  "confianca": 0.0 a 1.0,
+  "transacoes": [
+    {
+      "data": "YYYY-MM-DD",
+      "descricao": "descrição da transação",
+      "valor": 123.45,
+      "tipo": "debito|credito",
+      "categoria_sugerida": "alimentacao|transporte|saude|lazer|casa|educacao|compras|servicos|outros"
+    }
+  ],
+  "periodo": {
+    "data_inicio": "YYYY-MM-DD",
+    "data_fim": "YYYY-MM-DD"
+  },
+  "observacoes": ["array de observações sobre o documento"],
+  "sugestoes": ["array de sugestões para o usuário"]
+}
+
+EXTRAIA TODAS as transações que conseguir identificar. Se não conseguir determinar a data, use a data atual.`;
+
+    try {
+      const { data, error } = await supabase.functions.invoke('process-document', {
+        body: {
+          textContent: prompt,
+          userId: userId,
+          isStructuredAnalysis: true,
+          expectJson: true
+        }
+      });
+
+      if (error) {
+        console.error('Erro ao extrair transações com IA:', error);
+        return this.getFallbackResult();
+      }
+
+      // Tentar extrair JSON da resposta
+      const responseText = data?.data?.dados_extraidos?.raw_response ||
+                          data?.message ||
+                          data?.data?.message ||
+                          JSON.stringify(data);
+
+      console.log('[DocumentProcessor] Resposta da IA recebida, processando...');
+
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+
+          // Validar e normalizar transações
+          const transacoes = (parsed.transacoes || []).map((t: any) => ({
+            data: this.normalizeDate(t.data) || new Date().toISOString().split('T')[0],
+            descricao: String(t.descricao || '').trim(),
+            valor: Math.abs(parseFloat(t.valor) || 0),
+            tipo: t.tipo === 'credito' ? 'credito' : 'debito',
+            categoria_sugerida: t.categoria_sugerida || 'outros'
+          })).filter((t: any) => t.descricao && t.valor > 0);
+
+          console.log(`[DocumentProcessor] ${transacoes.length} transações extraídas pela IA`);
+
+          return {
+            tipo_documento: parsed.tipo_documento || 'outro',
+            confianca: parsed.confianca || 0.8,
+            transacoes,
+            periodo: parsed.periodo,
+            observacoes: parsed.observacoes || [],
+            sugestoes: parsed.sugestoes || []
+          };
+        } catch (parseError) {
+          console.error('Erro ao fazer parse do JSON da IA:', parseError);
+        }
+      }
+
+      return this.getFallbackResult();
+    } catch (error) {
+      console.error('Erro ao chamar IA para extração:', error);
+      return this.getFallbackResult();
+    }
+  }
+
+  /**
+   * Normaliza diferentes formatos de data para YYYY-MM-DD
+   */
+  private normalizeDate(dateStr: string): string | null {
+    if (!dateStr) return null;
+
+    try {
+      // Se já está em formato ISO
+      if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+        return dateStr.substring(0, 10);
+      }
+
+      // Formato DD/MM/YYYY ou DD-MM-YYYY
+      const brMatch = dateStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+      if (brMatch) {
+        const day = brMatch[1].padStart(2, '0');
+        const month = brMatch[2].padStart(2, '0');
+        let year = brMatch[3];
+        if (year.length === 2) year = '20' + year;
+        return `${year}-${month}-${day}`;
+      }
+
+      // Tentar Date.parse como último recurso
+      const parsed = new Date(dateStr);
+      if (!isNaN(parsed.getTime())) {
+        return parsed.toISOString().split('T')[0];
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Retorna resultado padrão quando IA falha
+   */
+  private getFallbackResult() {
+    return {
+      tipo_documento: 'outro' as const,
+      confianca: 0.3,
+      transacoes: [],
+      observacoes: ['Não foi possível extrair transações automaticamente'],
+      sugestoes: ['Verifique se a planilha está em um formato legível', 'Tente enviar um arquivo menor']
+    };
+  }
+
+  /**
+   * Processa planilha XLSX/XLS/CSV diretamente (fallback sem IA)
    */
   private async processSpreadsheet(file: File): Promise<ExtractedFinancialData> {
     try {
@@ -570,7 +920,9 @@ export class DocumentProcessor {
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // xlsx
       'application/vnd.ms-excel', // xls
-      'text/csv'
+      'text/csv',
+      // Imagens suportadas via Vision API
+      ...SUPPORTED_IMAGE_TYPES
     ];
     return supportedTypes.includes(file.type);
   }

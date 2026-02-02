@@ -1,18 +1,21 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, FileSpreadsheet } from 'lucide-react';
+import { Upload, FileSpreadsheet, Image } from 'lucide-react';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
-import { conversationalImportService } from '../../services/ai/ConversationalImportService';
+import { ImportQuestionCard } from './ImportQuestionCard';
+import { ImportPreviewCard } from './ImportPreviewCard';
+import { ConversationalImportAgent, createImportAgent } from '../../services/ai/ConversationalImportAgent';
 import type { ChatMessage } from '../../types/central-ia';
 import type { ImportResult, ImportTarget } from '../../types/smart-import';
+import type { ImportFlowState, ImportChatMessage, ImportQuestion, ExtractedTransaction } from '../../types/import-flow';
 import { useAuth } from '../../store/AuthContext';
 
 interface ChatContainerProps {
   messages: ChatMessage[];
   isLoading: boolean;
   onSendMessage: (message: string) => void;
-  onAddMessage?: (message: ChatMessage) => void;
+  onAddMessage?: (message: ChatMessage) => Promise<void> | void;
   disabled?: boolean;
   isCentered?: boolean;
   onImportComplete?: (result: ImportResult) => void;
@@ -31,15 +34,28 @@ export function ChatContainer({
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessingFile, setIsProcessingFile] = useState(false);
 
-  // Tipos de arquivo suportados
+  // Estado do agente de importação
+  const importAgentRef = useRef<ConversationalImportAgent | null>(null);
+  const [importState, setImportState] = useState<ImportFlowState | null>(null);
+  const [currentQuestion, setCurrentQuestion] = useState<ImportQuestion | null>(null);
+  const [previewData, setPreviewData] = useState<{
+    transacoes: ExtractedTransaction[];
+    summary: { total: number; valor: string; destino: string };
+  } | null>(null);
+
+  // Tipos de arquivo suportados (incluindo imagens)
   const supportedTypes = [
     'application/pdf',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'application/vnd.ms-excel',
     'text/csv',
+    'image/png',
+    'image/jpeg',
+    'image/jpg',
+    'image/webp',
   ];
 
-  const supportedExtensions = ['.pdf', '.xlsx', '.xls', '.csv'];
+  const supportedExtensions = ['.pdf', '.xlsx', '.xls', '.csv', '.png', '.jpg', '.jpeg', '.webp'];
 
   const isFileSupported = useCallback((file: File) => {
     const fileName = file.name.toLowerCase();
@@ -49,6 +65,83 @@ export function ChatContainer({
     );
   }, []);
 
+  // Inicializar agente de importação quando usuário estiver logado
+  useEffect(() => {
+    if (user?.id && !importAgentRef.current) {
+      createImportAgent(user.id).then(agent => {
+        importAgentRef.current = agent;
+
+        // Configurar callbacks
+        agent.setCallbacks({
+          onStateChange: (state) => {
+            setImportState(state);
+
+            // Atualizar estado da pergunta atual
+            if (state.currentQuestion) {
+              setCurrentQuestion(state.currentQuestion);
+            }
+
+            // Atualizar preview se estiver nesse step
+            if (state.step === 'preview') {
+              setPreviewData({
+                transacoes: state.transacoes,
+                summary: {
+                  total: state.transacoes.length,
+                  valor: `R$ ${state.valorTotal.toFixed(2).replace('.', ',')}`,
+                  destino: state.cartaoNome || state.contaNome || 'Transações'
+                }
+              });
+            } else {
+              setPreviewData(null);
+            }
+
+            // Limpar pergunta quando não estiver em step de pergunta
+            if (!['confirming_type', 'selecting_destination', 'collecting_data'].includes(state.step)) {
+              setCurrentQuestion(null);
+            }
+          },
+          onMessage: (message) => {
+            // Converter mensagem do agente para ChatMessage
+            const chatMessage: ChatMessage = {
+              id: message.id,
+              role: 'assistant',
+              content: message.conteudo,
+            };
+
+            // Adicionar dados interativos se for pergunta
+            if (message.tipo === 'pergunta' && message.dados?.question) {
+              chatMessage.interactive = {
+                type: 'import_question',
+                elements: [{
+                  type: 'custom',
+                  id: message.dados.question.id,
+                  data: message.dados.question
+                }]
+              };
+            }
+
+            // Adicionar dados interativos se for preview
+            if (message.tipo === 'preview' && message.dados?.transacoes) {
+              chatMessage.interactive = {
+                type: 'import_preview',
+                elements: [{
+                  type: 'custom',
+                  id: 'preview',
+                  data: {
+                    transacoes: message.dados.transacoes,
+                    summary: message.dados.summary
+                  }
+                }]
+              };
+            }
+
+            addMessage(chatMessage);
+          }
+        });
+      });
+    }
+  }, [user?.id]);
+
   // Adiciona uma mensagem ao chat (usa callback se fornecido, senao simula)
   const addMessage = useCallback((message: ChatMessage) => {
     if (onAddMessage) {
@@ -56,28 +149,95 @@ export function ChatContainer({
     }
   }, [onAddMessage]);
 
+  // Handler para responder pergunta do agente de importação
+  const handleAnswerQuestion = useCallback((questionId: string, answer: string | number) => {
+    if (!importAgentRef.current) return;
+
+    // Adicionar mensagem do usuário com a resposta
+    const option = currentQuestion?.opcoes?.find(o => o.id === answer);
+    addMessage({
+      id: `user-answer-${Date.now()}`,
+      role: 'user',
+      content: option?.label || String(answer),
+    });
+
+    setCurrentQuestion(null);
+    importAgentRef.current.answerQuestion(questionId, answer);
+  }, [addMessage, currentQuestion]);
+
+  // Handler para toggle de transação no preview
+  const handleToggleTransaction = useCallback((transactionId: string) => {
+    if (!importAgentRef.current) return;
+    importAgentRef.current.toggleTransaction(transactionId);
+  }, []);
+
+  // Handler para confirmar importação
+  const handleConfirmImport = useCallback(async () => {
+    if (!importAgentRef.current) return;
+
+    setIsProcessingFile(true);
+    try {
+      await importAgentRef.current.confirmImport();
+
+      // Notificar callback de importação completa
+      const state = importAgentRef.current.getState();
+      if (state.step === 'completed' && onImportComplete) {
+        onImportComplete({
+          success: true,
+          imported: state.importedCount || 0,
+          failed: 0,
+          skipped: 0,
+          errors: [],
+          summary: {
+            totalValue: state.valorTotal,
+            byCategory: {},
+            byType: {},
+          },
+        });
+      }
+    } finally {
+      setIsProcessingFile(false);
+      setPreviewData(null);
+    }
+  }, [onImportComplete]);
+
+  // Handler para cancelar importação
+  const handleCancelImport = useCallback(() => {
+    if (!importAgentRef.current) return;
+
+    importAgentRef.current.reset();
+    setImportState(null);
+    setCurrentQuestion(null);
+    setPreviewData(null);
+
+    addMessage({
+      id: `assistant-cancel-${Date.now()}`,
+      role: 'assistant',
+      content: '❌ Importação cancelada. Você pode enviar outro arquivo quando quiser.',
+    });
+  }, [addMessage]);
+
   // Handler para selecao de arquivo - inicia fluxo conversacional
   const handleFileSelect = useCallback(async (file: File) => {
-    if (isProcessingFile) return;
+    if (isProcessingFile || !importAgentRef.current) return;
 
     setIsProcessingFile(true);
 
     try {
       // Adiciona mensagem do usuário indicando envio do arquivo
+      const isImage = file.type.startsWith('image/');
       const userMessage: ChatMessage = {
         id: `user-file-${Date.now()}`,
         role: 'user',
-        content: `Enviei o arquivo: ${file.name}`,
+        content: isImage
+          ? `📸 Enviei uma imagem: ${file.name}`
+          : `📄 Enviei o arquivo: ${file.name}`,
       };
       addMessage(userMessage);
 
-      // Inicia importação e adiciona mensagem de "analisando"
-      const startMessage = await conversationalImportService.startImport(file);
-      addMessage({ ...startMessage, id: `assistant-start-${Date.now()}` });
+      // Processar arquivo com o agente de importação
+      await importAgentRef.current.processFile(file);
 
-      // Analisa o arquivo e adiciona mensagem com resultado
-      const analysisMessage = await conversationalImportService.analyzeFile();
-      addMessage({ ...analysisMessage, id: `assistant-analysis-${Date.now()}` });
     } catch (error) {
       addMessage({
         id: `assistant-error-${Date.now()}`,
@@ -89,7 +249,7 @@ export function ChatContainer({
     }
   }, [addMessage, isProcessingFile]);
 
-  // Handler para acoes interativas (botoes, confirmacoes)
+  // Handler para acoes interativas (botoes, confirmacoes) - suporte a formato antigo
   const handleInteractiveAction = useCallback(async (action: string, value?: string) => {
     if (!user?.id) {
       addMessage({
@@ -100,110 +260,35 @@ export function ChatContainer({
       return;
     }
 
+    // Se tiver agente ativo, usar os handlers do novo sistema
+    if (importAgentRef.current && importState) {
+      if (action === 'cancel') {
+        handleCancelImport();
+        return;
+      }
+
+      // Responder pergunta se for seleção
+      if (action === 'button' && value && currentQuestion) {
+        handleAnswerQuestion(currentQuestion.id, value);
+        return;
+      }
+    }
+
+    // Fallback para sistema antigo (manter compatibilidade)
     setIsProcessingFile(true);
-
     try {
-      let responseMessage: ChatMessage | null = null;
-
-      switch (action) {
-        case 'button':
-          // Processa cliques em botões
-          if (value === 'cancel') {
-            responseMessage = conversationalImportService.cancelImport();
-          } else if (value === 'confirm_columns') {
-            // Confirmou mapeamento de colunas - avança para preview
-            addMessage({
-              id: `user-confirm-cols-${Date.now()}`,
-              role: 'user',
-              content: 'Sim, o mapeamento está correto!',
-            });
-            responseMessage = await conversationalImportService.handleColumnConfirmation(true);
-          } else if (value === 'adjust_columns') {
-            // Quer ajustar o mapeamento
-            addMessage({
-              id: `user-adjust-${Date.now()}`,
-              role: 'user',
-              content: 'Preciso ajustar algumas colunas.',
-            });
-            responseMessage = await conversationalImportService.handleColumnConfirmation(false);
-          } else if (value === 'transacoes' || value === 'transacoes_fixas' || value === 'patrimonio') {
-            // Seleção de tipo (caso antigo - mantido para compatibilidade)
-            const typeLabel = value === 'transacoes' ? 'transações' :
-                             value === 'transacoes_fixas' ? 'transações fixas' : 'patrimônio';
-            addMessage({
-              id: `user-type-${Date.now()}`,
-              role: 'user',
-              content: `Sim, pode importar como ${typeLabel}!`,
-            });
-            responseMessage = await conversationalImportService.handleTypeSelection(value as ImportTarget);
-          } else if (value === 'confirm_mapping') {
-            // Confirmou mapeamento
-            addMessage({
-              id: `user-mapping-${Date.now()}`,
-              role: 'user',
-              content: 'O mapeamento está correto, pode continuar.',
-            });
-            responseMessage = await conversationalImportService.confirmMapping();
-          } else if (value === 'execute_import') {
-            // Confirmou importação
-            addMessage({
-              id: `user-import-${Date.now()}`,
-              role: 'user',
-              content: 'Pode importar!',
-            });
-            responseMessage = await conversationalImportService.executeImport(user.id);
-
-            // Notifica callback de importação completa
-            const importState = conversationalImportService.getCurrentImport();
-            if (importState?.result && onImportComplete) {
-              onImportComplete({
-                success: importState.result.imported > 0,
-                imported: importState.result.imported,
-                failed: importState.result.failed,
-                skipped: importState.result.skipped,
-                errors: importState.result.errors?.map((e, i) => ({
-                  itemIndex: i,
-                  itemDescription: e.description,
-                  error: e.error,
-                })) || [],
-                summary: {
-                  totalValue: importState.result.totalValue,
-                  byCategory: {},
-                  byType: {},
-                },
-              });
-            }
-          }
-          break;
-
-        case 'confirm':
-          // Confirmação genérica
-          addMessage({
-            id: `user-confirm-${Date.now()}`,
-            role: 'user',
-            content: 'Sim, confirmo.',
-          });
-          responseMessage = await conversationalImportService.confirmMapping();
-          break;
-
-        case 'cancel':
-          responseMessage = conversationalImportService.cancelImport();
-          break;
+      // Ações antigas que ainda podem ser usadas
+      if (action === 'cancel') {
+        addMessage({
+          id: `assistant-cancel-${Date.now()}`,
+          role: 'assistant',
+          content: '❌ Operação cancelada.',
+        });
       }
-
-      if (responseMessage) {
-        addMessage({ ...responseMessage, id: `assistant-response-${Date.now()}` });
-      }
-    } catch (error) {
-      addMessage({
-        id: `assistant-error-${Date.now()}`,
-        role: 'assistant',
-        content: 'Ocorreu um erro ao processar sua solicitação. Tente novamente.',
-      });
     } finally {
       setIsProcessingFile(false);
     }
-  }, [user?.id, addMessage, onImportComplete]);
+  }, [user?.id, addMessage, importState, currentQuestion, handleAnswerQuestion, handleCancelImport]);
 
   // Handlers de Drag & Drop
   const handleDragEnter = useCallback((e: React.DragEvent) => {
@@ -261,15 +346,58 @@ export function ChatContainer({
             <p className="text-slate-500 mb-4">
               Vou analisar e te ajudar a importar
             </p>
-            <div className="flex items-center gap-2 text-sm text-slate-400">
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>PDF, Excel, CSV</span>
+            <div className="flex items-center gap-4 text-sm text-slate-400">
+              <div className="flex items-center gap-1">
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>PDF, Excel, CSV</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Image className="w-4 h-4" />
+                <span>PNG, JPG</span>
+              </div>
             </div>
           </div>
         </motion.div>
       )}
     </AnimatePresence>
   );
+
+  // Componente de pergunta de importação
+  const renderImportQuestion = () => {
+    if (!currentQuestion) return null;
+
+    return (
+      <div className="px-4 pb-4">
+        <div className="max-w-3xl mx-auto">
+          <ImportQuestionCard
+            question={currentQuestion}
+            onAnswer={handleAnswerQuestion}
+            disabled={isProcessingFile}
+          />
+        </div>
+      </div>
+    );
+  };
+
+  // Componente de preview de importação
+  const renderImportPreview = () => {
+    if (!previewData) return null;
+
+    return (
+      <div className="px-4 pb-4">
+        <div className="max-w-3xl mx-auto">
+          <ImportPreviewCard
+            transacoes={previewData.transacoes}
+            summary={previewData.summary}
+            onToggleTransaction={handleToggleTransaction}
+            onConfirmImport={handleConfirmImport}
+            onCancel={handleCancelImport}
+            isImporting={importState?.step === 'importing'}
+          />
+        </div>
+      </div>
+    );
+  };
 
   // Layout centralizado para nova conversa
   if (isCentered) {
@@ -361,13 +489,17 @@ export function ChatContainer({
         />
       </div>
 
+      {/* Cards interativos de importação */}
+      {renderImportQuestion()}
+      {renderImportPreview()}
+
       <div className="flex-shrink-0 px-4 pb-4 pt-2">
         <div className="max-w-3xl mx-auto">
           <MessageInput
             onSend={onSendMessage}
             isLoading={isLoading || isProcessingFile}
-            disabled={disabled}
-            showSuggestions
+            disabled={disabled || !!currentQuestion || !!previewData}
+            showSuggestions={!currentQuestion && !previewData}
             showFileUpload
             onFileSelect={handleFileSelect}
           />

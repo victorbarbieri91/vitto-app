@@ -1,26 +1,16 @@
 // Central exports for AI services
-export { aiContextManager } from './AIContextManager';
-export { aiCommandInterpreter } from './AICommandInterpreter';
-export { aiActionExecutor } from './AIActionExecutor';
-export { aiInsightGenerator } from './AIInsightGenerator';
-export { aiChatService } from './AIChatService';
+// Serviços ativos que usam arquitetura segura (Edge Functions)
 
-// 🆕 Etapa 3.2: Componentes Avançados de IA
-export { aiRateLimiter } from './AIRateLimiter';
-export { aiSentimentAnalyzer } from './AISentimentAnalyzer';
-export { aiReportGenerator } from './AIReportGenerator';
-export { aiPredictiveAlerts } from './AIPredictiveAlerts';
+// Contexto e Alertas Preditivos (usados por AlertaInteligenteCard)
+export { AIContextManager } from './AIContextManager';
+export { AIPredictiveAlerts } from './AIPredictiveAlerts';
 
-// 🆕 Etapa 3.3: Machine Learning e Predições
-export { default as AITrendAnalyzer } from './AITrendAnalyzer';
-export { default as AIAnomalyDetector } from './AIAnomalyDetector';
-export { default as AIClassifier } from './AIClassifier';
-export { default as AIMLEngine } from './AIMLEngine';
+// Serviços de Importação (usados pela Central IA)
+export { smartImportService } from './SmartImportService';
+export { createImportAgent, ConversationalImportAgent } from './ConversationalImportAgent';
 
 // Exportar tipos importantes
-export type { SentimentResult } from './AISentimentAnalyzer';
-export type { FinancialReport } from './AIReportGenerator';
 export type { PredictiveAlert } from './AIPredictiveAlerts';
 
 // Export types
-export * from '../../types/ai'; 
+export * from '../../types/ai';

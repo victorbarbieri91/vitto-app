@@ -11,6 +11,7 @@ import * as XLSX from 'xlsx';
 import * as pdfjsLib from 'pdfjs-dist';
 import { supabase } from '../supabase/client';
 import { transactionService, CreateTransactionRequest } from '../api/TransactionService';
+import { documentProcessor, type ExtractedFinancialData } from './DocumentProcessor';
 import type {
   ImportTarget,
   FileType,
@@ -46,7 +47,7 @@ class SmartImportService {
     if (!fileType) {
       return {
         success: false,
-        error: 'Tipo de arquivo nao suportado. Use PDF, XLSX, XLS ou CSV.',
+        error: 'Tipo de arquivo nao suportado. Use PDF, XLSX, XLS, CSV ou imagem (PNG, JPG).',
         fileName: file.name,
         fileType: 'csv',
         fileSize: file.size,
@@ -63,6 +64,11 @@ class SmartImportService {
     try {
       let rawData: any[][] = [];
       let headers: string[] = [];
+
+      // Para imagens, usar Vision API via DocumentProcessor
+      if (fileType === 'image') {
+        return await this.analyzeImageWithVision(file);
+      }
 
       if (fileType === 'pdf') {
         // Para PDFs, extrair texto e tentar parsear como tabela
@@ -222,6 +228,13 @@ class SmartImportService {
     if (fileName.endsWith('.xls') || mimeType.includes('ms-excel')) return 'xls';
     if (fileName.endsWith('.csv') || mimeType === 'text/csv') return 'csv';
 
+    // Imagens (processadas via GPT Vision API)
+    const imageExtensions = ['.png', '.jpg', '.jpeg', '.webp', '.gif'];
+    const imageMimeTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif'];
+    if (imageExtensions.some(ext => fileName.endsWith(ext)) || imageMimeTypes.includes(mimeType)) {
+      return 'image';
+    }
+
     return null;
   }
 
@@ -231,6 +244,146 @@ class SmartImportService {
   private async readSpreadsheet(file: File): Promise<XLSX.WorkBook> {
     const arrayBuffer = await file.arrayBuffer();
     return XLSX.read(arrayBuffer, { type: 'array' });
+  }
+
+  /**
+   * Analisa imagem usando GPT Vision API via DocumentProcessor
+   * Converte os dados extraidos para o formato FileAnalysis
+   */
+  private async analyzeImageWithVision(file: File): Promise<FileAnalysis> {
+    console.log('🖼️ Processando imagem com Vision API...');
+
+    const result = await documentProcessor.processDocument(file);
+
+    if (!result.success || !result.data) {
+      return {
+        success: false,
+        error: result.error || 'Erro ao processar imagem com Vision API.',
+        fileName: file.name,
+        fileType: 'image',
+        fileSize: file.size,
+        rowCount: 0,
+        columns: [],
+        sampleRows: [],
+        suggestedImportType: 'transacoes',
+        suggestedMappings: [],
+        confidence: 0,
+        observations: ['A imagem pode estar ilegivel ou nao conter dados financeiros'],
+      };
+    }
+
+    const extractedData = result.data;
+    const transacoes = extractedData.dados_extraidos.transacoes || [];
+
+    if (transacoes.length === 0) {
+      return {
+        success: false,
+        error: 'Nenhuma transacao encontrada na imagem.',
+        fileName: file.name,
+        fileType: 'image',
+        fileSize: file.size,
+        rowCount: 0,
+        columns: [],
+        sampleRows: [],
+        suggestedImportType: 'transacoes',
+        suggestedMappings: [],
+        confidence: extractedData.confianca,
+        observations: extractedData.observacoes,
+      };
+    }
+
+    // Converter transacoes extraidas para formato de colunas/linhas
+    const headers = ['data', 'descricao', 'valor', 'tipo', 'categoria'];
+    const rawData = [
+      headers,
+      ...transacoes.map(t => [
+        t.data,
+        t.descricao,
+        t.valor,
+        t.tipo,
+        t.categoria_sugerida || 'outros'
+      ])
+    ];
+
+    // Criar informacoes de colunas
+    const columns: ColumnInfo[] = [
+      {
+        index: 0,
+        originalName: 'data',
+        detectedType: 'date',
+        suggestedField: 'data' as MappableField,
+        confidence: 0.95,
+        sampleValues: transacoes.slice(0, 3).map(t => t.data),
+      },
+      {
+        index: 1,
+        originalName: 'descricao',
+        detectedType: 'text',
+        suggestedField: 'descricao' as MappableField,
+        confidence: 0.95,
+        sampleValues: transacoes.slice(0, 3).map(t => t.descricao),
+      },
+      {
+        index: 2,
+        originalName: 'valor',
+        detectedType: 'number',
+        suggestedField: 'valor' as MappableField,
+        confidence: 0.95,
+        sampleValues: transacoes.slice(0, 3).map(t => String(t.valor)),
+      },
+      {
+        index: 3,
+        originalName: 'tipo',
+        detectedType: 'text',
+        suggestedField: 'tipo' as MappableField,
+        confidence: 0.90,
+        sampleValues: transacoes.slice(0, 3).map(t => t.tipo),
+      },
+      {
+        index: 4,
+        originalName: 'categoria',
+        detectedType: 'text',
+        suggestedField: 'categoria' as MappableField,
+        confidence: 0.85,
+        sampleValues: transacoes.slice(0, 3).map(t => t.categoria_sugerida || 'outros'),
+      },
+    ];
+
+    // Criar sample rows
+    const sampleRows = transacoes.slice(0, 5).map(t => ({
+      data: t.data,
+      descricao: t.descricao,
+      valor: t.valor,
+      tipo: t.tipo,
+      categoria: t.categoria_sugerida || 'outros',
+    }));
+
+    console.log(`✅ Vision API extraiu ${transacoes.length} transacoes da imagem`);
+
+    return {
+      success: true,
+      fileName: file.name,
+      fileType: 'image',
+      fileSize: file.size,
+      rowCount: transacoes.length,
+      columns,
+      sampleRows,
+      suggestedImportType: 'transacoes',
+      suggestedMappings: columns.map(c => ({
+        columnIndex: c.index,
+        columnName: c.originalName,
+        targetField: c.suggestedField,
+        sampleValues: c.sampleValues,
+      })),
+      confidence: extractedData.confianca,
+      observations: [
+        `Tipo de documento: ${extractedData.tipo_documento}`,
+        `${transacoes.length} transacoes extraidas via Vision API`,
+        ...extractedData.observacoes,
+      ],
+      // Dados extras da Vision API para uso posterior
+      visionData: extractedData,
+    };
   }
 
   /**
@@ -580,7 +733,27 @@ class SmartImportService {
     const fileType = this.detectFileType(file);
     let rawData: any[][] = [];
 
-    if (fileType === 'pdf') {
+    // Para imagens, processar com Vision API e converter para formato padrao
+    if (fileType === 'image') {
+      const visionResult = await documentProcessor.processDocument(file);
+      if (visionResult.success && visionResult.data?.dados_extraidos?.transacoes) {
+        const transacoes = visionResult.data.dados_extraidos.transacoes;
+        const headers = ['data', 'descricao', 'valor', 'tipo', 'categoria'];
+        rawData = [
+          headers,
+          ...transacoes.map(t => [
+            t.data,
+            t.descricao,
+            t.valor,
+            t.tipo,
+            t.categoria_sugerida || 'outros'
+          ])
+        ];
+      } else {
+        // Se nao conseguiu extrair, retorna vazio
+        rawData = [['data', 'descricao', 'valor', 'tipo', 'categoria']];
+      }
+    } else if (fileType === 'pdf') {
       rawData = await this.extractDataFromPDF(file);
     } else {
       const workbook = await this.readSpreadsheet(file);
