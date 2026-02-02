@@ -4,15 +4,11 @@ import { sanitizeAccount, withFallback, toSafeArray } from '../../utils/dataVali
 import type { Database } from '../../types/supabase';
 
 export type Account = Database['public']['Tables']['app_conta']['Row'] & {
-  grupo_conta_id: number | null;
   instituicao: string | null;
 };
-export type AccountGroup = Database['public']['Tables']['app_conta_grupo']['Row'];
 
 export type NewAccount = Database['public']['Tables']['app_conta']['Insert'];
 export type UpdateAccount = Database['public']['Tables']['app_conta']['Update'];
-export type NewAccountGroup = Database['public']['Tables']['app_conta_grupo']['Insert'];
-export type UpdateAccountGroup = Partial<NewAccountGroup>;
 
 export type Transaction = Database['public']['Tables']['app_transacoes']['Row'] & { 
   app_categoria: {
@@ -107,14 +103,12 @@ export class AccountService extends BaseApi {
       const user = await this.getCurrentUser();
       if (!user) throw new Error('Usuário não autenticado');
 
-      const { /* grupo_conta_id, */ ...rest } = accountData;
-
       // Criar a conta
       const { data: conta, error: contaError } = await this.supabase
         .from('app_conta')
         .insert([
           {
-            ...rest,
+            ...accountData,
             user_id: user.id,
             saldo_atual: accountData.saldo_inicial,
           },
@@ -360,93 +354,6 @@ export class AccountService extends BaseApi {
       return true;
     } catch (error) {
       throw this.handleError(error, 'Falha ao excluir conta');
-    }
-  }
-
-  /**
-   * Get total account balance
-   */
-  /**
-   * Fetch all account groups for the current user
-   */
-  async fetchAccountGroups(): Promise<AccountGroup[]> {
-    try {
-      const user = await this.getCurrentUser();
-      if (!user) return [];
-
-      const { data, error } = await this.supabase
-        .from('app_conta_grupo')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('nome');
-
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      throw this.handleError(error, 'Falha ao buscar grupos de contas');
-    }
-  }
-
-  /**
-   * Create a new account group
-   */
-  async createAccountGroup(newGroup: NewAccountGroup): Promise<AccountGroup> {
-    try {
-      const user = await this.getCurrentUser();
-      if (!user) throw new Error('Usuário não autenticado');
-
-      const { data, error } = await this.supabase
-        .from('app_conta_grupo')
-        .insert({ ...newGroup, user_id: user.id })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      throw this.handleError(error, 'Falha ao criar grupo de contas');
-    }
-  }
-
-  /**
-   * Update an account group
-   */
-  async updateAccountGroup(id: number, updates: UpdateAccountGroup): Promise<boolean> {
-    try {
-      const user = await this.getCurrentUser();
-      if (!user) throw new Error('Usuário não autenticado');
-
-      const { error } = await this.supabase
-        .from('app_conta_grupo')
-        .update(updates)
-        .eq('id', id)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-      return true;
-    } catch (error) {
-      throw this.handleError(error, 'Falha ao atualizar grupo de contas');
-    }
-  }
-
-  /**
-   * Delete an account group
-   */
-  async deleteAccountGroup(id: number): Promise<boolean> {
-    try {
-      const user = await this.getCurrentUser();
-      if (!user) throw new Error('Usuário não autenticado');
-
-      const { error } = await this.supabase
-        .from('app_conta_grupo')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-      return true;
-    } catch (error) {
-      throw this.handleError(error, 'Falha ao excluir grupo de contas');
     }
   }
 

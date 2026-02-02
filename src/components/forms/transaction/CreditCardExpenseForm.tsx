@@ -106,19 +106,25 @@ const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ onSave, o
   const watchedCardId = watch('cartao_id');
   const watchedData = watch('data');
 
-  useEffect(() => {
-    if (isRecorrente) setValue('is_parcelado', false);
-  }, [isRecorrente, setValue]);
-
-  useEffect(() => {
-    if (isParcelado) setValue('is_recorrente', false);
-  }, [isParcelado, setValue]);
-  
+  // IMPORTANTE: selectedCard deve ser definido ANTES dos useEffects que o usam
   useEffect(() => {
     setSelectedCardId(watchedCardId);
   }, [watchedCardId]);
 
   const selectedCard = useMemo(() => cards.find(c => c.id === selectedCardId), [cards, selectedCardId]);
+
+  useEffect(() => {
+    if (isRecorrente) {
+      setValue('is_parcelado', false);
+      // Inicializar valores padrão de recorrência
+      setValue('recorrencia.frequencia', 'mensal');
+      setValue('recorrencia.dia_cobranca', selectedCard?.dia_fechamento || 1);
+    }
+  }, [isRecorrente, setValue, selectedCard]);
+
+  useEffect(() => {
+    if (isParcelado) setValue('is_recorrente', false);
+  }, [isParcelado, setValue]);
 
   // Atualizar sugestão de fatura quando mudar data ou cartão
   useEffect(() => {
@@ -367,6 +373,51 @@ const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ onSave, o
 
       {/* Seção condicional compacta */}
       <AnimatePresence>
+        {isRecorrente && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="p-3 bg-green-50 rounded-lg border border-green-100 space-y-3"
+          >
+            <div className="flex items-center gap-2 text-green-700 mb-2">
+              <Info className="w-4 h-4" />
+              <span className="text-xs font-medium">Configuração de Recorrência</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-green-700 mb-1">Frequência</label>
+                <select
+                  {...register('recorrencia.frequencia')}
+                  className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
+                >
+                  <option value="mensal">Mensal</option>
+                  <option value="semanal">Semanal</option>
+                  <option value="anual">Anual</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-green-700 mb-1">Dia da Cobrança</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="31"
+                  {...register('recorrencia.dia_cobranca', { valueAsNumber: true })}
+                  placeholder="1"
+                  defaultValue={1}
+                  className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
+                />
+              </div>
+            </div>
+
+            <p className="text-xs text-green-600">
+              Esta despesa será lançada automaticamente todo mês no cartão selecionado.
+            </p>
+          </motion.div>
+        )}
+
         {isParcelado && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}

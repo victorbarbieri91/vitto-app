@@ -8,7 +8,8 @@ import {
   Package,
   CheckCircle,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Repeat
 } from 'lucide-react';
 import { ModernCard, ModernButton, ModernBadge } from '../ui/modern';
 import { formatCurrency } from '../../utils/format';
@@ -16,12 +17,13 @@ import { cn } from '../../utils/cn';
 import { getCategoryIcon } from '../../utils/getCategoryIcon';
 
 export interface InvoiceTransaction {
-  id: string;
+  id: number;
   descricao: string;
   valor: number;
   data: string;
+  categoria_id?: number;
   categoria?: {
-    id: string;
+    id: number;
     nome: string;
     cor: string;
     icone: string;
@@ -29,6 +31,8 @@ export interface InvoiceTransaction {
   parcela_atual?: number;
   total_parcelas?: number;
   observacoes?: string;
+  is_fixed?: boolean;
+  fixo_id?: number;
 }
 
 export interface InvoiceCardProps {
@@ -255,6 +259,12 @@ export default function InvoiceCard({
                             <p className="text-xs text-slate-500">
                               {formatDate(transaction.data)}
                             </p>
+                            {transaction.is_fixed && (
+                              <ModernBadge variant="primary" size="xs" className="flex items-center gap-1">
+                                <Repeat className="w-3 h-3" />
+                                Fixa
+                              </ModernBadge>
+                            )}
                             {transaction.parcela_atual && transaction.total_parcelas && (
                               <ModernBadge variant="info" size="xs">
                                 {transaction.parcela_atual}/{transaction.total_parcelas}

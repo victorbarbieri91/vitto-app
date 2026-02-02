@@ -203,49 +203,47 @@ export default function InvoiceDrawer({ card, isOpen, onClose }: InvoiceDrawerPr
               ) : error ? (
                  <div className="p-6 text-center text-red-500">{error}</div>
               ) : (
-                <div className="p-4 pb-24">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                    <InsightCard 
-                      label="Lançamentos" 
-                      value={insights.totalCount} 
-                      isActive={filterType === 'all'} 
+                <div className="p-3 pb-20">
+                  {/* Filtros compactos */}
+                  <div className="flex items-center gap-2 mb-4">
+                    <FilterChip
+                      label={`Todos (${insights.totalCount})`}
+                      isActive={filterType === 'all'}
                       onClick={() => handleFilterClick('all')}
                     />
-                    <InsightCard 
-                      label="Parceladas" 
-                      value={insights.installmentCount} 
-                      isActive={filterType === 'parceladas'} 
+                    <FilterChip
+                      label={`Parceladas (${insights.installmentCount})`}
+                      isActive={filterType === 'parceladas'}
                       onClick={() => handleFilterClick('parceladas')}
                     />
-                    <InsightCard 
-                      label="Fixas" 
-                      value={insights.recurringCount} 
-                      isActive={filterType === 'fixas'} 
+                    <FilterChip
+                      label={`Fixas (${insights.recurringCount})`}
+                      isActive={filterType === 'fixas'}
                       onClick={() => handleFilterClick('fixas')}
-                    />
-                    <InsightCard 
-                      label="Maior Compra" 
-                      value={formatCurrency(insights.biggestPurchase.valor)} 
-                      description={insights.biggestPurchase.descricao} 
-                      isStatic
                     />
                   </div>
 
-                  <div className="space-y-4">
-                    {Object.keys(groupedTransactions).length > 0 ? (
-                      Object.entries(groupedTransactions).map(([date, dailyTransactions]) => (
-                        <div key={date}>
-                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-2">{date}</p>
-                          <div className="bg-white rounded-xl shadow-sm border border-slate-200/80">
-                             {dailyTransactions.map((tx, index) => (
-                              <TransactionItem key={tx.id} transaction={tx} isLast={index === dailyTransactions.length - 1} />
-                            ))}
-                          </div>
-                        </div>
+                  {/* Lista estilo extrato */}
+                  <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                    {/* Cabeçalho da tabela */}
+                    <div className="flex items-center py-2 px-3 bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+                      <span className="w-12">Data</span>
+                      <span className="flex-1 ml-8">Descrição</span>
+                      <span className="text-right">Valor</span>
+                    </div>
+
+                    {/* Lista de transações */}
+                    {filteredAndSortedTransactions.length > 0 ? (
+                      filteredAndSortedTransactions.map((tx, index) => (
+                        <TransactionItem
+                          key={tx.id}
+                          transaction={tx}
+                          isLast={index === filteredAndSortedTransactions.length - 1}
+                        />
                       ))
                     ) : (
-                      <div className="text-center py-16 text-slate-400">
-                        <p className="font-medium">Nenhum lançamento para este período.</p>
+                      <div className="text-center py-10 text-slate-400">
+                        <p className="text-sm">Nenhum lançamento para este período.</p>
                       </div>
                     )}
                   </div>
@@ -291,46 +289,63 @@ export default function InvoiceDrawer({ card, isOpen, onClose }: InvoiceDrawerPr
   );
 }
 
-const InsightCard = ({ label, value, description, isActive, isStatic, onClick }: any) => (
-    <div
-      className={cn(
-        'p-3 rounded-xl transition-all duration-200 border cursor-pointer',
-        isActive 
-          ? 'bg-coral-500/10 border-coral-500/30 shadow-sm' 
-          : 'bg-white hover:bg-slate-50 border-slate-200/80 hover:border-slate-300'
-      )}
-      onClick={onClick}
-    >
-      <p className="text-xs text-slate-600 font-semibold truncate">{label}</p>
-      <p className={cn(
-        "text-xl font-bold mt-1 transition-colors",
-        isActive ? 'text-coral-600' : 'text-deep-blue'
-      )}>
-        {value}
-      </p>
-      {isStatic && description && (
-        <p className="text-xs text-slate-400 truncate mt-1">{description}</p>
-      )}
-    </div>
+const FilterChip = ({ label, isActive, onClick }: { label: string; isActive: boolean; onClick: () => void }) => (
+  <button
+    onClick={onClick}
+    className={cn(
+      'px-3 py-1.5 rounded-full text-xs font-medium transition-all',
+      isActive
+        ? 'bg-coral-500 text-white shadow-sm'
+        : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+    )}
+  >
+    {label}
+  </button>
 );
 
 const TransactionItem = ({ transaction, isLast }: { transaction: Transaction, isLast: boolean }) => {
   const category = transaction.categoria as Category | undefined;
+  const transactionDate = new Date(transaction.data).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+
   return (
-    <div className={cn("flex items-center p-3", !isLast && "border-b border-slate-200/80")}>
+    <div className={cn(
+      "flex items-center py-2 px-3 hover:bg-slate-50/50 transition-colors",
+      !isLast && "border-b border-slate-100"
+    )}>
+      {/* Data */}
+      <span className="text-[11px] text-slate-400 w-12 flex-shrink-0 font-medium">
+        {transactionDate}
+      </span>
+
+      {/* Ícone da categoria (compacto) */}
       {category && (
-          <div className="w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center mr-4" style={{ backgroundColor: `${category.cor}20` }}>
-            {getCategoryIcon(category.icone, `${category.cor}`)}
-          </div>
-      )}
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-deep-blue truncate">{transaction.descricao}</p>
-        <div className="flex items-center space-x-2 mt-1">
-           {transaction.parcelado && <ModernBadge variant="info" size="xs">Parcela {transaction.parcela_atual}/{transaction.total_parcelas}</ModernBadge>}
-           {transaction.recorrente && <ModernBadge variant="warning" size="xs">Fixa</ModernBadge>}
+        <div
+          className="w-6 h-6 rounded flex-shrink-0 flex items-center justify-center mr-2"
+          style={{ backgroundColor: `${category.cor}15` }}
+        >
+          {getCategoryIcon(category.icone, category.cor, 14)}
         </div>
+      )}
+
+      {/* Descrição + badges */}
+      <div className="flex-1 min-w-0 flex items-center gap-2">
+        <span className="text-[13px] text-slate-700 truncate">{transaction.descricao}</span>
+        {transaction.parcelado && (
+          <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-medium whitespace-nowrap">
+            {transaction.parcela_atual}/{transaction.total_parcelas}
+          </span>
+        )}
+        {transaction.recorrente && (
+          <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded font-medium">
+            Fixa
+          </span>
+        )}
       </div>
-      <span className="font-semibold text-deep-blue ml-4 whitespace-nowrap">{formatCurrency(transaction.valor)}</span>
+
+      {/* Valor */}
+      <span className="text-[13px] font-semibold text-slate-800 ml-3 whitespace-nowrap tabular-nums">
+        {formatCurrency(transaction.valor)}
+      </span>
     </div>
   );
 }; 

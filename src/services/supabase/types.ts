@@ -133,41 +133,6 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "app_conta_grupo_id_fkey"
-            columns: ["grupo_id"]
-            isOneToOne: false
-            referencedRelation: "app_conta_grupo"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      app_conta_grupo: {
-        Row: {
-          created_at: string | null
-          descricao: string | null
-          id: number
-          nome: string
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          descricao?: string | null
-          id?: number
-          nome: string
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          descricao?: string | null
-          id?: number
-          nome?: string
-          updated_at?: string | null
-          user_id?: string
-        }
         Relationships: []
       }
       app_fatura: {

@@ -13,6 +13,7 @@ interface UseChatSessionReturn {
   deleteSession: (sessionId: string) => Promise<void>;
   renameSession: (sessionId: string, titulo: string) => Promise<void>;
   searchSessions: (query: string) => void;
+  refreshSessions: () => Promise<void>;
 }
 
 export function useChatSession(): UseChatSessionReturn {
@@ -109,6 +110,11 @@ export function useChatSession(): UseChatSessionReturn {
     setSessions(filtered);
   }, [allSessions]);
 
+  // Recarrega sessões (para ser chamado externamente)
+  const refreshSessions = useCallback(async () => {
+    await loadSessions();
+  }, [loadSessions]);
+
   // Carrega sessões no mount
   useEffect(() => {
     loadSessions();
@@ -123,5 +129,6 @@ export function useChatSession(): UseChatSessionReturn {
     deleteSession,
     renameSession,
     searchSessions,
+    refreshSessions,
   };
 }

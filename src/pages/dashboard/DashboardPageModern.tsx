@@ -14,7 +14,9 @@ import ProximasTransacoesCard from '../../components/dashboard/ProximasTransacoe
 import AlertaInteligenteCard from '../../components/dashboard/AlertaInteligenteCard';
 import NewTransactionButton from '../../components/dashboard/NewTransactionButton';
 import { useTransactionModal } from '../../hooks/useTransactionModal';
+import { useKPIDetailModal } from '../../hooks/useKPIDetailModal';
 import { MonthlyDashboardProvider, useMonthlyDashboard } from '../../contexts/MonthlyDashboardContext';
+import KPIDetailModal from '../../components/modals/KPIDetailModal';
 import {
   TrendingUp,
   TrendingDown,
@@ -50,6 +52,7 @@ function DashboardContent() {
   // Usar o contexto mensal
   const {
     consolidatedData,
+    kpiDetailData,
     loading,
     error,
     currentMonth,
@@ -59,6 +62,9 @@ function DashboardContent() {
   } = useMonthlyDashboard();
 
   const { openModal, TransactionModalComponent } = useTransactionModal(refreshData);
+
+  // Hook para modal de detalhes dos KPIs
+  const { isOpen: isKPIModalOpen, kpiType, openModal: openKPIModal, closeModal: closeKPIModal } = useKPIDetailModal();
 
   // Handler para mudanca de mes via navegacao
   const handleMonthChange = (month: number, year: number) => {
@@ -141,13 +147,15 @@ function DashboardContent() {
               <SaldoScore
                 saldo={consolidatedData.saldoPrevisto || 0}
                 isLoading={loading}
+                onClick={() => openKPIModal('saldo_previsto')}
               />
               <SimpleMetricCard
-                title="Saldo Contas"
+                title="Saldo em Conta"
                 value={consolidatedData.totalSaldo}
                 icon={<DollarSign className="w-3 h-3" />}
                 isLoading={loading}
                 colorScheme="blue"
+                onClick={() => openKPIModal('saldo_conta')}
               />
               <SimpleMetricCard
                 title="Receitas"
@@ -155,6 +163,7 @@ function DashboardContent() {
                 icon={<TrendingUp className="w-3 h-3" />}
                 isLoading={loading}
                 colorScheme="green"
+                onClick={() => openKPIModal('receitas')}
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -164,13 +173,15 @@ function DashboardContent() {
                 icon={<TrendingDown className="w-3 h-3" />}
                 isLoading={loading}
                 colorScheme="coral"
+                onClick={() => openKPIModal('despesas')}
               />
               <SimpleMetricCard
-                title="Economia"
+                title="Economia do Mês"
                 value={consolidatedData.economiaMes}
                 icon={<Activity className="w-3 h-3" />}
                 isLoading={loading}
                 colorScheme="neutral"
+                onClick={() => openKPIModal('economia')}
               />
             </div>
           </motion.div>
@@ -206,13 +217,15 @@ function DashboardContent() {
               <SaldoScore
                 saldo={consolidatedData.saldoPrevisto || 0}
                 isLoading={loading}
+                onClick={() => openKPIModal('saldo_previsto')}
               />
               <SimpleMetricCard
-                title="Saldo das Contas"
+                title="Saldo em Conta Corrente"
                 value={consolidatedData.totalSaldo}
                 icon={<DollarSign className={classes.iconSize} />}
                 isLoading={loading}
                 colorScheme="blue"
+                onClick={() => openKPIModal('saldo_conta')}
               />
               <SimpleMetricCard
                 title="Receitas do Mes"
@@ -220,6 +233,7 @@ function DashboardContent() {
                 icon={<TrendingUp className={classes.iconSize} />}
                 isLoading={loading}
                 colorScheme="green"
+                onClick={() => openKPIModal('receitas')}
               />
               <SimpleMetricCard
                 title="Despesas do Mes"
@@ -227,13 +241,15 @@ function DashboardContent() {
                 icon={<TrendingDown className={classes.iconSize} />}
                 isLoading={loading}
                 colorScheme="coral"
+                onClick={() => openKPIModal('despesas')}
               />
               <SimpleMetricCard
-                title="Economia"
+                title="Economia do Mês"
                 value={consolidatedData.economiaMes}
                 icon={<Activity className={classes.iconSize} />}
                 isLoading={loading}
                 colorScheme="neutral"
+                onClick={() => openKPIModal('economia')}
               />
             </div>
           </motion.div>
@@ -267,6 +283,15 @@ function DashboardContent() {
 
       {/* Modal de Novo Lancamento */}
       <TransactionModalComponent />
+
+      {/* Modal de Detalhes dos KPIs */}
+      <KPIDetailModal
+        isOpen={isKPIModalOpen}
+        onClose={closeKPIModal}
+        kpiType={kpiType}
+        data={kpiDetailData}
+        consolidatedData={consolidatedData}
+      />
     </motion.div>
   );
 }

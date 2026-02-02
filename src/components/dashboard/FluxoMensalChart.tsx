@@ -43,13 +43,17 @@ export default function FluxoMensalChart({ className, months = 4 }: FluxoMensalC
         const startStr = startDate.toISOString().split('T')[0];
         const endStr = endDate.toISOString().split('T')[0];
 
+        // Buscar apenas transações CONFIRMADAS (receita/despesa), excluindo:
+        // - despesa_cartao (consolidadas nas faturas)
+        // - pendentes (não efetivadas ainda)
         const { data: transactions, error: fetchError } = await supabase
           .from('app_transacoes')
           .select('data, valor, tipo, status')
           .eq('user_id', user.id)
           .gte('data', startStr)
           .lte('data', endStr)
-          .in('status', ['confirmado', 'pendente']);
+          .eq('status', 'confirmado') // Apenas transações efetivadas
+          .in('tipo', ['receita', 'despesa']); // Exclui despesa_cartao
 
         if (fetchError) throw fetchError;
 
@@ -68,7 +72,8 @@ export default function FluxoMensalChart({ className, months = 4 }: FluxoMensalC
           if (monthlyData[key]) {
             if (t.tipo === 'receita') {
               monthlyData[key].receitas += Number(t.valor);
-            } else {
+            } else if (t.tipo === 'despesa') {
+              // Apenas despesas normais, não despesa_cartao (já filtrado na query)
               monthlyData[key].despesas += Number(t.valor);
             }
           }

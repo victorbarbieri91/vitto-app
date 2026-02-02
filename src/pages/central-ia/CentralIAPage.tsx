@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus } from 'lucide-react';
 import { useCentralIA } from '../../hooks/useCentralIA';
@@ -34,7 +34,19 @@ export function CentralIAPage() {
     sessions,
     isLoading: sessionsLoading,
     deleteSession,
+    refreshSessions,
   } = useChatSession();
+
+  // Ref para rastrear última sessão conhecida
+  const lastSessionIdRef = useRef<string | null>(null);
+
+  // Recarregar sessões quando uma nova for criada
+  useEffect(() => {
+    if (currentSession?.id && currentSession.id !== lastSessionIdRef.current) {
+      lastSessionIdRef.current = currentSession.id;
+      refreshSessions();
+    }
+  }, [currentSession?.id, refreshSessions]);
 
   // Handlers
   const handleSelectSession = useCallback(

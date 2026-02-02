@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Paperclip, FileSpreadsheet, FileText } from 'lucide-react';
+import { Paperclip, FileSpreadsheet, FileText, Image } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
 interface FileUploadButtonProps {
@@ -10,13 +10,19 @@ interface FileUploadButtonProps {
 }
 
 const ACCEPTED_FILE_TYPES = [
+  // Documentos
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'application/vnd.ms-excel',
-  'text/csv'
+  'text/csv',
+  // Imagens (processadas via GPT Vision)
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+  'image/webp'
 ].join(',');
 
-const ACCEPTED_EXTENSIONS = '.pdf,.xlsx,.xls,.csv';
+const ACCEPTED_EXTENSIONS = '.pdf,.xlsx,.xls,.csv,.png,.jpg,.jpeg,.webp';
 
 export function FileUploadButton({
   onFileSelect,
@@ -78,6 +84,10 @@ export function FileUploadButton({
             <div className="space-y-2">
               <p className="font-medium text-sm">Importar fatura</p>
               <div className="text-slate-300 space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <Image className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Print/Foto (PNG, JPG)</span>
+                </div>
                 <div className="flex items-center gap-1.5">
                   <FileText className="w-3.5 h-3.5 text-emerald-400" />
                   <span>PDF com texto</span>

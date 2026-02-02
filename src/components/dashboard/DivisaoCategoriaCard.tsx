@@ -83,6 +83,7 @@ export default function DivisaoCategoriaCard({ className }: DivisaoCategoriaCard
   const [data, setData] = useState<CategoryDistribution[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [showPercentage, setShowPercentage] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -181,7 +182,31 @@ export default function DivisaoCategoriaCard({ className }: DivisaoCategoriaCard
     >
       <div className={headerStyle}>
         <PieChartIcon className="w-4 h-4 text-slate-400" />
-        <h3 className="font-medium text-slate-700 text-sm">Despesas por Categoria</h3>
+        <h3 className="font-medium text-slate-700 text-sm flex-1">Despesas por Categoria</h3>
+        <div className="flex items-center bg-slate-100 rounded p-0.5">
+          <button
+            onClick={() => setShowPercentage(false)}
+            className={cn(
+              "px-1.5 py-0.5 rounded text-[10px] font-medium transition-all",
+              !showPercentage
+                ? "bg-white text-slate-700 shadow-sm"
+                : "text-slate-400 hover:text-slate-500"
+            )}
+          >
+            R$
+          </button>
+          <button
+            onClick={() => setShowPercentage(true)}
+            className={cn(
+              "px-1.5 py-0.5 rounded text-[10px] font-medium transition-all",
+              showPercentage
+                ? "bg-white text-slate-700 shadow-sm"
+                : "text-slate-400 hover:text-slate-500"
+            )}
+          >
+            %
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 flex items-center justify-center min-h-0 px-4 py-3">
@@ -243,7 +268,7 @@ export default function DivisaoCategoriaCard({ className }: DivisaoCategoriaCard
                   {item.name}
                 </span>
                 <span className="text-[10px] text-slate-700 font-semibold whitespace-nowrap">
-                  {formatCurrency(item.value)}
+                  {showPercentage ? `${item.percentage.toFixed(1)}%` : formatCurrency(item.value)}
                 </span>
               </motion.button>
             ))}

@@ -20,14 +20,13 @@ const getBalanceColor = (balance: number): string => {
 };
 
 export default function DirectAccountsPage() {
-  const { 
-    accounts, 
-    accountGroups, 
-    loading, 
-    error, 
-    addAccount, 
-    updateAccount, 
-    deleteAccount 
+  const {
+    accounts,
+    loading,
+    error,
+    addAccount,
+    updateAccount,
+    deleteAccount
   } = useAccounts();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -147,7 +146,6 @@ export default function DirectAccountsPage() {
             
             <AccountForm
               account={editingAccount || undefined}
-              accountGroups={accountGroups}
               onSubmit={handleSubmit}
               onCancel={handleCloseModal}
               isSubmitting={loading}

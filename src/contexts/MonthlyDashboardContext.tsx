@@ -4,6 +4,7 @@ import { supabase } from '../services/supabase/client';
 import { saldoService, type MetricasFinanceiras } from '../services/api/SaldoService';
 import { transactionService } from '../services/api/TransactionService';
 import { fixedTransactionService } from '../services/api/FixedTransactionService';
+import { useTransactionContext } from '../store/TransactionContext';
 
 interface MonthlyDashboardData {
   conta_id: number;
@@ -20,6 +21,32 @@ interface MonthlyDashboardData {
   media_movel_3meses: number;
   variacao_mes_anterior: number;
   status_orcamento: string;
+}
+
+// Interface para dados detalhados dos KPIs (memória de cálculo)
+export interface KPIDetailData {
+  // Saldo Previsto - composição
+  saldoAtualTotal: number;
+  receitasPendentes: number;
+  despesasPendentes: number;
+  receitasFixasNaoGeradas: number;
+  despesasFixasNaoGeradas: number;
+  faturasMes: number;
+
+  // Receitas - composição
+  receitasConfirmadas: number;
+
+  // Despesas - composição
+  despesasConfirmadas: number;
+
+  // Contas individuais (para Saldo em Conta Corrente)
+  contas: Array<{
+    id: number;
+    nome: string;
+    saldo_atual: number;
+    tipo?: string;
+    cor?: string;
+  }>;
 }
 
 interface MonthlyDashboardContextValue {
@@ -40,6 +67,9 @@ interface MonthlyDashboardContextValue {
     receitaMensal: number;
     metaPercentual: number;
   };
+
+  // Dados detalhados para memória de cálculo dos KPIs
+  kpiDetailData: KPIDetailData;
   
   // Estado
   loading: boolean;
@@ -69,15 +99,18 @@ interface MonthlyDashboardProviderProps {
   userId: string;
 }
 
-export const MonthlyDashboardProvider: React.FC<MonthlyDashboardProviderProps> = ({ 
-  children, 
-  userId 
+export const MonthlyDashboardProvider: React.FC<MonthlyDashboardProviderProps> = ({
+  children,
+  userId
 }) => {
   const [data, setData] = useState<MonthlyDashboardData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentMonth, setCurrentMonth] = useState(() => new Date().getMonth() + 1);
   const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
+
+  // Contexto global para escutar mudanças nas transações
+  const { onTransactionChange } = useTransactionContext();
 
   // Estados para dados de meta
   const [receitaMensal, setReceitaMensal] = useState(0);
@@ -257,6 +290,19 @@ export const MonthlyDashboardProvider: React.FC<MonthlyDashboardProviderProps> =
   const [receitasMes, setReceitasMes] = useState(0);
   const [despesasMes, setDespesasMes] = useState(0);
 
+  // Estados para dados detalhados dos KPIs (memória de cálculo)
+  const [kpiDetailData, setKpiDetailData] = useState<KPIDetailData>({
+    saldoAtualTotal: 0,
+    receitasPendentes: 0,
+    despesasPendentes: 0,
+    receitasFixasNaoGeradas: 0,
+    despesasFixasNaoGeradas: 0,
+    faturasMes: 0,
+    receitasConfirmadas: 0,
+    despesasConfirmadas: 0,
+    contas: [],
+  });
+
   // Buscar dados consolidados do dashboard para um mês específico
   const updateDashboardData = async (month?: number, year?: number) => {
     try {
@@ -307,16 +353,40 @@ export const MonthlyDashboardProvider: React.FC<MonthlyDashboardProviderProps> =
       // Usar campos corretos da RPC corrigida
       setSaldoAtualTotal(Number(indicadores.saldo_atual_total));
       setSaldoPrevistoTotal(Number(indicadores.saldo_previsto_fim_mes)); // Fórmula corrigida na RPC
-      setReceitasMes(Number(indicadores.total_receitas_mes)); // ✅ CORRIGIDO: Usar total que inclui fixas não geradas
-      setDespesasMes(Number(indicadores.total_despesas_mes)); // ✅ CORRIGIDO: Usar total que inclui faturas
+      // CORREÇÃO: Usar apenas valores CONFIRMADOS para Receitas/Despesas/Economia do Mês
+      // Os valores com pendentes e fixas são apenas para o Saldo Previsto
+      setReceitasMes(Number(indicadores.receitas_confirmadas)); // Apenas receitas efetivadas
+      setDespesasMes(Number(indicadores.despesas_confirmadas)); // Apenas despesas efetivadas
 
       console.log(`🎯 Valores interpretados:`, {
         saldoAtual: Number(indicadores.saldo_atual_total),
         saldoPrevisto: Number(indicadores.saldo_previsto_fim_mes),
-        receitasMes: Number(indicadores.total_receitas_mes),
-        despesasMes: Number(indicadores.total_despesas_mes),
-        economiaMes: Number(indicadores.economia_mes),
-        incluiFaturas: Number(indicadores.fatura_mes_atual)
+        receitasConfirmadas: Number(indicadores.receitas_confirmadas),
+        despesasConfirmadas: Number(indicadores.despesas_confirmadas),
+        economiaMes: Number(indicadores.receitas_confirmadas) - Number(indicadores.despesas_confirmadas),
+        // Dados para Saldo Previsto (inclui pendentes e fixas)
+        totalReceitasPrevistas: Number(indicadores.total_receitas_mes),
+        totalDespesasPrevistas: Number(indicadores.total_despesas_mes)
+      });
+
+      // Atualizar dados detalhados para memória de cálculo dos KPIs
+      const contasArray = data.contas || [];
+      setKpiDetailData({
+        saldoAtualTotal: Number(indicadores.saldo_atual_total) || 0,
+        receitasPendentes: Number(indicadores.receitas_pendentes) || 0,
+        despesasPendentes: Number(indicadores.despesas_pendentes) || 0,
+        receitasFixasNaoGeradas: Number(indicadores.receitas_fixas_nao_geradas) || 0,
+        despesasFixasNaoGeradas: Number(indicadores.despesas_fixas_nao_geradas) || 0,
+        faturasMes: Number(indicadores.fatura_mes_atual) || 0,
+        receitasConfirmadas: Number(indicadores.receitas_confirmadas) || 0,
+        despesasConfirmadas: Number(indicadores.despesas_confirmadas) || 0,
+        contas: contasArray.map((conta: any) => ({
+          id: conta.id,
+          nome: conta.nome,
+          saldo_atual: Number(conta.saldo_atual) || 0,
+          tipo: conta.tipo,
+          cor: conta.cor,
+        })),
       });
 
     } catch (error) {
@@ -370,9 +440,23 @@ export const MonthlyDashboardProvider: React.FC<MonthlyDashboardProviderProps> =
     }
   }, [currentMonth, currentYear]);
 
+  // Escutar mudanças globais nas transações e atualizar automaticamente
+  useEffect(() => {
+    const unsubscribe = onTransactionChange((event) => {
+      console.log('[MonthlyDashboard] Recebeu notificação de mudança:', event);
+      // Atualizar todos os dados do dashboard
+      if (userId) {
+        fetchMonthData(currentMonth, currentYear);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [onTransactionChange, userId, currentMonth, currentYear]);
+
   const value: MonthlyDashboardContextValue = {
     data,
     consolidatedData,
+    kpiDetailData,
     loading,
     error,
     currentMonth,

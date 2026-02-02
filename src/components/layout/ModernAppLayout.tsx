@@ -14,7 +14,6 @@ import {
   X,
   Wallet,
   BookOpen,
-  Bot,
   Users,
   Landmark,
   Sparkles
@@ -23,7 +22,6 @@ import { useState } from 'react';
 import { useScreenDetection } from '../../hooks/useScreenDetection';
 import { cn } from '../../utils/cn';
 import ChatBar from '../chat/ChatBar';
-import { useCanAccessAICenter } from '../../hooks/useAdminPermissions';
 import { useSolicitacoesPendentes } from '../../hooks/useSolicitacoesPendentes';
 
 type ModernAppLayoutProps = {
@@ -31,7 +29,7 @@ type ModernAppLayoutProps = {
   requireAuth?: boolean;
 };
 
-const getNavigation = (canAccessAICenter: boolean) => [
+const navigation = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
   { name: 'Central IA', path: '/central-ia', icon: Sparkles },
   { name: 'Contas', path: '/contas', icon: Wallet },
@@ -41,7 +39,6 @@ const getNavigation = (canAccessAICenter: boolean) => [
   { name: 'Orçamentos', path: '/orcamentos', icon: PiggyBank },
   { name: 'Patrimônio', path: '/patrimonio', icon: Landmark },
   { name: 'Juntos', path: '/juntos', icon: Users },
-  ...(canAccessAICenter ? [{ name: 'Admin IA', path: '/admin/ai-center', icon: Bot }] : []),
   // { name: 'Sua História', path: '/sua-historia', icon: BookOpen }, // TEMPORARIAMENTE OCULTO
   // { name: 'Configurações', path: '/configuracoes', icon: Settings }, // MOVIDO PARA MENU DO USUÁRIO
 ];
@@ -51,7 +48,6 @@ export default function ModernAppLayout({ children, requireAuth = true }: Modern
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { size } = useScreenDetection();
-  const canAccessAICenter = useCanAccessAICenter();
   const { count: solicitacoesPendentes } = useSolicitacoesPendentes();
 
   // Show loading state
@@ -71,8 +67,6 @@ export default function ModernAppLayout({ children, requireAuth = true }: Modern
   const handleSignOut = async () => {
     await signOut();
   };
-
-  const navigation = getNavigation(canAccessAICenter);
 
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
@@ -195,7 +189,7 @@ export default function ModernAppLayout({ children, requireAuth = true }: Modern
             {mobileMenuOpen && (
               <div className="md:hidden border-t border-slate-200/60 bg-white/95 backdrop-blur-md">
                 <nav className="py-4 space-y-2 px-4">
-                  {getNavigation(canAccessAICenter).map((item) => {
+                  {navigation.map((item) => {
                     const isActive = location.pathname === item.path;
                     const Icon = item.icon;
                     const showBadge = item.name === 'Juntos' && solicitacoesPendentes > 0;

@@ -12,6 +12,7 @@ import {
   CreateRecurrentTransactionRequest
 } from '../services/api';
 import type { TransactionListRef } from '../components/transactions/TransactionList';
+import { useTransactionContext } from '../store/TransactionContext';
 
 type ModalType = 'receita' | 'despesa' | 'despesa_cartao' | null;
 
@@ -19,6 +20,9 @@ export function useTransactionModal(onTransactionSaved?: () => void) {
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const transactionListRef = useRef<TransactionListRef>(null);
+
+  // Contexto global para notificar mudanças em transações
+  const { notifyChange } = useTransactionContext();
 
   const openModal = useCallback((type: ModalType) => {
     console.log(`Abrindo modal de transação: ${type}`);
@@ -171,7 +175,13 @@ export function useTransactionModal(onTransactionSaved?: () => void) {
       
       closeModal();
 
-      // SEMPRE chamar o callback primeiro (para dashboard e outras páginas)
+      // NOTIFICAR O CONTEXTO GLOBAL que houve uma mudança nas transações
+      // Isso faz com que todas as páginas que escutam o contexto sejam atualizadas
+      const transactionType = isRecorrente ? 'fixed' : activeModal as 'receita' | 'despesa' | 'despesa_cartao';
+      console.log('[useTransactionModal] Notificando contexto global de mudança...');
+      notifyChange('create', transactionType);
+
+      // Callback adicional para páginas específicas (opcional, mantido por compatibilidade)
       if (onTransactionSaved) {
         console.log('[useTransactionModal] Executando callback onTransactionSaved...');
         onTransactionSaved();
@@ -191,7 +201,7 @@ export function useTransactionModal(onTransactionSaved?: () => void) {
     } finally {
       setIsSubmitting(false);
     }
-  }, [activeModal, closeModal]);
+  }, [activeModal, closeModal, notifyChange, onTransactionSaved]);
 
   const renderFormForType = useCallback((type: ModalType) => {
     switch (type) {

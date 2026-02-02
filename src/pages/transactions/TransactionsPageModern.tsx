@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useTransactionModal } from '../../hooks/useTransactionModal';
 import { TransactionList } from '../../components/transactions/TransactionList';
@@ -11,10 +11,11 @@ import MonthlyTotals from '../../components/transactions/MonthlyTotals';
 import { fixedTransactionService, FixedTransactionWithDetails } from '../../services/api/FixedTransactionService';
 import { creditCardService, CreditCard } from '../../services/api/CreditCardService';
 import transactionService, { TransactionWithDetails } from '../../services/api/TransactionService';
-import { Calendar, TrendingUp, TrendingDown, DollarSign, Edit2, Trash2, Power, PowerOff, CreditCard as CreditCardIcon, Settings, Tag, XCircle, X } from 'lucide-react';
+import { Calendar, TrendingUp, TrendingDown, DollarSign, Edit2, Trash2, Power, PowerOff, CreditCard as CreditCardIcon, Settings, Tag, XCircle, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { supabase } from '../../services/supabase/client';
 import { useAuth } from '../../store/AuthContext';
+import { useTransactionContext } from '../../store/TransactionContext';
 import InvoiceCard, { InvoiceTransaction } from '../../components/cards/InvoiceCard';
 import InvoicePaymentModal from '../../components/cards/InvoicePaymentModal';
 import ConfirmDeleteInvoiceModal from '../../components/modals/ConfirmDeleteInvoiceModal';
@@ -28,6 +29,7 @@ type TabType = 'month' | 'fixed' | 'cards';
 
 export default function TransactionsPageModern() {
   const { user } = useAuth();
+  const { onTransactionChange } = useTransactionContext();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -82,11 +84,27 @@ export default function TransactionsPageModern() {
   const [cardMonth, setCardMonth] = useState(new Date().getMonth() + 1);
   const [cardYear, setCardYear] = useState(new Date().getFullYear());
   const [invoiceValues, setInvoiceValues] = useState<{ [cardId: number]: number }>({});
+  // Estado para transações da fatura do cartão selecionado
+  const [cardInvoiceTransactions, setCardInvoiceTransactions] = useState<InvoiceTransaction[]>([]);
+  const [cardInvoiceLoading, setCardInvoiceLoading] = useState(false);
+  const [selectedCardInvoiceId, setSelectedCardInvoiceId] = useState<number | null>(null);
+
+  // Estado para edição de categoria inline
+  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
+
+  // Estado para paginação da lista de lançamentos
+  const [invoicePage, setInvoicePage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   // Month navigation state
   const currentDate = new Date();
   const [currentMonth, setCurrentMonth] = useState(currentDate.getMonth() + 1);
   const [currentYear, setCurrentYear] = useState(currentDate.getFullYear());
+
+  // Resetar página quando mudar cartão ou mês
+  useEffect(() => {
+    setInvoicePage(1);
+  }, [selectedCardId, currentMonth, currentYear]);
 
   // Category filter state (from pie chart click)
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
@@ -326,21 +344,48 @@ export default function TransactionsPageModern() {
 
       if (error) throw error;
 
-      return data?.map((t: any) => ({
-        id: t.id.toString(),
-        descricao: t.descricao,
-        valor: Number(t.valor),
-        data: t.data,
-        categoria: t.categoria_id ? {
-          id: t.categoria_id.toString(),
-          nome: t.categoria?.nome || '',
-          cor: t.categoria?.cor || '#6B7280',
-          icone: t.categoria?.icone || 'default'
-        } : undefined,
-        parcela_atual: t.parcela_atual,
-        total_parcelas: t.total_parcelas,
-        observacoes: t.observacoes
-      })) || [];
+      // Buscar IDs únicos de categorias para carregar os dados
+      const categoryIds = [...new Set(data?.map((t: any) => t.categoria_id).filter(Boolean))];
+
+      // Buscar dados das categorias do banco
+      let categoriesMap: Record<number, { id: number; nome: string; cor: string; icone: string }> = {};
+      if (categoryIds.length > 0) {
+        const { data: catData } = await supabase
+          .from('app_categoria')
+          .select('id, nome, cor, icone')
+          .in('id', categoryIds);
+
+        if (catData) {
+          categoriesMap = catData.reduce((acc, cat) => {
+            acc[cat.id] = cat;
+            return acc;
+          }, {} as Record<number, any>);
+        }
+      }
+
+      return data?.map((t: any) => {
+        const catId = t.categoria_id ? Number(t.categoria_id) : undefined;
+        const foundCategory = catId ? categoriesMap[catId] : undefined;
+
+        return {
+          id: Number(t.id),
+          descricao: t.descricao,
+          valor: Number(t.valor),
+          data: t.data,
+          categoria_id: catId,
+          categoria: foundCategory ? {
+            id: foundCategory.id,
+            nome: foundCategory.nome,
+            cor: foundCategory.cor || '#6B7280',
+            icone: foundCategory.icone || 'default'
+          } : undefined,
+          parcela_atual: t.parcela_atual,
+          total_parcelas: t.total_parcelas,
+          observacoes: t.observacoes,
+          is_fixed: t.is_fixed || false,
+          fixo_id: t.fixo_id
+        };
+      }) || [];
     } catch (error) {
       console.error('Erro ao carregar transações da fatura:', error);
       return [];
@@ -699,6 +744,43 @@ export default function TransactionsPageModern() {
     }
   };
 
+  // Atualizar categoria de uma transação da fatura
+  const handleUpdateTransactionCategory = async (transactionId: number, newCategoryId: number) => {
+    try {
+      const { error } = await supabase
+        .from('app_transacoes')
+        .update({ categoria_id: newCategoryId })
+        .eq('id', transactionId);
+
+      if (error) throw error;
+
+      // Buscar a categoria atualizada para mostrar no UI
+      const foundCategory = categories.find(c => c.id === newCategoryId);
+      const newCategory = foundCategory ? {
+        id: foundCategory.id,
+        nome: foundCategory.nome,
+        cor: foundCategory.cor || '#6B7280',
+        icone: foundCategory.icone || 'default'
+      } : undefined;
+
+      // Atualizar estado local
+      setCardInvoiceTransactions(prev =>
+        prev.map(t =>
+          t.id === transactionId
+            ? { ...t, categoria: newCategory, categoria_id: newCategoryId }
+            : t
+        )
+      );
+
+      toast.success('Categoria atualizada!');
+      setEditingCategoryId(null);
+      onTransactionChange?.();
+    } catch (err: any) {
+      console.error('Erro ao atualizar categoria:', err);
+      toast.error('Erro ao atualizar categoria');
+    }
+  };
+
   // Atualizar a lista quando o modal for fechado ou o mês mudar
   useEffect(() => {
     transactionListRef.current?.fetchTransactions();
@@ -725,6 +807,13 @@ export default function TransactionsPageModern() {
     }
   }, [currentMonth, currentYear, activeTab]);
 
+  // Load card invoice transactions when card or month changes
+  useEffect(() => {
+    if (activeTab === 'cards' && selectedCardId) {
+      loadCardInvoiceTransactions(selectedCardId);
+    }
+  }, [selectedCardId, currentMonth, currentYear, activeTab]);
+
   // Load data on initial load
   useEffect(() => {
     loadMonthlyTransactions(); // Now loads both transactions and totals
@@ -736,6 +825,28 @@ export default function TransactionsPageModern() {
       loadCreditCards();
     }
   }, [activeTab]);
+
+  // Listen for global transaction changes (from context)
+  useEffect(() => {
+    const unsubscribe = onTransactionChange((event) => {
+      console.log('[TransactionsPage] Recebeu notificação de mudança:', event);
+
+      // Recarregar dados baseado na aba ativa
+      if (activeTab === 'month') {
+        loadMonthlyTransactions();
+        loadConsolidatedTransactions();
+      } else if (activeTab === 'fixed' || event.transactionType === 'fixed') {
+        loadFixedTransactions();
+      } else if (activeTab === 'cards') {
+        loadCreditCards();
+        if (selectedCardId) {
+          loadCardInvoiceTransactions(selectedCardId);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [onTransactionChange, activeTab, selectedCardId]);
 
   // Load fixed transactions data
   const loadFixedTransactions = async () => {
@@ -799,58 +910,40 @@ export default function TransactionsPageModern() {
     }
   };
 
-  // Load invoice values for credit cards
+  // Load invoice values for credit cards (incluindo transações fixas)
   const loadInvoiceValues = async (cards: CreditCard[]) => {
     if (!user || !cards.length) return;
 
     try {
       const invoicePromises = cards.map(async (card) => {
-        // Get invoice period for this card and current month
-        const period = getInvoicePeriodFilter(card, currentMonth, currentYear);
-
         console.log(`💳 Loading invoice for card ${card.nome} (ID: ${card.id})`);
-        console.log(`📅 Period: ${period.startDate} to ${period.endDate}`);
 
-        // Query individual transactions (not consolidated invoices)
-        const { data, error } = await supabase
-          .from('app_transacoes')
-          .select('valor, descricao, data, tipo, tipo_especial')
-          .eq('user_id', user.id)
-          .eq('tipo', 'despesa_cartao')
-          .eq('cartao_id', card.id)
-          .gte('data', period.startDate)
-          .lte('data', period.endDate);
-
-        if (error) {
-          console.error(`❌ Error loading transactions for card ${card.id}:`, error);
-          throw error;
-        }
-
-        console.log(`🔍 Found ${data?.length || 0} transactions for card ${card.nome}:`, data);
-
-        // Filter out consolidated invoice records manually (since tipo_registro might not exist)
-        const filteredData = (data || []).filter(t => {
-          const shouldExclude = (
-            t.tipo_especial === 'fatura' ||
-            t.descricao?.match(/Fatura.*\(\d{2}\/\d{2}\)/i)
-            // Removed generic 'fatura' check to allow "Total da fatura de setembro" type transactions
-          );
-
-          if (shouldExclude) {
-            console.log(`🚫 Excluding consolidated invoice: ${t.descricao}`);
-          }
-
-          return !shouldExclude;
+        // Usar função do banco que calcula valor incluindo transações fixas
+        const { data, error } = await supabase.rpc('calcular_valor_fatura_periodo', {
+          p_cartao_id: card.id,
+          p_mes: currentMonth,
+          p_ano: currentYear
         });
 
-        console.log(`✅ After filtering: ${filteredData.length} individual transactions`);
+        if (error) {
+          console.error(`❌ Error calculating invoice for card ${card.id}:`, error);
+          // Fallback: buscar apenas transações reais
+          const period = getInvoicePeriodFilter(card, currentMonth, currentYear);
+          const { data: fallbackData } = await supabase
+            .from('app_transacoes')
+            .select('valor')
+            .eq('user_id', user.id)
+            .eq('tipo', 'despesa_cartao')
+            .eq('cartao_id', card.id)
+            .gte('data', period.startDate)
+            .lte('data', period.endDate);
 
-        // Sum individual transaction values
-        const totalValue = filteredData.reduce((sum: number, transaction: any) =>
-          sum + Number(transaction.valor), 0
-        );
+          const fallbackTotal = (fallbackData || []).reduce((sum: number, t: any) => sum + Number(t.valor), 0);
+          return { cardId: card.id, value: fallbackTotal };
+        }
 
-        console.log(`💰 Total value for ${card.nome}: R$${totalValue}`);
+        const totalValue = Number(data) || 0;
+        console.log(`💰 Total value for ${card.nome} (incl. fixas): R$${totalValue}`);
 
         return { cardId: card.id, value: totalValue };
       });
@@ -865,6 +958,49 @@ export default function TransactionsPageModern() {
       setInvoiceValues(invoiceMap);
     } catch (error) {
       console.error('Erro ao carregar valores das faturas:', error);
+    }
+  };
+
+  // Load invoice transactions for selected card (usando RPC que inclui transações fixas)
+  const loadCardInvoiceTransactions = async (cardId: number) => {
+    if (!user) return;
+
+    setCardInvoiceLoading(true);
+    try {
+      console.log(`📋 Loading invoice transactions for card ${cardId}, month ${currentMonth}/${currentYear}`);
+
+      // Primeiro, buscar ou criar a fatura do cartão/mês/ano
+      const { data: faturaData, error: faturaError } = await supabase.rpc('criar_fatura_se_nao_existe', {
+        p_cartao_id: cardId,
+        p_mes: currentMonth,
+        p_ano: currentYear
+      });
+
+      if (faturaError) {
+        console.error('❌ Erro ao buscar/criar fatura:', faturaError);
+        setCardInvoiceTransactions([]);
+        return;
+      }
+
+      const faturaId = faturaData;
+      console.log(`✅ Fatura ID: ${faturaId}`);
+      setSelectedCardInvoiceId(faturaId);
+
+      if (!faturaId) {
+        console.log('⚠️ Nenhuma fatura encontrada para este cartão/mês');
+        setCardInvoiceTransactions([]);
+        return;
+      }
+
+      // Carregar transações usando a função existente que já usa obter_transacoes_fatura
+      const transactions = await loadInvoiceTransactions(faturaId.toString());
+      console.log(`📦 Loaded ${transactions.length} transactions for invoice ${faturaId}`);
+      setCardInvoiceTransactions(transactions);
+    } catch (error) {
+      console.error('❌ Erro ao carregar transações da fatura:', error);
+      setCardInvoiceTransactions([]);
+    } finally {
+      setCardInvoiceLoading(false);
     }
   };
 
@@ -1226,7 +1362,7 @@ export default function TransactionsPageModern() {
       )}
 
       {activeTab === 'cards' && (
-        <div className="space-y-6">
+        <div className="space-y-6 pb-8">
           {/* Credit Card Selector */}
           <CreditCardSelector
             cards={creditCards}
@@ -1246,27 +1382,196 @@ export default function TransactionsPageModern() {
             />
           </div>
 
-          {/* Transações do Cartão Selecionado */}
-          {selectedCardId && (
-            <div className="space-y-3">
-              <TransactionList
-                ref={transactionListRef}
-                onEditTransaction={handleEditTransaction}
-                onDeleteTransaction={handleDeleteTransaction}
-                onConfirmFixedTransaction={handleConfirmFixedTransaction}
-                onActivateTransaction={handleActivateTransaction}
-                showFilters={false}
-                defaultFilters={{
-                  ...getInvoiceDateFilters(selectedCardId),
-                  tipo: 'despesa_cartao',
-                  cartao_id: selectedCardId?.toString(),
-                  exclude_fatura_records: true // Exclude consolidated invoice records
-                }}
-                includeVirtualFixed={false}
-                excludeCardTransactions={false}
-              />
-            </div>
-          )}
+          {/* Transações da Fatura do Cartão Selecionado */}
+          {selectedCardId && (() => {
+            const totalItems = cardInvoiceTransactions.length;
+            const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+            const startIndex = (invoicePage - 1) * ITEMS_PER_PAGE;
+            const endIndex = startIndex + ITEMS_PER_PAGE;
+            const paginatedTransactions = cardInvoiceTransactions.slice(startIndex, endIndex);
+            const despesaCategories = categories.filter(c => c.tipo === 'despesa');
+
+            const formatDate = (dateString: string) => {
+              return new Date(dateString).toLocaleDateString('pt-BR');
+            };
+            const formatCurrency = (value: number) => {
+              return new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
+              }).format(value);
+            };
+
+            return (
+              <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden mb-8">
+                {/* Cabeçalho leve */}
+                <div className="px-4 py-3 border-b border-slate-100">
+                  <h3 className="text-sm font-semibold text-deep-blue">Lançamentos da Fatura</h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">{totalItems} itens • Clique na categoria para editar</p>
+                </div>
+
+                {/* Tabela compacta */}
+                {cardInvoiceLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-coral-500 border-t-transparent" />
+                  </div>
+                ) : totalItems > 0 ? (
+                  <>
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-slate-100">
+                          <th className="px-4 pt-4 pb-2 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wider w-20">Data</th>
+                          <th className="px-4 pt-4 pb-2 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Descrição</th>
+                          <th className="px-4 pt-4 pb-2 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wider w-48">Categoria</th>
+                          <th className="px-4 pt-4 pb-2 text-right text-[10px] font-semibold text-slate-400 uppercase tracking-wider w-28">Valor</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {paginatedTransactions.map((transaction) => {
+                          const isEditingThisCategory = editingCategoryId === transaction.id;
+                          const dateCompact = new Date(transaction.data).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+
+                          return (
+                            <tr key={transaction.id} className="hover:bg-slate-50/50 transition-colors">
+                              {/* Data */}
+                              <td className="px-4 py-1.5 text-xs text-slate-500 tabular-nums">
+                                {dateCompact}
+                              </td>
+
+                              {/* Descrição */}
+                              <td className="px-4 py-1.5">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs text-slate-700">{transaction.descricao}</span>
+                                  {transaction.parcela_atual && transaction.total_parcelas && (
+                                    <span className="text-[9px] text-purple-600 bg-purple-50 px-1 py-0.5 rounded font-medium">
+                                      {transaction.parcela_atual}/{transaction.total_parcelas}
+                                    </span>
+                                  )}
+                                  {transaction.is_fixed && (
+                                    <span className="text-[9px] text-blue-600 bg-blue-50 px-1 py-0.5 rounded font-medium">
+                                      Fixa
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Categoria - Clicável */}
+                              <td className="px-4 py-1.5 relative">
+                                <button
+                                  onClick={() => setEditingCategoryId(isEditingThisCategory ? null : transaction.id)}
+                                  className={cn(
+                                    "inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded text-xs transition-all",
+                                    "hover:bg-slate-100 cursor-pointer",
+                                    isEditingThisCategory && "bg-blue-50 ring-1 ring-blue-200"
+                                  )}
+                                >
+                                  <span
+                                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                                    style={{ backgroundColor: transaction.categoria?.cor || '#94a3b8' }}
+                                  />
+                                  <span className="text-slate-600">{transaction.categoria?.nome || 'Sem categoria'}</span>
+                                </button>
+
+                                {/* Dropdown de categorias */}
+                                {isEditingThisCategory && (
+                                  <>
+                                    <div
+                                      className="fixed inset-0 z-40"
+                                      onClick={() => setEditingCategoryId(null)}
+                                    />
+                                    <div className="absolute left-4 top-full mt-1 z-50 w-48 bg-white rounded-md shadow-lg border border-slate-200 py-1 max-h-52 overflow-y-auto">
+                                      {despesaCategories.map((cat) => (
+                                        <button
+                                          key={cat.id}
+                                          onClick={() => handleUpdateTransactionCategory(transaction.id, cat.id)}
+                                          className={cn(
+                                            "w-full flex items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors",
+                                            "hover:bg-slate-50",
+                                            transaction.categoria_id === cat.id && "bg-slate-100 font-medium"
+                                          )}
+                                        >
+                                          <span
+                                            className="w-2 h-2 rounded-full flex-shrink-0"
+                                            style={{ backgroundColor: cat.cor || '#94a3b8' }}
+                                          />
+                                          <span className="text-slate-700">{cat.nome}</span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </>
+                                )}
+                              </td>
+
+                              {/* Valor */}
+                              <td className="px-4 py-1.5 text-right">
+                                <span className="text-xs font-semibold text-slate-700 tabular-nums">
+                                  {formatCurrency(transaction.valor)}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+
+                    {/* Paginação compacta */}
+                    {totalPages > 1 && (
+                      <div className="px-4 py-2 border-t border-slate-100 flex items-center justify-between">
+                        <p className="text-xs text-slate-400">
+                          {startIndex + 1}-{Math.min(endIndex, totalItems)} de {totalItems}
+                        </p>
+                        <div className="flex items-center gap-0.5">
+                          <button
+                            onClick={() => setInvoicePage(p => Math.max(1, p - 1))}
+                            disabled={invoicePage === 1}
+                            className={cn(
+                              "p-1 rounded transition-colors",
+                              invoicePage === 1
+                                ? "text-slate-300 cursor-not-allowed"
+                                : "text-slate-500 hover:bg-slate-100"
+                            )}
+                          >
+                            <ChevronLeft className="w-3.5 h-3.5" />
+                          </button>
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                            <button
+                              key={page}
+                              onClick={() => setInvoicePage(page)}
+                              className={cn(
+                                "w-6 h-6 rounded text-xs font-medium transition-colors",
+                                page === invoicePage
+                                  ? "bg-coral-500 text-white"
+                                  : "text-slate-500 hover:bg-slate-100"
+                              )}
+                            >
+                              {page}
+                            </button>
+                          ))}
+                          <button
+                            onClick={() => setInvoicePage(p => Math.min(totalPages, p + 1))}
+                            disabled={invoicePage === totalPages}
+                            className={cn(
+                              "p-1 rounded transition-colors",
+                              invoicePage === totalPages
+                                ? "text-slate-300 cursor-not-allowed"
+                                : "text-slate-500 hover:bg-slate-100"
+                            )}
+                          >
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <CreditCardIcon className="w-10 h-10 text-slate-300 mb-3" />
+                    <p className="text-sm font-medium text-slate-600">Nenhum lançamento</p>
+                    <p className="text-xs text-slate-400 mt-1">Esta fatura ainda não possui lançamentos</p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 

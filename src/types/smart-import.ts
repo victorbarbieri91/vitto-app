@@ -11,7 +11,7 @@
 export type ImportTarget = 'transacoes' | 'transacoes_fixas' | 'patrimonio';
 
 // Tipo de arquivo suportado
-export type FileType = 'pdf' | 'xlsx' | 'xls' | 'csv';
+export type FileType = 'pdf' | 'xlsx' | 'xls' | 'csv' | 'image';
 
 // Tipo de transacao
 export type TransactionType = 'receita' | 'despesa' | 'despesa_cartao';
@@ -93,6 +93,9 @@ export interface FileAnalysis {
   suggestedMappings: ColumnMapping[];
   confidence: number;
   observations: string[];
+
+  // Dados extras da Vision API (quando arquivo é imagem)
+  visionData?: any;
 }
 
 // Configuracao do passo 1 - Tipo de importacao
