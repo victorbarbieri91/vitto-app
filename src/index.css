@@ -6,8 +6,15 @@
 
 @layer base {
   body {
-    @apply font-sans bg-slate-50 text-deep-blue;
+    @apply font-sans text-deep-blue;
   }
+}
+
+/* Garantir zero margin/padding e overflow controlado */
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
 }
 
 :root {
@@ -154,6 +161,11 @@ html {
     100% { background-position: 200% 0; }
   }
   
+  /* Scrollbar invisível (mantém scroll funcional) */
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Scrollbar personalizado */
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;

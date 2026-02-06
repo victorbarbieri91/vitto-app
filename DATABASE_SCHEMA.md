@@ -5,9 +5,27 @@
 > **Regiao:** sa-east-1 (Sao Paulo, Brazil)
 > **PostgreSQL:** 17.6.1.003
 
+Este documento descreve a estrutura completa do banco de dados do Vitto Financas.
+Serve como referencia para desenvolvimento, integracao e operacoes de importacao.
+
 ---
 
-## Resumo Geral
+## Indice
+
+1. [Visao Geral](#1-visao-geral)
+2. [Arquitetura do Sistema](#2-arquitetura-do-sistema)
+3. [Tabelas Detalhadas](#3-tabelas-detalhadas)
+4. [Relacionamentos](#4-relacionamentos)
+5. [Services do Frontend](#5-services-do-frontend)
+6. [Triggers e Funcoes](#6-triggers-e-funcoes)
+7. [Seguranca (RLS)](#7-seguranca-rls)
+8. [Guia de Importacao](#8-guia-de-importacao)
+
+---
+
+## 1. VISAO GERAL
+
+### Resumo do Banco
 
 | Metrica | Valor |
 |---------|-------|
@@ -17,11 +35,20 @@
 | RLS Habilitado | 100% |
 | Prefixo Padrao | `app_` |
 
+### Organizacao por Modulo
+
+| Modulo | Tabelas | Descricao |
+|--------|---------|-----------|
+| Core Financeiro | 11 | Transacoes, contas, cartoes, faturas, categorias |
+| Central IA | 4 | Chat, sessoes, acoes pendentes, documentacao |
+| Patrimonio | 2 | Ativos e historico de valores |
+| Memoria IA | 1 | Contexto e memoria da IA |
+| Metas | 1 | Metas financeiras de longo prazo |
+| Compartilhamento | 6 | Grupos, membros, convites, metas compartilhadas |
+
 ---
 
-## 1. VISAO GERAL DA ARQUITETURA
-
-### 1.1 Modulos do Sistema
+## 2. ARQUITETURA DO SISTEMA
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -49,9 +76,9 @@
 
 ---
 
-## 2. TABELAS DETALHADAS
+## 3. TABELAS DETALHADAS
 
-### 2.1 AUTENTICACAO E PERFIL
+### 3.1 AUTENTICACAO E PERFIL
 
 #### `app_perfil`
 Perfis de usuarios vinculados ao auth.users do Supabase.
@@ -66,15 +93,12 @@ Perfis de usuarios vinculados ao auth.users do Supabase.
 | onboarding_completed | boolean | Nao | false | Onboarding concluido |
 | onboarding_step | integer | Nao | 0 | Etapa atual do onboarding |
 | receita_mensal_estimada | numeric | Nao | 0 | Receita mensal estimada |
-| meta_despesa_percentual | numeric | Nao | 80 | % da receita como limite de despesa |
-| tipo_usuario | text | Nao | 'usuario' | Tipo: usuario, admin, especialista |
-
-**Relacionamentos:**
-- `id` -> `auth.users.id` (1:1)
+| meta_despesa_percentual | numeric | Nao | 80 | % da receita como limite |
+| tipo_usuario | text | Nao | 'usuario' | usuario, admin, especialista |
 
 ---
 
-### 2.2 CORE FINANCEIRO
+### 3.2 CORE FINANCEIRO
 
 #### `app_conta`
 Contas bancarias dos usuarios.
@@ -86,7 +110,7 @@ Contas bancarias dos usuarios.
 | nome | text | Sim | - | Nome da conta |
 | tipo | text | Sim | - | conta_corrente, poupanca, investimento |
 | saldo_inicial | numeric | Sim | 0 | Saldo inicial |
-| saldo_atual | numeric | Sim | 0 | Saldo atual (atualizado por trigger) |
+| saldo_atual | numeric | Sim | 0 | Saldo atual (trigger) |
 | cor | text | Nao | NULL | Cor para UI |
 | icone | text | Nao | NULL | Icone para UI |
 | status | varchar | Sim | 'ativo' | ativo, inativo |
@@ -94,12 +118,8 @@ Contas bancarias dos usuarios.
 | descricao | text | Nao | NULL | Descricao opcional |
 | instituicao | varchar | Nao | NULL | Nome do banco |
 | ultima_conciliacao | timestamptz | Nao | NULL | Ultima conciliacao |
-| grupo_id | integer | Nao | NULL | Grupo de contas (deprecated) |
 | created_at | timestamptz | Sim | now() | Data de criacao |
 | updated_at | timestamptz | Nao | now() | Ultima atualizacao |
-
-**Relacionamentos:**
-- `user_id` -> `auth.users.id`
 
 ---
 
@@ -109,19 +129,19 @@ Categorias para classificar transacoes.
 | Coluna | Tipo | Obrigatorio | Default | Descricao |
 |--------|------|-------------|---------|-----------|
 | id | bigint | Sim | auto | PK |
-| user_id | uuid | Nao | NULL | FK (NULL = categoria padrao) |
+| user_id | uuid | Nao | NULL | FK (NULL = padrao) |
 | nome | text | Sim | - | Nome da categoria |
 | tipo | text | Sim | - | despesa, receita, ambos |
 | cor | text | Nao | NULL | Cor hex para UI |
 | icone | text | Nao | NULL | Nome do icone |
-| is_default | boolean | Nao | false | Se e categoria padrao do sistema |
-| overrides_default_id | integer | Nao | NULL | ID da categoria padrao que customiza |
+| is_default | boolean | Nao | false | Categoria padrao do sistema |
+| overrides_default_id | integer | Nao | NULL | ID da categoria que customiza |
 | created_at | timestamptz | Sim | now() | Data de criacao |
 
 **Categorias Padrao:**
-- **Despesa:** Alimentacao, Mercado, Transporte, Moradia, Saude, Lazer, Educacao, Compras, Contas, Pet, Investimento, Fatura, Pagamento de Fatura, Outros
-- **Receita:** Salario, Investimentos, Freelance, Outros
-- **Ambos:** Saldo Inicial, Ajuste de Saldo, Transferencia
+- **Despesa:** Alimentacao (18), Mercado (25), Transporte (19), Moradia (7), Saude (21), Lazer (20), Educacao (9), Compras (11), Contas (12), Pet (6), Investimento (5), Fatura (1), Pagamento de Fatura (22), Outros (13)
+- **Receita:** Salario (17), Investimentos (3), Freelance (2), Outros (4)
+- **Ambos:** Saldo Inicial (14), Ajuste de Saldo (15), Transferencia (16)
 
 ---
 
@@ -137,8 +157,8 @@ Transacoes financeiras (receitas, despesas, cartao).
 | data | date | Sim | - | Data da transacao |
 | tipo | text | Sim | - | receita, despesa, despesa_cartao |
 | categoria_id | bigint | Sim | - | FK para app_categoria |
-| conta_id | bigint | Nao | NULL | FK para app_conta (se tipo != despesa_cartao) |
-| cartao_id | bigint | Nao | NULL | FK para app_cartao_credito (se despesa_cartao) |
+| conta_id | bigint | Nao | NULL | FK para app_conta |
+| cartao_id | bigint | Nao | NULL | FK para app_cartao_credito |
 | status | text | Nao | 'pendente' | pendente, confirmado, cancelado |
 | origem | text | Nao | 'manual' | manual, fixo, importacao |
 | fixo_id | bigint | Nao | NULL | FK para app_transacoes_fixas |
@@ -151,15 +171,10 @@ Transacoes financeiras (receitas, despesas, cartao).
 | created_at | timestamptz | Nao | now() | Data de criacao |
 | updated_at | timestamptz | Nao | now() | Ultima atualizacao |
 
-**Constraints:**
-- `valor > 0`
-- `tipo IN ('receita', 'despesa', 'despesa_cartao')`
-- `origem IN ('manual', 'fixo', 'importacao')`
-- `status IN ('pendente', 'confirmado', 'cancelado')`
-
 **Regras de Negocio:**
-- Se `tipo = 'despesa_cartao'` -> `cartao_id` obrigatorio, `conta_id` NULL
-- Se `tipo IN ('receita', 'despesa')` -> `conta_id` obrigatorio, `cartao_id` NULL
+- `valor` deve ser sempre > 0
+- Se `tipo = 'despesa_cartao'`: `cartao_id` obrigatorio, `conta_id` NULL
+- Se `tipo IN ('receita', 'despesa')`: `conta_id` obrigatorio, `cartao_id` NULL
 
 ---
 
@@ -195,7 +210,7 @@ Cartoes de credito cadastrados.
 | user_id | uuid | Sim | - | FK para auth.users |
 | nome | text | Sim | - | Nome do cartao |
 | limite | numeric | Sim | - | Limite do cartao |
-| dia_fechamento | integer | Sim | - | Dia de fechamento da fatura |
+| dia_fechamento | integer | Sim | - | Dia de fechamento |
 | dia_vencimento | integer | Sim | - | Dia de vencimento |
 | cor | text | Nao | NULL | Cor para UI |
 | icone | text | Nao | NULL | Icone para UI |
@@ -250,22 +265,20 @@ Metricas financeiras calculadas automaticamente.
 | saldo_inicial | numeric | Nao | 0 | Saldo no inicio do mes |
 | saldo_atual | numeric | Nao | 0 | Saldo atual |
 | saldo_previsto | numeric | Nao | 0 | Saldo previsto fim do mes |
-| receitas_confirmadas | numeric | Nao | 0 | Receitas ja confirmadas |
-| despesas_confirmadas | numeric | Nao | 0 | Despesas ja confirmadas |
+| receitas_confirmadas | numeric | Nao | 0 | Receitas confirmadas |
+| despesas_confirmadas | numeric | Nao | 0 | Despesas confirmadas |
 | receitas_pendentes | numeric | Nao | 0 | Receitas pendentes |
 | despesas_pendentes | numeric | Nao | 0 | Despesas pendentes |
 | receitas_recorrentes | numeric | Nao | 0 | Receitas recorrentes previstas |
 | despesas_recorrentes | numeric | Nao | 0 | Despesas recorrentes previstas |
 | fatura_atual | numeric | Nao | 0 | Fatura aberta atual |
 | fatura_proxima | numeric | Nao | 0 | Proxima fatura |
-| fluxo_liquido | numeric | Generated | - | receitas - despesas confirmadas |
+| fluxo_liquido | numeric | Generated | - | receitas - despesas |
 | projecao_fim_mes | numeric | Generated | - | Projecao do saldo |
 | score_saude_financeira | integer | Generated | - | Score 0-100 |
 | taxa_economia | numeric | Generated | - | % de economia |
 | burn_rate | numeric | Generated | - | Meses de sobrevivencia |
 | tendencia_despesas | text | Generated | - | positivo, negativo, neutro |
-| status_orcamento | text | Nao | 'sem_orcamento' | Status do orcamento |
-| variacao_despesas_perc | numeric | Nao | 0 | Variacao % das despesas |
 | ultima_atualizacao | timestamptz | Nao | now() | Ultima atualizacao |
 
 ---
@@ -281,8 +294,7 @@ Historico de mudancas de saldo para auditoria.
 | data_referencia | date | Sim | - | Data da mudanca |
 | saldo_anterior | numeric | Nao | 0 | Saldo antes |
 | saldo_novo | numeric | Sim | - | Saldo depois |
-| tipo_operacao | text | Sim | - | inicial, ajuste_manual, transacao, ajuste_automatico |
-| lancamento_ajuste_id | bigint | Nao | NULL | ID do lancamento de ajuste |
+| tipo_operacao | text | Sim | - | inicial, ajuste_manual, transacao |
 | observacoes | text | Nao | NULL | Observacoes |
 | created_at | timestamptz | Nao | now() | Data do registro |
 
@@ -297,8 +309,8 @@ Meta de limite de gastos mensal.
 | user_id | uuid | Sim | - | FK para auth.users |
 | mes | integer | Sim | - | Mes (1-12) |
 | ano | integer | Sim | - | Ano |
-| receita_estimada | numeric | Sim | 0 | Receita estimada do mes |
-| meta_despesa | numeric | Sim | 0 | Valor limite de despesa |
+| receita_estimada | numeric | Sim | 0 | Receita estimada |
+| meta_despesa | numeric | Sim | 0 | Valor limite |
 | meta_percentual | numeric | Sim | 80 | Percentual da receita |
 | despesa_atual | numeric | Nao | 0 | Despesas atuais |
 | status | text | Nao | 'ativa' | ativa, inativa |
@@ -307,7 +319,7 @@ Meta de limite de gastos mensal.
 
 ---
 
-### 2.3 CENTRAL IA
+### 3.3 CENTRAL IA
 
 #### `app_chat_sessoes`
 Sessoes de conversa com a IA.
@@ -318,7 +330,7 @@ Sessoes de conversa com a IA.
 | user_id | uuid | Sim | - | FK para auth.users |
 | titulo | text | Nao | NULL | Titulo da sessao |
 | mensagem_count | integer | Nao | 0 | Contador de mensagens |
-| ultima_mensagem | text | Nao | NULL | Preview da ultima mensagem |
+| ultima_mensagem | text | Nao | NULL | Preview da ultima |
 | metadata | jsonb | Nao | '{}' | Metadados extras |
 | created_at | timestamptz | Nao | now() | Data de criacao |
 | updated_at | timestamptz | Nao | now() | Ultima atualizacao |
@@ -335,14 +347,14 @@ Mensagens do chat.
 | role | text | Sim | - | user, assistant, system, tool |
 | content | text | Nao | NULL | Conteudo da mensagem |
 | tool_calls | jsonb | Nao | NULL | Chamadas de ferramentas |
-| tool_results | jsonb | Nao | NULL | Resultados de ferramentas |
-| metadata | jsonb | Nao | '{}' | Metadados extras |
+| tool_results | jsonb | Nao | NULL | Resultados |
+| metadata | jsonb | Nao | '{}' | Metadados |
 | created_at | timestamptz | Nao | now() | Data de criacao |
 
 ---
 
 #### `app_pending_actions`
-Acoes pendentes aguardando confirmacao do usuario.
+Acoes pendentes aguardando confirmacao.
 
 | Coluna | Tipo | Obrigatorio | Default | Descricao |
 |--------|------|-------------|---------|-----------|
@@ -365,7 +377,7 @@ Documentacao do sistema para contexto da IA.
 | id | uuid | Sim | gen_random_uuid() | PK |
 | categoria | text | Sim | - | Categoria do documento |
 | titulo | text | Sim | - | Titulo |
-| conteudo | text | Sim | - | Conteudo do documento |
+| conteudo | text | Sim | - | Conteudo |
 | metadata | jsonb | Nao | '{}' | Metadados |
 | ativo | boolean | Nao | true | Se esta ativo |
 | created_at | timestamptz | Nao | now() | Data de criacao |
@@ -383,17 +395,17 @@ Memoria contextual da IA sobre o usuario.
 | tipo_conteudo | varchar | Sim | - | Tipo do conteudo |
 | conteudo | text | Sim | - | Conteudo da memoria |
 | resumo | text | Nao | NULL | Resumo para busca |
-| embedding | vector | Nao | NULL | Embedding para busca semantica |
+| embedding | vector | Nao | NULL | Embedding semantico |
 | metadata | jsonb | Nao | '{}' | Metadados |
 | relevancia_score | float8 | Nao | 0.0 | Score de relevancia |
-| contexto_financeiro | jsonb | Nao | '{}' | Contexto financeiro associado |
+| contexto_financeiro | jsonb | Nao | '{}' | Contexto associado |
 | data_criacao | timestamptz | Nao | now() | Data de criacao |
 | data_atualizacao | timestamptz | Nao | now() | Ultima atualizacao |
 | ativo | boolean | Nao | true | Se esta ativo |
 
 ---
 
-### 2.4 PATRIMONIO
+### 3.4 PATRIMONIO
 
 #### `app_patrimonio_ativo`
 Ativos patrimoniais do usuario.
@@ -403,7 +415,7 @@ Ativos patrimoniais do usuario.
 | id | bigint | Sim | auto | PK |
 | user_id | uuid | Sim | - | FK para auth.users |
 | nome | text | Sim | - | Nome do ativo |
-| categoria | text | Sim | - | Categoria (ver lista abaixo) |
+| categoria | text | Sim | - | Categoria (ver abaixo) |
 | subcategoria | text | Nao | NULL | Subcategoria |
 | valor_atual | numeric | Sim | 0 | Valor atual |
 | valor_aquisicao | numeric | Nao | 0 | Valor de aquisicao |
@@ -411,8 +423,8 @@ Ativos patrimoniais do usuario.
 | instituicao | text | Nao | NULL | Instituicao/corretora |
 | observacoes | text | Nao | NULL | Observacoes |
 | ativo | boolean | Sim | true | Se esta ativo |
-| dados_especificos | jsonb | Nao | '{}' | Dados especificos (ticker, qtd, etc) |
-| conta_id | bigint | Nao | NULL | FK para app_conta (se liquidez) |
+| dados_especificos | jsonb | Nao | '{}' | Dados extras (ticker, qtd) |
+| conta_id | bigint | Nao | NULL | FK app_conta (se liquidez) |
 | created_at | timestamptz | Sim | now() | Data de criacao |
 | updated_at | timestamptz | Nao | now() | Ultima atualizacao |
 
@@ -435,19 +447,19 @@ Historico mensal de valores dos ativos.
 |--------|------|-------------|---------|-----------|
 | id | bigint | Sim | auto | PK |
 | user_id | uuid | Sim | - | FK para auth.users |
-| ativo_id | bigint | Nao | NULL | FK para app_patrimonio_ativo (NULL = consolidado) |
+| ativo_id | bigint | Nao | NULL | FK app_patrimonio_ativo |
 | mes | integer | Sim | - | Mes (1-12) |
 | ano | integer | Sim | - | Ano |
-| valor_inicio_mes | numeric | Nao | 0 | Valor no inicio do mes |
-| valor_fim_mes | numeric | Nao | 0 | Valor no fim do mes |
+| valor_inicio_mes | numeric | Nao | 0 | Valor no inicio |
+| valor_fim_mes | numeric | Nao | 0 | Valor no fim |
 | variacao_absoluta | numeric | Generated | - | Diferenca absoluta |
 | variacao_percentual | numeric | Generated | - | Variacao % |
-| categoria | text | Nao | NULL | Categoria (para consolidados) |
+| categoria | text | Nao | NULL | Categoria (consolidados) |
 | created_at | timestamptz | Sim | now() | Data de criacao |
 
 ---
 
-### 2.5 METAS
+### 3.5 METAS
 
 #### `app_meta_financeira`
 Metas financeiras de longo prazo.
@@ -467,7 +479,7 @@ Metas financeiras de longo prazo.
 
 ---
 
-### 2.6 COMPARTILHAMENTO (JUNTOS)
+### 3.6 COMPARTILHAMENTO (JUNTOS)
 
 #### `app_grupo_compartilhado`
 Grupos para compartilhar financas.
@@ -490,7 +502,7 @@ Membros de cada grupo com permissoes.
 | Coluna | Tipo | Obrigatorio | Default | Descricao |
 |--------|------|-------------|---------|-----------|
 | id | bigint | Sim | auto | PK |
-| grupo_id | bigint | Sim | - | FK para app_grupo_compartilhado |
+| grupo_id | bigint | Sim | - | FK app_grupo_compartilhado |
 | user_id | uuid | Sim | - | FK para auth.users |
 | papel | text | Nao | 'membro' | admin, membro |
 | apelido | text | Nao | NULL | Apelido no grupo |
@@ -510,10 +522,10 @@ Convites pendentes para grupos.
 | Coluna | Tipo | Obrigatorio | Default | Descricao |
 |--------|------|-------------|---------|-----------|
 | id | bigint | Sim | auto | PK |
-| grupo_id | bigint | Sim | - | FK para app_grupo_compartilhado |
+| grupo_id | bigint | Sim | - | FK app_grupo_compartilhado |
 | convidado_email | text | Sim | - | Email do convidado |
 | convidado_user_id | uuid | Nao | NULL | FK se usuario existe |
-| token | uuid | Sim | gen_random_uuid() | Token unico do convite |
+| token | uuid | Sim | gen_random_uuid() | Token unico |
 | status | text | Nao | 'pendente' | pendente, aceito, recusado, expirado |
 | mensagem_convite | text | Nao | NULL | Mensagem personalizada |
 | expira_em | timestamptz | Nao | now() + 7 days | Data de expiracao |
@@ -527,7 +539,7 @@ Solicitacoes de vinculo entre usuarios.
 | Coluna | Tipo | Obrigatorio | Default | Descricao |
 |--------|------|-------------|---------|-----------|
 | id | bigint | Sim | auto | PK |
-| grupo_id | bigint | Sim | - | FK para app_grupo_compartilhado |
+| grupo_id | bigint | Sim | - | FK app_grupo_compartilhado |
 | solicitante_id | uuid | Sim | - | FK para auth.users |
 | destinatario_id | uuid | Sim | - | FK para auth.users |
 | mensagem | text | Nao | NULL | Mensagem |
@@ -543,7 +555,7 @@ Metas financeiras compartilhadas no grupo.
 | Coluna | Tipo | Obrigatorio | Default | Descricao |
 |--------|------|-------------|---------|-----------|
 | id | bigint | Sim | auto | PK |
-| grupo_id | bigint | Sim | - | FK para app_grupo_compartilhado |
+| grupo_id | bigint | Sim | - | FK app_grupo_compartilhado |
 | titulo | text | Sim | - | Titulo da meta |
 | descricao | text | Nao | NULL | Descricao |
 | valor_meta | numeric | Sim | - | Valor objetivo (> 0) |
@@ -563,7 +575,7 @@ Contribuicoes para metas compartilhadas.
 | Coluna | Tipo | Obrigatorio | Default | Descricao |
 |--------|------|-------------|---------|-----------|
 | id | bigint | Sim | auto | PK |
-| meta_id | bigint | Sim | - | FK para app_meta_compartilhada |
+| meta_id | bigint | Sim | - | FK app_meta_compartilhada |
 | user_id | uuid | Sim | - | FK para auth.users |
 | valor | numeric | Sim | - | Valor da contribuicao (> 0) |
 | data | date | Nao | CURRENT_DATE | Data da contribuicao |
@@ -572,7 +584,7 @@ Contribuicoes para metas compartilhadas.
 
 ---
 
-## 3. DIAGRAMA DE RELACIONAMENTOS
+## 4. RELACIONAMENTOS
 
 ```
 auth.users
@@ -618,7 +630,7 @@ auth.users
 
 ---
 
-## 4. SERVICES DO FRONTEND
+## 5. SERVICES DO FRONTEND
 
 | Service | Arquivo | Tabelas |
 |---------|---------|---------|
@@ -628,17 +640,17 @@ auth.users
 | CreditCardService | src/services/api/creditCards.ts | app_cartao_credito, app_fatura |
 | CategoryService | src/services/api/categories.ts | app_categoria |
 | BudgetService | src/services/api/budgets.ts | app_orcamento |
-| PatrimonioService | src/services/api/patrimonio.ts | app_patrimonio_ativo, app_patrimonio_historico |
+| PatrimonioService | src/services/api/patrimonio.ts | app_patrimonio_* |
 | GoalService | src/services/api/GoalService.ts | app_meta_financeira |
 | IndicatorsService | src/services/api/indicators.ts | app_indicadores |
-| ChatSessionService | src/services/central-ia/ChatSessionService.ts | app_chat_sessoes, app_chat_mensagens |
+| ChatSessionService | src/services/central-ia/ChatSessionService.ts | app_chat_* |
 | CentralIAService | src/services/central-ia/CentralIAService.ts | app_pending_actions |
 | FinancialMemoryManager | src/services/ai/FinancialMemoryManager.ts | app_memoria_ia |
-| SharedGroupService | src/services/api/sharedGroup.ts | app_grupo_*, app_convite_*, app_meta_compartilhada |
+| SharedGroupService | src/services/api/sharedGroup.ts | app_grupo_*, app_convite_*, app_meta_* |
 
 ---
 
-## 5. TRIGGERS E FUNCOES
+## 6. TRIGGERS E FUNCOES
 
 ### Triggers Ativos
 - `handle_new_user` - Cria perfil automatico apos signup
@@ -659,7 +671,7 @@ CALL atualizar_indicadores_mes(user_id, conta_id, mes, ano);
 
 ---
 
-## 6. SEGURANCA (RLS)
+## 7. SEGURANCA (RLS)
 
 Todas as 25 tabelas possuem Row Level Security habilitado.
 
@@ -670,15 +682,68 @@ Todas as 25 tabelas possuem Row Level Security habilitado.
 
 ---
 
-## 7. HISTORICO DE LIMPEZAS
+## 8. GUIA DE IMPORTACAO
 
-### Limpeza 01/02/2026
-- **Antes:** 38 tabelas
-- **Depois:** 25 tabelas
-- **Removidas:** 14 tabelas do sistema RAG (nao integrado) + app_conta_grupo
+Esta secao contem instrucoes especificas para o agente de importacao de dados.
 
-Detalhes em: [DATABASE_CLEANUP_PLAN.md](./DATABASE_CLEANUP_PLAN.md)
+### 8.1 Destinos de Importacao
+
+| Destino | Tabela | Quando Usar | Exemplo |
+|---------|--------|-------------|---------|
+| Transacoes | `app_transacoes` | Gastos/receitas avulsos, faturas | Print de fatura, extrato |
+| Transacoes Fixas | `app_transacoes_fixas` | Despesas/receitas recorrentes | Aluguel, salario, Netflix |
+| Patrimonio | `app_patrimonio_ativo` | Investimentos e ativos | CDBs, acoes, imoveis |
+
+### 8.2 Regras de Vinculacao
+
+```
+SE tipo = 'receita' OU tipo = 'despesa':
+   -> OBRIGATORIO: conta_id
+   -> cartao_id deve ser NULL
+
+SE tipo = 'despesa_cartao':
+   -> OBRIGATORIO: cartao_id
+   -> conta_id deve ser NULL
+```
+
+### 8.3 Fluxo de Importacao
+
+1. **Identificar tipo de documento** (fatura, extrato, investimentos, fixos)
+2. **Perguntar confirmacao** ao usuario sobre o destino
+3. **Coletar dados faltantes** (mes de referencia, cartao/conta)
+4. **Mostrar preview** das transacoes a importar
+5. **Confirmar e executar** a importacao
+
+### 8.4 Categorias para Mapeamento
+
+**Despesa:**
+| ID | Nome | Palavras-chave |
+|----|------|----------------|
+| 18 | Alimentacao | ifood, restaurante, padaria |
+| 25 | Mercado | supermercado, mercado |
+| 19 | Transporte | uber, 99, combustivel, gasolina |
+| 7 | Moradia | aluguel, condominio, luz, agua |
+| 21 | Saude | farmacia, medico, hospital |
+| 20 | Lazer | netflix, spotify, cinema |
+| 11 | Compras | amazon, roupa, eletronico |
+| 13 | Outros | quando nao se encaixa |
+
+**Receita:**
+| ID | Nome | Palavras-chave |
+|----|------|----------------|
+| 17 | Salario | salario, pagamento, holerite |
+| 3 | Investimentos | dividendo, rendimento, juros |
+| 2 | Freelance | freelance, servico, projeto |
+
+### 8.5 Regras de Negocio
+
+- Valores SEMPRE positivos no banco
+- O tipo (receita/despesa) indica a direcao
+- Converter "R$ 1.234,56" para 1234.56
+- Formato de data: YYYY-MM-DD
+- Verificar duplicatas antes de importar
 
 ---
 
-*Documento gerado automaticamente. Para instrucoes de importacao, veja DATABASE_SCHEMA.md*
+*Documento de referencia completa do banco de dados Vitto Financas.*
+*Para historico de limpezas, veja DATABASE_CLEANUP_PLAN.md*

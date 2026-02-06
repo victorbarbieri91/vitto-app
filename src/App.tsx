@@ -9,8 +9,7 @@ import AdminRoute from './components/auth/AdminRoute';
 import OnboardingPage from './pages/onboarding/OnboardingPage';
 
 // Auth Pages
-import LoginPage from './pages/auth/LoginPage';
-import SignUpPage from './pages/auth/SignUpPage';
+import AuthPage from './pages/auth/AuthPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage.tsx';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage.tsx';
 
@@ -42,6 +41,7 @@ import ConviteAceitarPage from './pages/juntos/ConviteAceitarPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import BusinessPlanPage from './pages/admin/BusinessPlanPage';
 import BusinessPlanSubmodulePage from './pages/admin/BusinessPlanSubmodulePage';
+import BusinessPlanPrintPage from './pages/admin/BusinessPlanPrintPage';
 import AgendaPage from './pages/admin/AgendaPage';
 import AdminFinancePage from './pages/admin/AdminFinancePage';
 
@@ -80,10 +80,10 @@ function App() {
             <Route path="/" element={<RedirectBasedOnAuth />} />
             
             {/* Rotas públicas - Autenticação */}
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/entrar" element={<LoginPage />} />
-            <Route path="/signup" element={<SignUpPage />} />
-            <Route path="/cadastro" element={<SignUpPage />} />
+            <Route path="/login" element={<AuthPage />} />
+            <Route path="/entrar" element={<AuthPage />} />
+            <Route path="/signup" element={<AuthPage />} />
+            <Route path="/cadastro" element={<AuthPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -141,6 +141,9 @@ function App() {
               {/* <Route path="/jornada" element={<SuaHistoriaPage />} /> */}
               {/* <Route path="/game-test" element={<JourneyGamePage />} /> */}
             </Route>
+
+            {/* Pagina de impressao do Business Plan - Sem layout admin */}
+            <Route path="/admin/business-plan/print" element={<BusinessPlanPrintPage />} />
 
             {/* Rotas do Painel Admin - Requerem permissão de admin */}
             <Route element={<AdminRoute />}>

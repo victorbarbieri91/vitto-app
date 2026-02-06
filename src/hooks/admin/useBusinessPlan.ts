@@ -13,9 +13,11 @@ interface UseBusinessPlanListReturn {
   loading: boolean;
   error: Error | null;
   refetch: () => Promise<void>;
+  updateStatus: (submodule: BusinessPlanSubmodule, status: 'draft' | 'validating' | 'validated') => Promise<void>;
 }
 
 export function useBusinessPlanList(): UseBusinessPlanListReturn {
+  const { user } = useAuth();
   const [plans, setPlans] = useState<BusinessPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -37,7 +39,24 @@ export function useBusinessPlanList(): UseBusinessPlanListReturn {
     fetchPlans();
   }, [fetchPlans]);
 
-  return { plans, loading, error, refetch: fetchPlans };
+  const updateStatus = useCallback(async (
+    submodule: BusinessPlanSubmodule,
+    status: 'draft' | 'validating' | 'validated'
+  ) => {
+    if (!user) throw new Error('User not authenticated');
+
+    try {
+      const updated = await BusinessPlanService.updateStatus(submodule, status, user.id);
+      // Update local state optimistically
+      setPlans(prev => prev.map(p =>
+        p.submodule === submodule ? updated : p
+      ));
+    } catch (err) {
+      throw err;
+    }
+  }, [user]);
+
+  return { plans, loading, error, refetch: fetchPlans, updateStatus };
 }
 
 interface UseBusinessPlanSubmoduleReturn {

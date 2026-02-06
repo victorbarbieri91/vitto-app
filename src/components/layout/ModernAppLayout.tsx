@@ -53,7 +53,7 @@ export default function ModernAppLayout({ children, requireAuth = true }: Modern
   // Show loading state
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="fixed inset-0 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-coral-500"></div>
       </div>
     );
@@ -69,7 +69,7 @@ export default function ModernAppLayout({ children, requireAuth = true }: Modern
   };
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
+    <div className="fixed inset-0 flex flex-col bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
       {/* Modern Header with Horizontal Navigation */}
       {user && (
         <header className="sticky top-0 z-50 backdrop-blur-xl bg-white/80 border-b border-slate-200/60 shadow-sm">

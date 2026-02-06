@@ -120,15 +120,26 @@ export class AdminMetricsService {
     const draft = data.filter(p => p.status === 'draft').length;
     const total = data.length;
 
-    // Progress = % of non-draft submodules
+    // Progress calculation:
+    // - validated = 100% credit (1.0)
+    // - validating = 50% credit (0.5) - em revisão, ainda não confirmado
+    // - draft = 0% credit
+    // 100% só é alcançado quando TODOS estiverem "validated"
     const progress = total > 0
-      ? Math.round(((validated + validating) / total) * 100)
+      ? Math.round(((validated * 1.0 + validating * 0.5) / total) * 100)
       : 0;
 
-    // Next focus = first draft submodule in priority order
+    // Next focus priority:
+    // 1. First "validating" submodules (need to be validated)
+    // 2. Then "draft" submodules (need to be filled)
     const priorityOrder = ['thesis', 'market', 'product', 'revenue', 'go_to_market', 'metrics', 'risks'];
+
+    // Get submodules that need attention (validating first, then draft)
+    const validatingSubmodules = data.filter(p => p.status === 'validating');
     const draftSubmodules = data.filter(p => p.status === 'draft');
-    const sortedDrafts = draftSubmodules.sort((a, b) =>
+    const needsAttention = [...validatingSubmodules, ...draftSubmodules];
+
+    const sortedNeedsAttention = needsAttention.sort((a, b) =>
       priorityOrder.indexOf(a.submodule) - priorityOrder.indexOf(b.submodule)
     );
 
@@ -142,10 +153,10 @@ export class AdminMetricsService {
       risks: 'Riscos e Decisões'
     };
 
-    const nextFocus = sortedDrafts.length > 0
+    const nextFocus = sortedNeedsAttention.length > 0
       ? {
-          submodule: sortedDrafts[0].submodule,
-          title: SUBMODULE_TITLES[sortedDrafts[0].submodule] || sortedDrafts[0].submodule
+          submodule: sortedNeedsAttention[0].submodule,
+          title: SUBMODULE_TITLES[sortedNeedsAttention[0].submodule] || sortedNeedsAttention[0].submodule
         }
       : null;
 

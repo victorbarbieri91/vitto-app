@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronRight, CheckCircle, XCircle, ExternalLink } from 'lucide-react';
+import { ChevronRight, CheckCircle, Circle, ExternalLink } from 'lucide-react';
 import TextFieldModal from './TextFieldModal';
 import type {
   BusinessPlanSubmodule,
@@ -25,40 +25,60 @@ function truncateText(text: string | undefined, maxLength: number = 150): string
   return text.substring(0, maxLength).trim() + '...';
 }
 
-// Text field card component
-interface TextFieldCardProps {
+// Simple section wrapper - sobrio e minimalista
+interface SectionProps {
+  title: string;
+  children: React.ReactNode;
+  onViewMore?: () => void;
+  showViewMore?: boolean;
+}
+
+function Section({ title, children, onViewMore, showViewMore }: SectionProps) {
+  return (
+    <div className="border-b border-slate-100 pb-5 last:border-b-0 last:pb-0">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          {title}
+        </h3>
+        {showViewMore && onViewMore && (
+          <button
+            onClick={onViewMore}
+            className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1 transition-colors"
+          >
+            Ver completo <ExternalLink size={12} />
+          </button>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// Text field component
+interface TextFieldProps {
   label: string;
   value: string | undefined;
   maxLength?: number;
 }
 
-function TextFieldCard({ label, value, maxLength = 150 }: TextFieldCardProps) {
+function TextField({ label, value, maxLength = 180 }: TextFieldProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const hasContent = !!value?.trim();
   const needsTruncation = (value?.length || 0) > maxLength;
 
   return (
     <>
-      <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
-            {label}
-          </span>
-          {needsTruncation && (
-            <button
-              onClick={() => setModalOpen(true)}
-              className="text-xs text-coral-600 hover:text-coral-700 flex items-center gap-1 flex-shrink-0"
-            >
-              Ver mais <ExternalLink size={12} />
-            </button>
-          )}
-        </div>
+      <Section
+        title={label}
+        showViewMore={needsTruncation}
+        onViewMore={() => setModalOpen(true)}
+      >
         <p className="text-sm text-slate-700 leading-relaxed">
           {hasContent ? truncateText(value, maxLength) : (
             <span className="text-slate-400 italic">Nao definido</span>
           )}
         </p>
-      </div>
+      </Section>
 
       <TextFieldModal
         isOpen={modalOpen}
@@ -71,322 +91,381 @@ function TextFieldCard({ label, value, maxLength = 150 }: TextFieldCardProps) {
   );
 }
 
-// List field card component
-interface ListFieldCardProps {
+// List field component
+interface ListFieldProps {
   label: string;
   items: string[] | undefined;
   emptyText?: string;
 }
 
-function ListFieldCard({ label, items, emptyText = 'Nenhum item' }: ListFieldCardProps) {
+function ListField({ label, items, emptyText = 'Nenhum item' }: ListFieldProps) {
+  const [modalOpen, setModalOpen] = useState(false);
   const hasItems = items && items.length > 0;
-  const displayItems = items?.slice(0, 3) || [];
-  const remainingCount = (items?.length || 0) - 3;
+  const needsModal = (items?.length || 0) > 5;
 
   return (
-    <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
-      <span className="text-xs font-medium text-slate-500 uppercase tracking-wide block mb-2">
-        {label}
-      </span>
-      {hasItems ? (
-        <ul className="space-y-1.5">
-          {displayItems.map((item, idx) => (
-            <li key={idx} className="flex items-start gap-2 text-sm text-slate-700">
-              <ChevronRight size={14} className="text-slate-400 mt-0.5 flex-shrink-0" />
-              <span className="leading-relaxed">{truncateText(item, 80)}</span>
-            </li>
-          ))}
-          {remainingCount > 0 && (
-            <li className="text-xs text-slate-500 pl-5">
-              + {remainingCount} mais
-            </li>
-          )}
-        </ul>
-      ) : (
-        <p className="text-sm text-slate-400 italic">{emptyText}</p>
-      )}
-    </div>
+    <>
+      <Section
+        title={label}
+        showViewMore={needsModal}
+        onViewMore={() => setModalOpen(true)}
+      >
+        {hasItems ? (
+          <ul className="space-y-2">
+            {items.slice(0, 5).map((item, idx) => (
+              <li key={idx} className="flex items-start gap-2 text-sm text-slate-700">
+                <ChevronRight size={14} className="text-slate-300 mt-1 flex-shrink-0" />
+                <span>{item}</span>
+              </li>
+            ))}
+            {(items.length > 5) && (
+              <li className="text-xs text-slate-400 pl-5">+ {items.length - 5} itens</li>
+            )}
+          </ul>
+        ) : (
+          <p className="text-sm text-slate-400 italic">{emptyText}</p>
+        )}
+      </Section>
+
+      <TextFieldModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={label}
+        value={items?.map((item, i) => `${i + 1}. ${item}`).join('\n\n') || ''}
+        readOnly
+      />
+    </>
   );
 }
 
-// Hypotheses card component
-interface HypothesesCardProps {
+// Hypotheses component
+interface HypothesesFieldProps {
   hypotheses: Array<{ text: string; validated: boolean }> | undefined;
 }
 
-function HypothesesCard({ hypotheses }: HypothesesCardProps) {
+function HypothesesField({ hypotheses }: HypothesesFieldProps) {
   const hasItems = hypotheses && hypotheses.length > 0;
+  const validatedCount = hypotheses?.filter(h => h.validated).length || 0;
 
   return (
-    <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
-      <span className="text-xs font-medium text-slate-500 uppercase tracking-wide block mb-2">
-        Hipoteses
-      </span>
+    <Section title="Hipoteses">
       {hasItems ? (
-        <ul className="space-y-2">
-          {hypotheses.map((hyp, idx) => (
-            <li key={idx} className="flex items-start gap-2 text-sm">
-              {hyp.validated ? (
-                <CheckCircle size={16} className="text-emerald-500 mt-0.5 flex-shrink-0" />
-              ) : (
-                <XCircle size={16} className="text-slate-300 mt-0.5 flex-shrink-0" />
-              )}
-              <span className={hyp.validated ? 'text-slate-700' : 'text-slate-600'}>
-                {truncateText(hyp.text, 100)}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <>
+          <p className="text-xs text-slate-400 mb-3">{validatedCount} de {hypotheses.length} validadas</p>
+          <ul className="space-y-2.5">
+            {hypotheses.map((hyp, idx) => (
+              <li key={idx} className="flex items-start gap-2.5 text-sm">
+                {hyp.validated ? (
+                  <CheckCircle size={16} className="text-emerald-500 mt-0.5 flex-shrink-0" />
+                ) : (
+                  <Circle size={16} className="text-slate-300 mt-0.5 flex-shrink-0" />
+                )}
+                <span className={hyp.validated ? 'text-slate-700' : 'text-slate-500'}>
+                  {hyp.text}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
       ) : (
         <p className="text-sm text-slate-400 italic">Nenhuma hipotese definida</p>
       )}
-    </div>
+    </Section>
   );
 }
 
-// Features card component
-interface FeaturesCardProps {
+// Features component
+interface FeaturesFieldProps {
   features: Array<{ name: string; description: string; status: string }> | undefined;
 }
 
-function FeaturesCard({ features }: FeaturesCardProps) {
+function FeaturesField({ features }: FeaturesFieldProps) {
   const hasItems = features && features.length > 0;
-  const displayItems = features?.slice(0, 4) || [];
-  const remainingCount = (features?.length || 0) - 4;
 
-  const statusColors: Record<string, string> = {
-    implemented: 'bg-emerald-100 text-emerald-700',
-    in_progress: 'bg-amber-100 text-amber-700',
-    planned: 'bg-slate-100 text-slate-600'
-  };
-
-  const statusLabels: Record<string, string> = {
+  const statusLabel: Record<string, string> = {
     implemented: 'Pronto',
     in_progress: 'Em dev',
     planned: 'Planejado'
   };
 
+  const statusStyle: Record<string, string> = {
+    implemented: 'bg-emerald-100 text-emerald-700',
+    in_progress: 'bg-amber-100 text-amber-700',
+    planned: 'bg-slate-100 text-slate-500'
+  };
+
   return (
-    <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
-      <span className="text-xs font-medium text-slate-500 uppercase tracking-wide block mb-2">
-        Funcionalidades
-      </span>
+    <Section title="Funcionalidades">
       {hasItems ? (
         <div className="space-y-2">
-          {displayItems.map((feat, idx) => (
-            <div key={idx} className="flex items-center justify-between gap-2">
-              <span className="text-sm text-slate-700 truncate flex-1">{feat.name}</span>
-              <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[feat.status] || statusColors.planned}`}>
-                {statusLabels[feat.status] || 'Planejado'}
+          {features.map((feat, idx) => (
+            <div key={idx} className="flex items-center justify-between py-1">
+              <span className="text-sm text-slate-700">{feat.name}</span>
+              <span className={`text-xs px-2 py-0.5 rounded-full ${statusStyle[feat.status] || statusStyle.planned}`}>
+                {statusLabel[feat.status] || 'Planejado'}
               </span>
             </div>
           ))}
-          {remainingCount > 0 && (
-            <p className="text-xs text-slate-500">+ {remainingCount} mais</p>
-          )}
         </div>
       ) : (
         <p className="text-sm text-slate-400 italic">Nenhuma funcionalidade</p>
       )}
-    </div>
+    </Section>
   );
 }
 
-// Segments card component
-interface SegmentsCardProps {
+// Segments component
+interface SegmentsFieldProps {
   segments: Array<{ name: string; size: string; characteristics: string }> | undefined;
 }
 
-function SegmentsCard({ segments }: SegmentsCardProps) {
+function SegmentsField({ segments }: SegmentsFieldProps) {
   const hasItems = segments && segments.length > 0;
 
   return (
-    <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
-      <span className="text-xs font-medium text-slate-500 uppercase tracking-wide block mb-2">
-        Segmentos de Mercado
-      </span>
+    <Section title="Segmentos de Mercado">
       {hasItems ? (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {segments.map((seg, idx) => (
-            <div key={idx} className="text-sm">
-              <span className="font-medium text-slate-700">{seg.name}</span>
-              {seg.size && <span className="text-slate-500 ml-2">({seg.size})</span>}
+            <div key={idx}>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-slate-700">{seg.name}</span>
+                {seg.size && <span className="text-xs text-slate-400">({seg.size})</span>}
+              </div>
+              {seg.characteristics && (
+                <p className="text-xs text-slate-500 mt-1">{seg.characteristics}</p>
+              )}
             </div>
           ))}
         </div>
       ) : (
-        <p className="text-sm text-slate-400 italic">Nenhum segmento definido</p>
+        <p className="text-sm text-slate-400 italic">Nenhum segmento</p>
       )}
-    </div>
+    </Section>
   );
 }
 
-// Competitors card component
-interface CompetitorsCardProps {
+// Competitors component
+interface CompetitorsFieldProps {
   competitors: Array<{ name: string; strengths: string[]; weaknesses: string[] }> | undefined;
 }
 
-function CompetitorsCard({ competitors }: CompetitorsCardProps) {
+function CompetitorsField({ competitors }: CompetitorsFieldProps) {
   const hasItems = competitors && competitors.length > 0;
 
   return (
-    <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
-      <span className="text-xs font-medium text-slate-500 uppercase tracking-wide block mb-2">
-        Concorrentes
-      </span>
+    <Section title="Concorrentes">
       {hasItems ? (
         <div className="flex flex-wrap gap-2">
           {competitors.map((comp, idx) => (
-            <span
-              key={idx}
-              className="px-3 py-1 bg-white border border-slate-200 rounded-full text-sm text-slate-700"
-            >
+            <span key={idx} className="px-3 py-1 bg-slate-100 rounded-full text-sm text-slate-600">
               {comp.name}
             </span>
           ))}
         </div>
       ) : (
-        <p className="text-sm text-slate-400 italic">Nenhum concorrente mapeado</p>
+        <p className="text-sm text-slate-400 italic">Nenhum concorrente</p>
       )}
-    </div>
+    </Section>
   );
 }
 
-// Plans card component
-interface PlansCardProps {
+// Plans component
+interface PlansFieldProps {
   plans: Array<{ name: string; price: string; features: string[] }> | undefined;
 }
 
-function PlansCard({ plans }: PlansCardProps) {
+function PlansField({ plans }: PlansFieldProps) {
   const hasItems = plans && plans.length > 0;
 
   return (
-    <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
-      <span className="text-xs font-medium text-slate-500 uppercase tracking-wide block mb-2">
-        Planos
-      </span>
+    <Section title="Planos">
       {hasItems ? (
         <div className="space-y-2">
           {plans.map((plan, idx) => (
-            <div key={idx} className="flex items-center justify-between">
+            <div key={idx} className="flex items-center justify-between py-1">
               <span className="text-sm text-slate-700">{plan.name}</span>
               <span className="text-sm font-medium text-emerald-600">{plan.price}</span>
             </div>
           ))}
         </div>
       ) : (
-        <p className="text-sm text-slate-400 italic">Nenhum plano definido</p>
+        <p className="text-sm text-slate-400 italic">Nenhum plano</p>
       )}
-    </div>
+    </Section>
   );
 }
 
-// Channels card component
-interface ChannelsCardProps {
+// Channels component
+interface ChannelsFieldProps {
   channels: Array<{ name: string; strategy: string; priority: string }> | undefined;
 }
 
-function ChannelsCard({ channels }: ChannelsCardProps) {
+function ChannelsField({ channels }: ChannelsFieldProps) {
   const hasItems = channels && channels.length > 0;
 
-  const priorityColors: Record<string, string> = {
-    high: 'bg-coral-100 text-coral-700',
-    medium: 'bg-amber-100 text-amber-700',
-    low: 'bg-slate-100 text-slate-600'
+  const priorityLabel: Record<string, string> = {
+    high: 'Alta',
+    medium: 'Media',
+    low: 'Baixa'
   };
 
   return (
-    <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
-      <span className="text-xs font-medium text-slate-500 uppercase tracking-wide block mb-2">
-        Canais de Aquisicao
-      </span>
+    <Section title="Canais de Aquisicao">
       {hasItems ? (
         <div className="space-y-2">
           {channels.map((chan, idx) => (
-            <div key={idx} className="flex items-center justify-between gap-2">
-              <span className="text-sm text-slate-700 truncate flex-1">{chan.name}</span>
-              <span className={`text-xs px-2 py-0.5 rounded-full ${priorityColors[chan.priority] || priorityColors.medium}`}>
-                {chan.priority === 'high' ? 'Alta' : chan.priority === 'low' ? 'Baixa' : 'Media'}
-              </span>
+            <div key={idx} className="flex items-center justify-between py-1">
+              <span className="text-sm text-slate-700">{chan.name}</span>
+              <span className="text-xs text-slate-500">Prioridade: {priorityLabel[chan.priority] || 'Media'}</span>
             </div>
           ))}
         </div>
       ) : (
-        <p className="text-sm text-slate-400 italic">Nenhum canal definido</p>
+        <p className="text-sm text-slate-400 italic">Nenhum canal</p>
       )}
-    </div>
+    </Section>
   );
 }
 
-// KPIs card component
-interface KPIsCardProps {
+// KPIs component
+interface KPIsFieldProps {
   kpis: Array<{ name: string; target: string; current?: string }> | undefined;
 }
 
-function KPIsCard({ kpis }: KPIsCardProps) {
+function KPIsField({ kpis }: KPIsFieldProps) {
   const hasItems = kpis && kpis.length > 0;
 
   return (
-    <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
-      <span className="text-xs font-medium text-slate-500 uppercase tracking-wide block mb-2">
-        Indicadores-Chave
-      </span>
+    <Section title="Indicadores-Chave">
       {hasItems ? (
         <div className="space-y-2">
           {kpis.map((kpi, idx) => (
-            <div key={idx} className="flex items-center justify-between gap-2">
-              <span className="text-sm text-slate-700 truncate flex-1">{kpi.name}</span>
-              <div className="flex items-center gap-2 text-xs">
+            <div key={idx} className="flex items-center justify-between py-1">
+              <span className="text-sm text-slate-700">{kpi.name}</span>
+              <div className="flex items-center gap-3 text-xs">
                 <span className="text-slate-500">Atual: {kpi.current || '-'}</span>
-                <span className="text-emerald-600">Meta: {kpi.target || '-'}</span>
+                <span className="text-emerald-600">Meta: {kpi.target}</span>
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <p className="text-sm text-slate-400 italic">Nenhum indicador definido</p>
+        <p className="text-sm text-slate-400 italic">Nenhum indicador</p>
       )}
-    </div>
+    </Section>
   );
 }
 
-// Risks card component
-interface RisksCardProps {
+// Risks component
+interface RisksFieldProps {
   risks: Array<{ risk: string; impact: string; probability: string; mitigation?: string }> | undefined;
 }
 
-function RisksCard({ risks }: RisksCardProps) {
+function RisksField({ risks }: RisksFieldProps) {
   const hasItems = risks && risks.length > 0;
 
-  const impactColors: Record<string, string> = {
-    high: 'bg-red-100 text-red-700',
-    medium: 'bg-amber-100 text-amber-700',
-    low: 'bg-slate-100 text-slate-600'
+  const impactLabel: Record<string, string> = {
+    high: 'Alto',
+    medium: 'Medio',
+    low: 'Baixo'
+  };
+
+  const impactStyle: Record<string, string> = {
+    high: 'text-red-600',
+    medium: 'text-amber-600',
+    low: 'text-slate-500'
   };
 
   return (
-    <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
-      <span className="text-xs font-medium text-slate-500 uppercase tracking-wide block mb-2">
-        Riscos Mapeados
-      </span>
+    <Section title="Riscos Mapeados">
       {hasItems ? (
         <div className="space-y-2">
-          {risks.slice(0, 3).map((risk, idx) => (
-            <div key={idx} className="flex items-start justify-between gap-2">
-              <span className="text-sm text-slate-700 truncate flex-1">{risk.risk}</span>
-              <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${impactColors[risk.impact] || impactColors.medium}`}>
-                {risk.impact === 'high' ? 'Alto' : risk.impact === 'low' ? 'Baixo' : 'Medio'}
+          {risks.map((risk, idx) => (
+            <div key={idx} className="flex items-center justify-between py-1">
+              <span className="text-sm text-slate-700">{risk.risk}</span>
+              <span className={`text-xs ${impactStyle[risk.impact] || impactStyle.medium}`}>
+                Impacto: {impactLabel[risk.impact] || 'Medio'}
               </span>
             </div>
           ))}
-          {(risks?.length || 0) > 3 && (
-            <p className="text-xs text-slate-500">+ {risks.length - 3} mais</p>
-          )}
         </div>
       ) : (
-        <p className="text-sm text-slate-400 italic">Nenhum risco mapeado</p>
+        <p className="text-sm text-slate-400 italic">Nenhum risco</p>
       )}
-    </div>
+    </Section>
+  );
+}
+
+// Period Objectives component
+interface PeriodObjectivesFieldProps {
+  objectives: Array<{ period: string; objectives: string[]; status: string }> | undefined;
+}
+
+function PeriodObjectivesField({ objectives }: PeriodObjectivesFieldProps) {
+  const hasItems = objectives && objectives.length > 0;
+
+  const statusLabel: Record<string, string> = {
+    achieved: 'Alcancado',
+    in_progress: 'Em progresso',
+    pending: 'Pendente'
+  };
+
+  const statusStyle: Record<string, string> = {
+    achieved: 'text-emerald-600',
+    in_progress: 'text-amber-600',
+    pending: 'text-slate-500'
+  };
+
+  return (
+    <Section title="Objetivos por Periodo">
+      {hasItems ? (
+        <div className="space-y-2">
+          {objectives.map((obj, idx) => (
+            <div key={idx} className="flex items-center justify-between py-1">
+              <span className="text-sm text-slate-700">{obj.period}</span>
+              <span className={`text-xs ${statusStyle[obj.status] || statusStyle.pending}`}>
+                {statusLabel[obj.status] || 'Pendente'}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-slate-400 italic">Nenhum objetivo</p>
+      )}
+    </Section>
+  );
+}
+
+// Decisions component
+interface DecisionsFieldProps {
+  title: string;
+  decisions: Array<{ decision: string; date?: string; deadline?: string }> | undefined;
+  dateLabel?: string;
+}
+
+function DecisionsField({ title, decisions, dateLabel = 'Data' }: DecisionsFieldProps) {
+  const hasItems = decisions && decisions.length > 0;
+
+  return (
+    <Section title={title}>
+      {hasItems ? (
+        <div className="space-y-2">
+          {decisions.map((dec, idx) => (
+            <div key={idx} className="py-1">
+              <p className="text-sm text-slate-700">{dec.decision}</p>
+              {(dec.date || dec.deadline) && (
+                <p className="text-xs text-slate-400 mt-1">
+                  {dateLabel}: {dec.date || dec.deadline}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-slate-400 italic">Nenhuma decisao</p>
+      )}
+    </Section>
   );
 }
 
@@ -415,12 +494,12 @@ export default function SubmoduleViewer({ submodule, content }: SubmoduleViewerP
 // THESIS VIEWER
 function ThesisViewer({ content }: { content: ThesisContent }) {
   return (
-    <div className="space-y-4">
-      <TextFieldCard label="Problema Central" value={content.problem} />
-      <TextFieldCard label="Publico-Alvo (Beachhead)" value={content.targetAudience} />
-      <TextFieldCard label="Proposta de Valor" value={content.valueProposition} />
-      <ListFieldCard label="Diferenciais" items={content.differentiators} />
-      <HypothesesCard hypotheses={content.hypotheses} />
+    <div className="space-y-6">
+      <TextField label="Problema Central" value={content.problem} />
+      <TextField label="Publico-Alvo (Beachhead)" value={content.targetAudience} />
+      <TextField label="Proposta de Valor" value={content.valueProposition} />
+      <ListField label="Diferenciais" items={content.differentiators} />
+      <HypothesesField hypotheses={content.hypotheses} />
     </div>
   );
 }
@@ -428,10 +507,10 @@ function ThesisViewer({ content }: { content: ThesisContent }) {
 // MARKET VIEWER
 function MarketViewer({ content }: { content: MarketContent }) {
   return (
-    <div className="space-y-4">
-      <SegmentsCard segments={content.segments} />
-      <CompetitorsCard competitors={content.competitors} />
-      <TextFieldCard label="Posicionamento" value={content.positioning} />
+    <div className="space-y-6">
+      <SegmentsField segments={content.segments} />
+      <CompetitorsField competitors={content.competitors} />
+      <TextField label="Posicionamento" value={content.positioning} />
     </div>
   );
 }
@@ -439,10 +518,10 @@ function MarketViewer({ content }: { content: MarketContent }) {
 // PRODUCT VIEWER
 function ProductViewer({ content }: { content: ProductContent }) {
   return (
-    <div className="space-y-4">
-      <FeaturesCard features={content.features} />
-      <TextFieldCard label="Valor Entregue" value={content.valueDelivered} />
-      <ListFieldCard label="Limitacoes Atuais" items={content.limitations} />
+    <div className="space-y-6">
+      <FeaturesField features={content.features} />
+      <TextField label="Valor Entregue" value={content.valueDelivered} />
+      <ListField label="Limitacoes Atuais" items={content.limitations} />
     </div>
   );
 }
@@ -450,9 +529,9 @@ function ProductViewer({ content }: { content: ProductContent }) {
 // REVENUE VIEWER
 function RevenueViewer({ content }: { content: RevenueContent }) {
   return (
-    <div className="space-y-4">
-      <PlansCard plans={content.plans} />
-      <ListFieldCard label="Estrategias de Monetizacao" items={content.monetizationStrategies} />
+    <div className="space-y-6">
+      <PlansField plans={content.plans} />
+      <ListField label="Estrategias de Monetizacao" items={content.monetizationStrategies} />
     </div>
   );
 }
@@ -460,9 +539,9 @@ function RevenueViewer({ content }: { content: RevenueContent }) {
 // GO TO MARKET VIEWER
 function GoToMarketViewer({ content }: { content: GoToMarketContent }) {
   return (
-    <div className="space-y-4">
-      <ChannelsCard channels={content.channels} />
-      <ListFieldCard label="Mensagens-Chave" items={content.keyMessages} />
+    <div className="space-y-6">
+      <ChannelsField channels={content.channels} />
+      <ListField label="Mensagens-Chave" items={content.keyMessages} />
     </div>
   );
 }
@@ -470,29 +549,9 @@ function GoToMarketViewer({ content }: { content: GoToMarketContent }) {
 // METRICS VIEWER
 function MetricsViewer({ content }: { content: MetricsContent }) {
   return (
-    <div className="space-y-4">
-      <KPIsCard kpis={content.keyIndicators} />
-      {content.periodObjectives && content.periodObjectives.length > 0 && (
-        <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
-          <span className="text-xs font-medium text-slate-500 uppercase tracking-wide block mb-2">
-            Objetivos por Periodo
-          </span>
-          <div className="space-y-2">
-            {content.periodObjectives.map((obj, idx) => (
-              <div key={idx} className="flex items-center justify-between">
-                <span className="text-sm text-slate-700">{obj.period}</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  obj.status === 'achieved' ? 'bg-emerald-100 text-emerald-700' :
-                  obj.status === 'in_progress' ? 'bg-amber-100 text-amber-700' :
-                  'bg-slate-100 text-slate-600'
-                }`}>
-                  {obj.status === 'achieved' ? 'Alcancado' : obj.status === 'in_progress' ? 'Em progresso' : 'Pendente'}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+    <div className="space-y-6">
+      <KPIsField kpis={content.keyIndicators} />
+      <PeriodObjectivesField objectives={content.periodObjectives} />
     </div>
   );
 }
@@ -500,40 +559,17 @@ function MetricsViewer({ content }: { content: MetricsContent }) {
 // RISKS VIEWER
 function RisksViewer({ content }: { content: RisksContent }) {
   return (
-    <div className="space-y-4">
-      <RisksCard risks={content.mappedRisks} />
-
-      {content.decisionsMade && content.decisionsMade.length > 0 && (
-        <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-100">
-          <span className="text-xs font-medium text-emerald-700 uppercase tracking-wide block mb-2">
-            Decisoes Tomadas
-          </span>
-          <div className="space-y-2">
-            {content.decisionsMade.slice(0, 3).map((dec, idx) => (
-              <div key={idx} className="text-sm text-slate-700">
-                {dec.decision}
-                {dec.date && <span className="text-slate-400 ml-2 text-xs">({dec.date})</span>}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {content.decisionsPending && content.decisionsPending.length > 0 && (
-        <div className="bg-amber-50 rounded-lg p-4 border border-amber-100">
-          <span className="text-xs font-medium text-amber-700 uppercase tracking-wide block mb-2">
-            Decisoes Pendentes
-          </span>
-          <div className="space-y-2">
-            {content.decisionsPending.slice(0, 3).map((dec, idx) => (
-              <div key={idx} className="text-sm text-slate-700">
-                {dec.decision}
-                {dec.deadline && <span className="text-amber-600 ml-2 text-xs">(ate {dec.deadline})</span>}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+    <div className="space-y-6">
+      <RisksField risks={content.mappedRisks} />
+      <DecisionsField
+        title="Decisoes Tomadas"
+        decisions={content.decisionsMade?.map(d => ({ decision: d.decision, date: d.date }))}
+      />
+      <DecisionsField
+        title="Decisoes Pendentes"
+        decisions={content.decisionsPending?.map(d => ({ decision: d.decision, deadline: d.deadline }))}
+        dateLabel="Prazo"
+      />
     </div>
   );
 }

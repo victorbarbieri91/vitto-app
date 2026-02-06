@@ -1,3 +1,11 @@
+# MCP Server - Código Completo para Deploy
+
+Copie todo o código abaixo e substitua em:
+**Supabase Dashboard > Functions > mcp-server > index.ts**
+
+---
+
+```typescript
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -374,16 +382,21 @@ async function executeTool(
 ): Promise<any> {
 
   switch (toolName) {
+    // === IDENTIFICAÇÃO ===
     case 'identificar_usuario':
       return await identificarUsuario(params, supabase)
     case 'get_perfil':
       return await getPerfil(params, supabase)
+
+    // === CONTAS ===
     case 'listar_contas':
       return await listarContas(params, supabase)
     case 'get_saldo_total':
       return await getSaldoTotal(params, supabase)
     case 'criar_conta':
       return await criarConta(params, supabase)
+
+    // === TRANSAÇÕES ===
     case 'listar_transacoes':
       return await listarTransacoes(params, supabase)
     case 'criar_transacao':
@@ -392,32 +405,45 @@ async function executeTool(
       return await editarTransacao(params, supabase)
     case 'excluir_transacao':
       return await excluirTransacao(params, supabase)
+
+    // === TRANSAÇÕES FIXAS ===
     case 'listar_transacoes_fixas':
       return await listarTransacoesFixas(params, supabase)
     case 'criar_transacao_fixa':
       return await criarTransacaoFixa(params, supabase)
+
+    // === CARTÕES ===
     case 'listar_cartoes':
       return await listarCartoes(params, supabase)
     case 'get_fatura_atual':
       return await getFaturaAtual(params, supabase)
     case 'criar_despesa_cartao':
       return await criarDespesaCartao(params, supabase)
+
+    // === CATEGORIAS ===
     case 'listar_categorias':
       return await listarCategorias(params, supabase)
+
+    // === ORÇAMENTO ===
     case 'get_orcamento_mes':
       return await getOrcamentoMes(params, supabase)
     case 'definir_orcamento':
       return await definirOrcamento(params, supabase)
+
+    // === INDICADORES ===
     case 'get_resumo_financeiro':
       return await getResumoFinanceiro(params, supabase)
     case 'get_saude_financeira':
       return await getSaudeFinanceira(params, supabase)
+
+    // === METAS ===
     case 'listar_metas':
       return await listarMetas(params, supabase)
     case 'criar_meta':
       return await criarMeta(params, supabase)
     case 'atualizar_progresso_meta':
       return await atualizarProgressoMeta(params, supabase)
+
     default:
       throw new Error(`Tool não encontrada: ${toolName}`)
   }
@@ -425,8 +451,11 @@ async function executeTool(
 
 // ==================== IMPLEMENTAÇÕES ====================
 
+// --- IDENTIFICAÇÃO ---
 async function identificarUsuario(params: { telefone: string }, supabase: SupabaseClient) {
   const { telefone } = params
+
+  // Normaliza o telefone (remove espaços, adiciona + se não tiver)
   let telefoneNormalizado = telefone.replace(/\s/g, '')
   if (!telefoneNormalizado.startsWith('+')) {
     telefoneNormalizado = '+' + telefoneNormalizado
@@ -455,6 +484,7 @@ async function identificarUsuario(params: { telefone: string }, supabase: Supaba
 
 async function getPerfil(params: { user_id: string }, supabase: SupabaseClient) {
   const { user_id } = params
+
   const { data, error } = await supabase
     .from('app_perfil')
     .select('*')
@@ -462,22 +492,30 @@ async function getPerfil(params: { user_id: string }, supabase: SupabaseClient) 
     .single()
 
   if (error) throw new Error(`Erro ao buscar perfil: ${error.message}`)
+
   return { success: true, perfil: data }
 }
 
+// --- CONTAS ---
 async function listarContas(params: { user_id: string, apenas_ativas?: boolean }, supabase: SupabaseClient) {
   const { user_id, apenas_ativas = true } = params
+
   let query = supabase
     .from('app_conta')
-    .select('id, nome, tipo, saldo_atual, saldo_inicial, cor, icone, instituicao, status')
+    .select(`
+      id, nome, tipo, saldo_atual, saldo_inicial,
+      cor, icone, instituicao, status,
+      app_conta_grupo(nome)
+    `)
     .eq('user_id', user_id)
     .order('nome')
 
   if (apenas_ativas) {
-    query = query.eq('status', 'ativo')
+    query = query.eq('status', 'ativa')
   }
 
   const { data, error } = await query
+
   if (error) throw new Error(`Erro ao listar contas: ${error.message}`)
 
   return {
@@ -489,11 +527,12 @@ async function listarContas(params: { user_id: string, apenas_ativas?: boolean }
 
 async function getSaldoTotal(params: { user_id: string }, supabase: SupabaseClient) {
   const { user_id } = params
+
   const { data, error } = await supabase
     .from('app_conta')
     .select('saldo_atual, nome')
     .eq('user_id', user_id)
-    .eq('status', 'ativo')
+    .eq('status', 'ativa')
 
   if (error) throw new Error(`Erro ao buscar saldos: ${error.message}`)
 
@@ -508,6 +547,7 @@ async function getSaldoTotal(params: { user_id: string }, supabase: SupabaseClie
 
 async function criarConta(params: any, supabase: SupabaseClient) {
   const { user_id, nome, tipo, saldo_inicial = 0, cor, icone } = params
+
   const { data, error } = await supabase
     .from('app_conta')
     .insert({
@@ -518,21 +558,31 @@ async function criarConta(params: any, supabase: SupabaseClient) {
       saldo_atual: saldo_inicial,
       cor: cor || '#6B7280',
       icone: icone || 'wallet',
-      status: 'ativo'
+      status: 'ativa'
     })
     .select()
     .single()
 
   if (error) throw new Error(`Erro ao criar conta: ${error.message}`)
+
   return { success: true, conta: data, mensagem: `Conta "${nome}" criada com sucesso!` }
 }
 
+// --- TRANSAÇÕES ---
 async function listarTransacoes(params: any, supabase: SupabaseClient) {
-  const { user_id, data_inicio, data_fim, tipo, categoria_id, conta_id, limite = 50 } = params
+  const {
+    user_id, data_inicio, data_fim, tipo,
+    categoria_id, conta_id, limite = 50
+  } = params
 
   let query = supabase
     .from('app_transacoes')
-    .select('id, descricao, valor, data, tipo, status, observacoes, app_categoria(id, nome, cor, icone), app_conta(id, nome), app_cartao_credito(id, nome)')
+    .select(`
+      id, descricao, valor, data, tipo, status, observacao,
+      app_categoria(id, nome, cor, icone),
+      app_conta(id, nome),
+      app_cartao_credito(id, nome)
+    `)
     .eq('user_id', user_id)
     .order('data', { ascending: false })
     .limit(limite)
@@ -544,8 +594,10 @@ async function listarTransacoes(params: any, supabase: SupabaseClient) {
   if (conta_id) query = query.eq('conta_id', conta_id)
 
   const { data, error } = await query
+
   if (error) throw new Error(`Erro ao listar transações: ${error.message}`)
 
+  // Calcula totais
   const receitas = data?.filter(t => t.tipo === 'receita').reduce((s, t) => s + parseFloat(t.valor), 0) || 0
   const despesas = data?.filter(t => t.tipo !== 'receita').reduce((s, t) => s + parseFloat(t.valor), 0) || 0
 
@@ -558,7 +610,11 @@ async function listarTransacoes(params: any, supabase: SupabaseClient) {
 }
 
 async function criarTransacao(params: any, supabase: SupabaseClient) {
-  const { user_id, descricao, valor, tipo, categoria_id, conta_id, data, observacao } = params
+  const {
+    user_id, descricao, valor, tipo,
+    categoria_id, conta_id, data, observacao
+  } = params
+
   const dataTransacao = data || new Date().toISOString().split('T')[0]
 
   const { data: transacao, error } = await supabase
@@ -571,17 +627,22 @@ async function criarTransacao(params: any, supabase: SupabaseClient) {
       categoria_id,
       conta_id,
       data: dataTransacao,
-      observacoes: observacao || null,
-      status: 'confirmado',
-      origem: 'manual'
+      observacao,
+      status: 'confirmada',
+      origem: 'mcp_whatsapp'
     })
-    .select('*, app_categoria(nome), app_conta(nome)')
+    .select(`
+      *,
+      app_categoria(nome),
+      app_conta(nome)
+    `)
     .single()
 
   if (error) throw new Error(`Erro ao criar transação: ${error.message}`)
 
-  // NOTA: O saldo é atualizado automaticamente pelo trigger 'trigger_atualizar_saldo_conta'
-  // NÃO chamar ajustar_saldo_conta manualmente para evitar duplicação
+  // Atualiza saldo da conta
+  const ajuste = tipo === 'receita' ? valor : -valor
+  await supabase.rpc('ajustar_saldo_conta', { p_conta_id: conta_id, p_valor: ajuste })
 
   return {
     success: true,
@@ -593,6 +654,7 @@ async function criarTransacao(params: any, supabase: SupabaseClient) {
 async function editarTransacao(params: any, supabase: SupabaseClient) {
   const { user_id, transacao_id, ...updates } = params
 
+  // Verifica se a transação pertence ao usuário
   const { data: existing } = await supabase
     .from('app_transacoes')
     .select('id')
@@ -612,12 +674,14 @@ async function editarTransacao(params: any, supabase: SupabaseClient) {
     .single()
 
   if (error) throw new Error(`Erro ao editar transação: ${error.message}`)
+
   return { success: true, transacao: data, mensagem: 'Transação atualizada!' }
 }
 
 async function excluirTransacao(params: any, supabase: SupabaseClient) {
   const { user_id, transacao_id } = params
 
+  // Busca a transação para reverter o saldo
   const { data: transacao } = await supabase
     .from('app_transacoes')
     .select('valor, tipo, conta_id')
@@ -629,6 +693,7 @@ async function excluirTransacao(params: any, supabase: SupabaseClient) {
     return { success: false, error: 'Transação não encontrada' }
   }
 
+  // Exclui a transação
   const { error } = await supabase
     .from('app_transacoes')
     .delete()
@@ -636,6 +701,7 @@ async function excluirTransacao(params: any, supabase: SupabaseClient) {
 
   if (error) throw new Error(`Erro ao excluir transação: ${error.message}`)
 
+  // Reverte o saldo se tinha conta associada
   if (transacao.conta_id) {
     const ajuste = transacao.tipo === 'receita' ? -transacao.valor : transacao.valor
     await supabase.rpc('ajustar_saldo_conta', { p_conta_id: transacao.conta_id, p_valor: ajuste })
@@ -644,19 +710,25 @@ async function excluirTransacao(params: any, supabase: SupabaseClient) {
   return { success: true, mensagem: 'Transação excluída com sucesso!' }
 }
 
+// --- TRANSAÇÕES FIXAS ---
 async function listarTransacoesFixas(params: any, supabase: SupabaseClient) {
   const { user_id, tipo, apenas_ativas = true } = params
 
   let query = supabase
     .from('app_transacoes_fixas')
-    .select('id, descricao, valor, tipo, dia_mes, ativo, app_categoria(id, nome, cor), app_conta(id, nome)')
+    .select(`
+      id, descricao, valor, tipo, dia_vencimento, recorrencia, ativa,
+      app_categoria(id, nome, cor),
+      app_conta(id, nome)
+    `)
     .eq('user_id', user_id)
-    .order('dia_mes')
+    .order('dia_vencimento')
 
   if (tipo) query = query.eq('tipo', tipo)
-  if (apenas_ativas) query = query.eq('ativo', true)
+  if (apenas_ativas) query = query.eq('ativa', true)
 
   const { data, error } = await query
+
   if (error) throw new Error(`Erro ao listar transações fixas: ${error.message}`)
 
   const totalReceitas = data?.filter(t => t.tipo === 'receita').reduce((s, t) => s + parseFloat(t.valor), 0) || 0
@@ -674,7 +746,10 @@ async function listarTransacoesFixas(params: any, supabase: SupabaseClient) {
 }
 
 async function criarTransacaoFixa(params: any, supabase: SupabaseClient) {
-  const { user_id, descricao, valor, tipo, categoria_id, conta_id, dia_vencimento } = params
+  const {
+    user_id, descricao, valor, tipo,
+    categoria_id, conta_id, dia_vencimento, recorrencia = 'mensal'
+  } = params
 
   const { data, error } = await supabase
     .from('app_transacoes_fixas')
@@ -685,46 +760,57 @@ async function criarTransacaoFixa(params: any, supabase: SupabaseClient) {
       tipo,
       categoria_id,
       conta_id,
-      dia_mes: dia_vencimento,
-      data_inicio: new Date().toISOString().split('T')[0],
-      ativo: true
+      dia_vencimento,
+      recorrencia,
+      ativa: true
     })
     .select()
     .single()
 
   if (error) throw new Error(`Erro ao criar transação fixa: ${error.message}`)
+
   return { success: true, transacao_fixa: data, mensagem: `Transação fixa "${descricao}" criada!` }
 }
 
+// --- CARTÕES ---
 async function listarCartoes(params: { user_id: string }, supabase: SupabaseClient) {
   const { user_id } = params
+
   const { data, error } = await supabase
     .from('app_cartao_credito')
-    .select('id, nome, limite, dia_fechamento, dia_vencimento, cor, icone, ultimos_quatro_digitos')
+    .select('id, nome, bandeira, limite_total, limite_disponivel, dia_fechamento, dia_vencimento, cor, ativo')
     .eq('user_id', user_id)
+    .eq('ativo', true)
     .order('nome')
 
   if (error) throw new Error(`Erro ao listar cartões: ${error.message}`)
+
   return { success: true, cartoes: data, total: data?.length || 0 }
 }
 
 async function getFaturaAtual(params: any, supabase: SupabaseClient) {
   const { user_id, cartao_id, mes, ano } = params
+
   const now = new Date()
   const mesAtual = mes || now.getMonth() + 1
   const anoAtual = ano || now.getFullYear()
 
+  // Busca a fatura
   const { data: fatura } = await supabase
     .from('app_fatura')
     .select('*')
     .eq('cartao_id', cartao_id)
-    .eq('mes', mesAtual)
-    .eq('ano', anoAtual)
+    .eq('mes_referencia', mesAtual)
+    .eq('ano_referencia', anoAtual)
     .single()
 
+  // Busca transações do cartão no período
   const { data: transacoes } = await supabase
     .from('app_transacoes')
-    .select('id, descricao, valor, data, parcela_atual, total_parcelas, app_categoria(nome, cor)')
+    .select(`
+      id, descricao, valor, data, parcela_atual, total_parcelas,
+      app_categoria(nome, cor)
+    `)
     .eq('user_id', user_id)
     .eq('cartao_id', cartao_id)
     .eq('tipo', 'despesa_cartao')
@@ -736,7 +822,7 @@ async function getFaturaAtual(params: any, supabase: SupabaseClient) {
 
   return {
     success: true,
-    fatura: fatura || { mes: mesAtual, ano: anoAtual },
+    fatura: fatura || { mes_referencia: mesAtual, ano_referencia: anoAtual },
     transacoes,
     valor_total: valorTotal,
     quantidade_transacoes: transacoes?.length || 0
@@ -744,11 +830,16 @@ async function getFaturaAtual(params: any, supabase: SupabaseClient) {
 }
 
 async function criarDespesaCartao(params: any, supabase: SupabaseClient) {
-  const { user_id, cartao_id, descricao, valor_total, categoria_id, data, parcelas = 1 } = params
+  const {
+    user_id, cartao_id, descricao, valor_total,
+    categoria_id, data, parcelas = 1
+  } = params
+
   const dataCompra = data || new Date().toISOString().split('T')[0]
   const valorParcela = valor_total / parcelas
 
   const transacoes = []
+
   for (let i = 1; i <= parcelas; i++) {
     const dataParcela = new Date(dataCompra)
     dataParcela.setMonth(dataParcela.getMonth() + (i - 1))
@@ -764,7 +855,7 @@ async function criarDespesaCartao(params: any, supabase: SupabaseClient) {
       parcela_atual: i,
       total_parcelas: parcelas,
       status: 'pendente',
-      origem: 'manual'
+      origem: 'mcp_whatsapp'
     })
   }
 
@@ -784,8 +875,10 @@ async function criarDespesaCartao(params: any, supabase: SupabaseClient) {
   }
 }
 
+// --- CATEGORIAS ---
 async function listarCategorias(params: any, supabase: SupabaseClient) {
   const { user_id, tipo } = params
+
   let query = supabase
     .from('app_categoria')
     .select('id, nome, tipo, cor, icone, is_default')
@@ -795,23 +888,32 @@ async function listarCategorias(params: any, supabase: SupabaseClient) {
   if (tipo) query = query.eq('tipo', tipo)
 
   const { data, error } = await query
+
   if (error) throw new Error(`Erro ao listar categorias: ${error.message}`)
+
   return { success: true, categorias: data, total: data?.length || 0 }
 }
 
+// --- ORÇAMENTO ---
 async function getOrcamentoMes(params: any, supabase: SupabaseClient) {
   const { user_id, mes, ano } = params
+
   const now = new Date()
   const mesAtual = mes || now.getMonth() + 1
   const anoAtual = ano || now.getFullYear()
 
+  // Busca orçamentos
   const { data: orcamentos } = await supabase
     .from('app_orcamento')
-    .select('id, valor, app_categoria(id, nome, cor, icone)')
+    .select(`
+      id, valor_planejado,
+      app_categoria(id, nome, cor, icone)
+    `)
     .eq('user_id', user_id)
     .eq('mes', mesAtual)
     .eq('ano', anoAtual)
 
+  // Busca gastos por categoria no mês
   const { data: gastos } = await supabase
     .from('app_transacoes')
     .select('categoria_id, valor')
@@ -820,16 +922,18 @@ async function getOrcamentoMes(params: any, supabase: SupabaseClient) {
     .gte('data', `${anoAtual}-${String(mesAtual).padStart(2, '0')}-01`)
     .lte('data', `${anoAtual}-${String(mesAtual).padStart(2, '0')}-31`)
 
+  // Agrupa gastos por categoria
   const gastosPorCategoria: Record<number, number> = {}
   gastos?.forEach(g => {
     gastosPorCategoria[g.categoria_id] = (gastosPorCategoria[g.categoria_id] || 0) + parseFloat(g.valor)
   })
 
+  // Combina orçamentos com gastos
   const resultado = orcamentos?.map(o => ({
     categoria: o.app_categoria,
-    valor_planejado: parseFloat(o.valor),
+    valor_planejado: parseFloat(o.valor_planejado),
     valor_gasto: gastosPorCategoria[o.app_categoria.id] || 0,
-    percentual: ((gastosPorCategoria[o.app_categoria.id] || 0) / parseFloat(o.valor)) * 100
+    percentual: ((gastosPorCategoria[o.app_categoria.id] || 0) / parseFloat(o.valor_planejado)) * 100
   })) || []
 
   const totalPlanejado = resultado.reduce((s, o) => s + o.valor_planejado, 0)
@@ -852,48 +956,27 @@ async function getOrcamentoMes(params: any, supabase: SupabaseClient) {
 async function definirOrcamento(params: any, supabase: SupabaseClient) {
   const { user_id, categoria_id, valor_planejado, mes, ano } = params
 
-  // Primeiro tenta atualizar, se não existir, insere
-  const { data: existing } = await supabase
+  const { data, error } = await supabase
     .from('app_orcamento')
-    .select('id')
-    .eq('user_id', user_id)
-    .eq('categoria_id', categoria_id)
-    .eq('mes', mes)
-    .eq('ano', ano)
+    .upsert({
+      user_id,
+      categoria_id,
+      valor_planejado,
+      mes,
+      ano
+    }, { onConflict: 'user_id,categoria_id,mes,ano' })
+    .select()
     .single()
 
-  let data, error
-  if (existing) {
-    const result = await supabase
-      .from('app_orcamento')
-      .update({ valor: valor_planejado })
-      .eq('id', existing.id)
-      .select()
-      .single()
-    data = result.data
-    error = result.error
-  } else {
-    const result = await supabase
-      .from('app_orcamento')
-      .insert({
-        user_id,
-        categoria_id,
-        valor: valor_planejado,
-        mes,
-        ano
-      })
-      .select()
-      .single()
-    data = result.data
-    error = result.error
-  }
-
   if (error) throw new Error(`Erro ao definir orçamento: ${error.message}`)
+
   return { success: true, orcamento: data, mensagem: `Orçamento de R$ ${valor_planejado.toFixed(2)} definido!` }
 }
 
+// --- INDICADORES ---
 async function getResumoFinanceiro(params: any, supabase: SupabaseClient) {
   const { user_id, mes, ano } = params
+
   const now = new Date()
   const mesAtual = mes || now.getMonth() + 1
   const anoAtual = ano || now.getFullYear()
@@ -901,6 +984,7 @@ async function getResumoFinanceiro(params: any, supabase: SupabaseClient) {
   const dataInicio = `${anoAtual}-${String(mesAtual).padStart(2, '0')}-01`
   const dataFim = `${anoAtual}-${String(mesAtual).padStart(2, '0')}-31`
 
+  // Busca transações do mês
   const { data: transacoes } = await supabase
     .from('app_transacoes')
     .select('tipo, valor, status')
@@ -912,11 +996,12 @@ async function getResumoFinanceiro(params: any, supabase: SupabaseClient) {
   const despesas = transacoes?.filter(t => t.tipo === 'despesa').reduce((s, t) => s + parseFloat(t.valor), 0) || 0
   const despesasCartao = transacoes?.filter(t => t.tipo === 'despesa_cartao').reduce((s, t) => s + parseFloat(t.valor), 0) || 0
 
+  // Busca saldo total
   const { data: contas } = await supabase
     .from('app_conta')
     .select('saldo_atual')
     .eq('user_id', user_id)
-    .eq('status', 'ativo')
+    .eq('status', 'ativa')
 
   const saldoTotal = contas?.reduce((s, c) => s + parseFloat(c.saldo_atual || '0'), 0) || 0
 
@@ -945,21 +1030,24 @@ async function getResumoFinanceiro(params: any, supabase: SupabaseClient) {
 async function getSaudeFinanceira(params: { user_id: string }, supabase: SupabaseClient) {
   const { user_id } = params
 
+  // Busca indicadores calculados
   const { data: indicadores } = await supabase
     .from('app_indicadores')
     .select('*')
     .eq('user_id', user_id)
-    .order('ultima_atualizacao', { ascending: false })
+    .order('data_referencia', { ascending: false })
     .limit(1)
     .single()
 
+  // Busca dados básicos se não houver indicadores
   const now = new Date()
   const mes = now.getMonth() + 1
   const ano = now.getFullYear()
 
   const resumo = await getResumoFinanceiro({ user_id, mes, ano }, supabase)
 
-  let score = 50
+  // Calcula score simplificado (0-100)
+  let score = 50 // Base
   const taxaEconomia = parseFloat(resumo.resumo.taxa_economia)
 
   if (taxaEconomia >= 20) score += 30
@@ -967,8 +1055,9 @@ async function getSaudeFinanceira(params: { user_id: string }, supabase: Supabas
   else if (taxaEconomia >= 0) score += 10
   else score -= 20
 
+  // Ajusta por saldo positivo
   if (resumo.resumo.saldo_contas > 0) score += 10
-  if (resumo.resumo.saldo_contas > resumo.resumo.total_despesas * 3) score += 10
+  if (resumo.resumo.saldo_contas > resumo.resumo.total_despesas * 3) score += 10 // Reserva de emergência
 
   score = Math.max(0, Math.min(100, score))
 
@@ -998,64 +1087,61 @@ async function getSaudeFinanceira(params: { user_id: string }, supabase: Supabas
   }
 }
 
+// --- METAS ---
 async function listarMetas(params: any, supabase: SupabaseClient) {
-  const { user_id } = params
+  const { user_id, status } = params
+
   let query = supabase
     .from('app_meta_financeira')
     .select('*')
     .eq('user_id', user_id)
-    .order('data_fim')
+    .order('data_limite')
+
+  if (status) query = query.eq('status', status)
 
   const { data, error } = await query
+
   if (error) throw new Error(`Erro ao listar metas: ${error.message}`)
 
   const metas = data?.map(m => ({
     ...m,
-    valor_alvo: m.valor_meta, // alias para compatibilidade
-    progresso: m.valor_meta > 0 ? (m.valor_atual / m.valor_meta) * 100 : 0,
-    falta: m.valor_meta - m.valor_atual
+    progresso: m.valor_alvo > 0 ? (m.valor_atual / m.valor_alvo) * 100 : 0,
+    falta: m.valor_alvo - m.valor_atual
   }))
 
   return { success: true, metas, total: data?.length || 0 }
 }
 
 async function criarMeta(params: any, supabase: SupabaseClient) {
-  const { user_id, titulo, valor_alvo, data_limite, valor_atual = 0, cor } = params
-
-  const hoje = new Date().toISOString().split('T')[0]
-
-  // data_fim é obrigatória - se não informada, define 1 ano a partir de hoje
-  let dataFim = data_limite
-  if (!dataFim) {
-    const umAnoDepois = new Date()
-    umAnoDepois.setFullYear(umAnoDepois.getFullYear() + 1)
-    dataFim = umAnoDepois.toISOString().split('T')[0]
-  }
+  const { user_id, titulo, valor_alvo, data_limite, valor_atual = 0, icone, cor } = params
 
   const { data, error } = await supabase
     .from('app_meta_financeira')
     .insert({
       user_id,
       titulo,
-      valor_meta: valor_alvo,
+      valor_alvo,
       valor_atual,
-      data_inicio: hoje,
-      data_fim: dataFim,
-      cor: cor || '#10B981'
+      data_limite,
+      icone: icone || 'target',
+      cor: cor || '#10B981',
+      status: 'ativa'
     })
     .select()
     .single()
 
   if (error) throw new Error(`Erro ao criar meta: ${error.message}`)
+
   return { success: true, meta: data, mensagem: `Meta "${titulo}" criada! Objetivo: R$ ${valor_alvo.toFixed(2)}` }
 }
 
 async function atualizarProgressoMeta(params: any, supabase: SupabaseClient) {
   const { user_id, meta_id, valor_adicional } = params
 
+  // Busca meta atual
   const { data: meta } = await supabase
     .from('app_meta_financeira')
-    .select('valor_atual, valor_meta, titulo')
+    .select('valor_atual, valor_alvo, titulo')
     .eq('id', meta_id)
     .eq('user_id', user_id)
     .single()
@@ -1065,31 +1151,32 @@ async function atualizarProgressoMeta(params: any, supabase: SupabaseClient) {
   }
 
   const novoValor = parseFloat(meta.valor_atual) + valor_adicional
-  const concluida = novoValor >= meta.valor_meta
+  const status = novoValor >= meta.valor_alvo ? 'concluida' : 'ativa'
 
   const { data, error } = await supabase
     .from('app_meta_financeira')
-    .update({ valor_atual: novoValor })
+    .update({ valor_atual: novoValor, status })
     .eq('id', meta_id)
     .select()
     .single()
 
   if (error) throw new Error(`Erro ao atualizar meta: ${error.message}`)
 
-  const progresso = (novoValor / meta.valor_meta) * 100
+  const progresso = (novoValor / meta.valor_alvo) * 100
 
   return {
     success: true,
     meta: data,
-    mensagem: concluida
+    mensagem: status === 'concluida'
       ? `Parabéns! Você atingiu a meta "${meta.titulo}"!`
-      : `Meta atualizada: R$ ${novoValor.toFixed(2)} de R$ ${meta.valor_meta.toFixed(2)} (${progresso.toFixed(0)}%)`
+      : `Meta atualizada: R$ ${novoValor.toFixed(2)} de R$ ${meta.valor_alvo.toFixed(2)} (${progresso.toFixed(0)}%)`
   }
 }
 
 // ==================== MCP HANDLER ====================
 
 serve(async (req) => {
+  // CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -1105,7 +1192,7 @@ serve(async (req) => {
     let response: MCPResponse
 
     switch (request.method) {
-      // === PROTOCOLO MCP - HANDSHAKE ===
+      // ============ NOVOS MÉTODOS PARA PROTOCOLO MCP ============
       case 'initialize':
         response = {
           jsonrpc: '2.0',
@@ -1121,8 +1208,9 @@ serve(async (req) => {
       case 'notifications/initialized':
         response = { jsonrpc: '2.0', id: request.id, result: {} }
         break
+      // ============ FIM DOS NOVOS MÉTODOS ============
 
-      // === TOOLS ===
+      // Lista as tools disponíveis
       case 'tools/list':
         response = {
           jsonrpc: '2.0',
@@ -1131,8 +1219,10 @@ serve(async (req) => {
         }
         break
 
+      // Executa uma tool
       case 'tools/call':
         const { name, arguments: args } = request.params
+
         try {
           const result = await executeTool(name, args || {}, supabase)
           response = {
@@ -1157,6 +1247,7 @@ serve(async (req) => {
         }
         break
 
+      // Método não suportado
       default:
         response = {
           jsonrpc: '2.0',
@@ -1189,3 +1280,30 @@ serve(async (req) => {
     })
   }
 })
+```
+
+---
+
+## O que foi alterado
+
+Apenas 2 cases foram adicionados no switch do MCP Handler (linhas ~880-895):
+
+```typescript
+case 'initialize':
+  response = {
+    jsonrpc: '2.0',
+    id: request.id,
+    result: {
+      protocolVersion: '2024-11-05',
+      capabilities: { tools: { listChanged: false } },
+      serverInfo: { name: 'vitto-mcp-server', version: '1.0.0' }
+    }
+  }
+  break
+
+case 'notifications/initialized':
+  response = { jsonrpc: '2.0', id: request.id, result: {} }
+  break
+```
+
+Esses métodos são necessários para o handshake do protocolo MCP que o n8n MCP Client utiliza.

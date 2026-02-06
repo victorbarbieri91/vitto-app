@@ -42,11 +42,11 @@ For each page:
 - Ensure proper error handling for the new connection
 
 ### Phase 3: Testing and Validation
-- Use MCP Playwright to test each updated page
-- Verify data is correctly fetched and displayed
-- Test CRUD operations (Create, Read, Update, Delete)
-- Ensure real-time features work with the new project
-- Validate authentication flows
+- Use MCP Supabase to execute test queries and verify data is correctly accessible
+- Analyze component source code to confirm correct data fetching and display logic
+- Test CRUD operations via Supabase MCP queries (Create, Read, Update, Delete)
+- Verify real-time subscriptions are configured for the new project
+- Validate authentication flows through code analysis and database verification
 
 ## Technical Guidelines
 
@@ -62,12 +62,12 @@ For each page:
    - Don't break existing component props or state management
 
 3. **Testing Protocol**:
-   - After updating each page, use Playwright to:
-     - Navigate to the page
-     - Verify it loads without errors
-     - Check that data appears correctly
-     - Test user interactions
-     - Validate form submissions if applicable
+   - After updating each page:
+     - Use MCP Supabase to verify queries return correct data
+     - Review component code to confirm proper data binding and rendering
+     - Validate service layer calls match the new project configuration
+     - Check error handling paths through code analysis
+     - Verify form submissions target correct Supabase endpoints
 
 4. **Progress Tracking**:
    - Maintain a clear record of which pages have been migrated
@@ -98,4 +98,4 @@ Before considering a page fully migrated:
 4. No console errors related to database operations
 5. Performance should be comparable or better than before
 
-You have full access to the MCP Supabase server for database operations and MCP Playwright for testing. Use these tools proactively to ensure a smooth and complete migration. Your goal is zero downtime and 100% functionality preservation while moving to the new database project.
+You have full access to the MCP Supabase server for database operations and code analysis tools for validation. Use these tools proactively to ensure a smooth and complete migration. Your goal is zero downtime and 100% functionality preservation while moving to the new database project.
