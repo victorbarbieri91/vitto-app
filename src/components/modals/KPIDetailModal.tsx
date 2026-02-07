@@ -298,15 +298,32 @@ export default function KPIDetailModal({
         );
 
       case 'receitas':
-        // Mostra apenas receitas efetivadas (confirmadas)
         return (
           <>
-            <div className="px-3 py-2 text-xs text-gray-500 italic">
-              Apenas transações efetivadas
-            </div>
             <CalcLine
-              label="RECEITAS CONFIRMADAS"
+              label="Receitas Efetivadas"
               value={data.receitasConfirmadas}
+              colors={config.colors}
+            />
+            {data.receitasPendentes > 0 && (
+              <CalcLine
+                label="Receitas Pendentes"
+                value={data.receitasPendentes}
+                operator="+"
+                colors={config.colors}
+              />
+            )}
+            {data.receitasFixasNaoGeradas > 0 && (
+              <CalcLine
+                label="Receitas Fixas Previstas"
+                value={data.receitasFixasNaoGeradas}
+                operator="+"
+                colors={config.colors}
+              />
+            )}
+            <CalcLine
+              label="TOTAL RECEITAS"
+              value={consolidatedData.totalReceitas}
               isTotal
               colors={config.colors}
             />
@@ -314,15 +331,40 @@ export default function KPIDetailModal({
         );
 
       case 'despesas':
-        // Mostra apenas despesas efetivadas (confirmadas)
         return (
           <>
-            <div className="px-3 py-2 text-xs text-gray-500 italic">
-              Apenas transações efetivadas
-            </div>
             <CalcLine
-              label="DESPESAS CONFIRMADAS"
+              label="Despesas Efetivadas"
               value={data.despesasConfirmadas}
+              colors={config.colors}
+            />
+            {data.despesasPendentes > 0 && (
+              <CalcLine
+                label="Despesas Pendentes"
+                value={data.despesasPendentes}
+                operator="+"
+                colors={config.colors}
+              />
+            )}
+            {data.despesasFixasNaoGeradas > 0 && (
+              <CalcLine
+                label="Despesas Fixas Previstas"
+                value={data.despesasFixasNaoGeradas}
+                operator="+"
+                colors={config.colors}
+              />
+            )}
+            {data.faturasMes > 0 && (
+              <CalcLine
+                label="Faturas de Cartao"
+                value={data.faturasMes}
+                operator="+"
+                colors={config.colors}
+              />
+            )}
+            <CalcLine
+              label="TOTAL DESPESAS"
+              value={consolidatedData.totalDespesas}
               isTotal
               colors={config.colors}
             />
@@ -330,20 +372,16 @@ export default function KPIDetailModal({
         );
 
       case 'economia':
-        // Economia = Receitas Confirmadas - Despesas Confirmadas
         return (
           <>
-            <div className="px-3 py-2 text-xs text-gray-500 italic">
-              Apenas transações efetivadas
-            </div>
             <CalcLine
-              label="Receitas Confirmadas"
-              value={data.receitasConfirmadas}
+              label="Total Receitas"
+              value={consolidatedData.totalReceitas}
               colors={config.colors}
             />
             <CalcLine
-              label="Despesas Confirmadas"
-              value={data.despesasConfirmadas}
+              label="Total Despesas"
+              value={consolidatedData.totalDespesas}
               operator="-"
               colors={config.colors}
             />

@@ -11,12 +11,12 @@ import { cn } from '../../utils/cn';
 import { useAuth } from '../../store/AuthContext';
 import { supabase } from '../../services/supabase/client';
 
-interface ProximaTransacao {
-  id: number;
+interface ProximoLancamento {
+  id: string;
   descricao: string;
   valor: number;
   data: string;
-  tipo: 'receita' | 'despesa' | 'despesa_cartao';
+  tipo: 'receita' | 'despesa' | 'despesa_cartao' | 'fatura';
   categoria_nome: string;
 }
 
@@ -37,14 +37,14 @@ interface ProximasTransacoesCardProps {
 
 export default function ProximasTransacoesCard({ className, limit = 5 }: ProximasTransacoesCardProps) {
   const { user } = useAuth();
-  const [transactions, setTransactions] = useState<ProximaTransacao[]>([]);
+  const [items, setItems] = useState<ProximoLancamento[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodFilter>('7days');
 
   useEffect(() => {
     if (!user) return;
 
-    const fetchTransactions = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
 
@@ -56,16 +56,10 @@ export default function ProximasTransacoesCard({ className, limit = 5 }: Proxima
         futureDate.setDate(futureDate.getDate() + daysToAdd);
         const futureStr = futureDate.toISOString().split('T')[0];
 
-        const { data, error } = await supabase
+        // 1. Fetch pending transactions
+        const txPromise = supabase
           .from('app_transacoes')
-          .select(`
-            id,
-            descricao,
-            valor,
-            data,
-            tipo,
-            app_categoria(nome)
-          `)
+          .select(`id, descricao, valor, data, tipo, app_categoria(nome)`)
           .eq('user_id', user.id)
           .eq('status', 'pendente')
           .gte('data', today)
@@ -73,10 +67,17 @@ export default function ProximasTransacoesCard({ className, limit = 5 }: Proxima
           .order('data', { ascending: true })
           .limit(limit);
 
-        if (error) throw error;
+        // 2. Fetch user's card IDs for fatura query
+        const cardsPromise = supabase
+          .from('app_cartao_credito')
+          .select('id')
+          .eq('user_id', user.id);
 
-        const processed: ProximaTransacao[] = (data || []).map((t: any) => ({
-          id: t.id,
+        const [txResult, cardsResult] = await Promise.all([txPromise, cardsPromise]);
+
+        // Process transactions
+        const allItems: ProximoLancamento[] = (txResult.data || []).map((t: any) => ({
+          id: `tx-${t.id}`,
           descricao: t.descricao,
           valor: Number(t.valor),
           data: t.data,
@@ -84,15 +85,52 @@ export default function ProximasTransacoesCard({ className, limit = 5 }: Proxima
           categoria_nome: t.app_categoria?.nome || 'Sem categoria',
         }));
 
-        setTransactions(processed);
+        // 3. Fetch faturas with due dates in the period
+        const cardIds = (cardsResult.data || []).map((c: any) => c.id);
+        if (cardIds.length > 0) {
+          const { data: faturas } = await supabase
+            .from('app_fatura')
+            .select('id, mes, ano, status, data_vencimento, cartao_id, app_cartao_credito(nome)')
+            .in('cartao_id', cardIds)
+            .in('status', ['aberta', 'fechada'])
+            .gte('data_vencimento', today)
+            .lte('data_vencimento', futureStr);
+
+          if (faturas && faturas.length > 0) {
+            // Get dynamic totals for each fatura
+            const totals = await Promise.all(
+              faturas.map(f =>
+                supabase.rpc('calcular_valor_total_fatura', { p_fatura_id: f.id })
+              )
+            );
+
+            faturas.forEach((f: any, i) => {
+              const total = Number(totals[i].data) || 0;
+              if (total > 0) {
+                allItems.push({
+                  id: `fatura-${f.id}`,
+                  descricao: `Fatura ${f.app_cartao_credito?.nome || 'Cartao'}`,
+                  valor: total,
+                  data: f.data_vencimento,
+                  tipo: 'fatura',
+                  categoria_nome: 'Cartao de Credito',
+                });
+              }
+            });
+          }
+        }
+
+        // Sort by date and limit
+        allItems.sort((a, b) => a.data.localeCompare(b.data));
+        setItems(allItems.slice(0, limit));
       } catch (err) {
-        console.error('Erro ao buscar proximas transacoes:', err);
+        console.error('Erro ao buscar proximos lancamentos:', err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchTransactions();
+    fetchData();
   }, [user, limit, selectedPeriod]);
 
   const formatCurrency = (value: number) => {
@@ -119,13 +157,19 @@ export default function ProximasTransacoesCard({ className, limit = 5 }: Proxima
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
   };
 
-  const getTypeStyles = (tipo: ProximaTransacao['tipo']) => {
+  const getTypeStyles = (tipo: ProximoLancamento['tipo']) => {
     switch (tipo) {
       case 'receita':
         return {
           icon: <ArrowUpCircle className="w-3.5 h-3.5" />,
           color: 'text-emerald-600',
           bg: 'bg-emerald-500/20',
+        };
+      case 'fatura':
+        return {
+          icon: <CreditCard className="w-3.5 h-3.5" />,
+          color: 'text-purple-600',
+          bg: 'bg-purple-500/20',
         };
       case 'despesa_cartao':
         return {
@@ -156,7 +200,7 @@ export default function ProximasTransacoesCard({ className, limit = 5 }: Proxima
         </div>
         {showCount && (
           <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-            {transactions.length}
+            {items.length}
           </span>
         )}
       </div>
@@ -195,7 +239,7 @@ export default function ProximasTransacoesCard({ className, limit = 5 }: Proxima
   }
 
   // Empty state
-  if (transactions.length === 0) {
+  if (items.length === 0) {
     return (
       <div className={cn(cardStyle, className)}>
         {renderHeader(false)}
@@ -217,12 +261,12 @@ export default function ProximasTransacoesCard({ className, limit = 5 }: Proxima
       {/* Lista */}
       <div className="flex-1 p-2 overflow-y-auto custom-scrollbar">
         <div className="space-y-1">
-          {transactions.map((transaction, index) => {
-            const styles = getTypeStyles(transaction.tipo);
+          {items.map((item, index) => {
+            const styles = getTypeStyles(item.tipo);
 
             return (
               <motion.div
-                key={transaction.id}
+                key={item.id}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: index * 0.03 }}
@@ -234,16 +278,16 @@ export default function ProximasTransacoesCard({ className, limit = 5 }: Proxima
 
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-slate-700 truncate">
-                    {transaction.descricao}
+                    {item.descricao}
                   </p>
                 </div>
 
                 <div className="text-right flex items-center gap-2">
                   <p className={cn('text-xs font-semibold', styles.color)}>
-                    {transaction.tipo === 'receita' ? '+' : '-'}{formatCurrency(transaction.valor)}
+                    {item.tipo === 'receita' ? '+' : '-'}{formatCurrency(item.valor)}
                   </p>
                   <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
-                    {formatRelativeDate(transaction.data)}
+                    {formatRelativeDate(item.data)}
                   </span>
                 </div>
               </motion.div>

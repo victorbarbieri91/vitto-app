@@ -59,6 +59,18 @@ export class FaturaService extends BaseApi {
     return { data, error };
   }
 
+  /**
+   * Auto-close faturas where dia_fechamento has passed
+   */
+  async autoCloseInvoices(userId: string): Promise<number> {
+    const { data, error } = await this.supabase.rpc('atualizar_status_faturas', { p_user_id: userId });
+    if (error) {
+      console.error('Erro ao atualizar status das faturas:', error);
+      return 0;
+    }
+    return data || 0;
+  }
+
   async payInvoice(request: PayInvoiceRequest) {
     const { data, error } = await this.supabase.rpc('pagar_fatura', request);
     return { data, error };

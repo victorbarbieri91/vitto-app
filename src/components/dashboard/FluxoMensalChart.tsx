@@ -37,60 +37,45 @@ export default function FluxoMensalChart({ className, months = 4 }: FluxoMensalC
         setError(null);
 
         const today = new Date();
-        const startDate = new Date(today.getFullYear(), today.getMonth() - months + 1, 1);
-        const endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 
-        const startStr = startDate.toISOString().split('T')[0];
-        const endStr = endDate.toISOString().split('T')[0];
-
-        // Buscar transações (receita/despesa), todos os status relevantes
-        // despesa_cartao excluída pois é consolidada nas faturas
-        const { data: transactions, error: fetchError } = await supabase
-          .from('app_transacoes')
-          .select('data, valor, tipo, status')
-          .eq('user_id', user.id)
-          .gte('data', startStr)
-          .lte('data', endStr)
-          .in('status', ['confirmado', 'efetivado', 'pendente'])
-          .in('tipo', ['receita', 'despesa']);
-
-        if (fetchError) throw fetchError;
-
-        const monthlyData: Record<string, { receitas: number; despesas: number }> = {};
-
+        // Gerar lista de meses a buscar
+        const monthsList: { mes: number; ano: number }[] = [];
         for (let i = 0; i < months; i++) {
           const date = new Date(today.getFullYear(), today.getMonth() - months + 1 + i, 1);
-          const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-          monthlyData[key] = { receitas: 0, despesas: 0 };
+          monthsList.push({ mes: date.getMonth() + 1, ano: date.getFullYear() });
         }
 
-        (transactions || []).forEach((t: any) => {
-          const date = new Date(t.data);
-          const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        // Usar obter_dashboard_mes para cada mês (inclui transações virtuais/fixas)
+        const results = await Promise.all(
+          monthsList.map(({ mes, ano }) =>
+            supabase.rpc('obter_dashboard_mes', {
+              p_user_id: user.id,
+              p_mes: mes,
+              p_ano: ano,
+            })
+          )
+        );
 
-          if (monthlyData[key]) {
-            if (t.tipo === 'receita') {
-              monthlyData[key].receitas += Number(t.valor);
-            } else if (t.tipo === 'despesa') {
-              // Apenas despesas normais, não despesa_cartao (já filtrado na query)
-              monthlyData[key].despesas += Number(t.valor);
-            }
+        const chartData: MonthData[] = monthsList.map(({ mes, ano }, i) => {
+          const result = results[i];
+          let receitas = 0;
+          let despesas = 0;
+
+          if (!result.error && result.data?.indicadores_mes) {
+            const ind = result.data.indicadores_mes;
+            receitas = Number(ind.total_receitas_mes) || 0;
+            despesas = Number(ind.total_despesas_mes) || 0;
           }
-        });
 
-        const chartData: MonthData[] = Object.entries(monthlyData)
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([key, values]) => {
-            const [ano, mesNum] = key.split('-').map(Number);
-            return {
-              mes: monthNames[mesNum - 1],
-              mesNum,
-              ano,
-              receitas: values.receitas,
-              despesas: values.despesas,
-              saldo: values.receitas - values.despesas
-            };
-          });
+          return {
+            mes: monthNames[mes - 1],
+            mesNum: mes,
+            ano,
+            receitas,
+            despesas,
+            saldo: receitas - despesas,
+          };
+        });
 
         setData(chartData);
       } catch (err) {

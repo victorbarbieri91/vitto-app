@@ -5,6 +5,7 @@ import { saldoService, type MetricasFinanceiras } from '../services/api/SaldoSer
 import { transactionService } from '../services/api/TransactionService';
 import { fixedTransactionService } from '../services/api/FixedTransactionService';
 import { useTransactionContext } from '../store/TransactionContext';
+import { faturaService } from '../services/api/FaturaService';
 
 interface MonthlyDashboardData {
   conta_id: number;
@@ -310,6 +311,9 @@ export const MonthlyDashboardProvider: React.FC<MonthlyDashboardProviderProps> =
       const targetYear = year || currentYear;
 
       console.log(`📊 Buscando dados do dashboard para ${targetMonth}/${targetYear} - usuário ${userId}`);
+
+      // Auto-close faturas whose closing date has passed
+      await faturaService.autoCloseInvoices(userId);
 
       // Usar a nova função obter_dashboard_mes para dados mensais específicos
       const { data, error } = await supabase.rpc('obter_dashboard_mes', {
