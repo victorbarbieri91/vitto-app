@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   CreditCard as CreditCardIcon,
   AlertCircle,
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { ModernCard, ModernButton } from '../../components/ui/modern';
 import CreditCardItem from '../../components/cards/CreditCardItem';
+import InvoiceDrawer from '../../components/cards/InvoiceDrawer';
 import CreditCardForm from '../../components/forms/CreditCardForm';
 import {
   creditCardService,
@@ -24,12 +25,17 @@ import { formatCurrency } from '../../utils/format';
 
 export default function CardsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [cards, setCards] = useState<CreditCardWithUsage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<CreditCardWithUsage | undefined>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // InvoiceDrawer state
+  const [selectedCardForInvoice, setSelectedCardForInvoice] = useState<CreditCardWithUsage | null>(null);
+  const [isInvoiceDrawerOpen, setIsInvoiceDrawerOpen] = useState(false);
 
   const fetchCards = async () => {
     try {
@@ -96,11 +102,23 @@ export default function CardsPage() {
   };
 
   const handleViewInvoices = (card: CreditCardWithUsage) => {
-    // Redirecionar para a página de lançamentos com filtros
-    const currentMonth = new Date().getMonth() + 1;
-    const currentYear = new Date().getFullYear();
-    navigate(`/transactions?type=cartao&card_id=${card.id}&month=${currentMonth}-${currentYear}`);
+    setSelectedCardForInvoice(card);
+    setIsInvoiceDrawerOpen(true);
   };
+
+  // Deep-link: abrir drawer automaticamente via URL params (/cartoes?card_id=5)
+  useEffect(() => {
+    const cardId = searchParams.get('card_id');
+    if (cardId && cards.length > 0) {
+      const card = cards.find(c => c.id === parseInt(cardId));
+      if (card) {
+        setSelectedCardForInvoice(card);
+        setIsInvoiceDrawerOpen(true);
+        // Limpar params da URL para nao reabrir ao navegar
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [cards, searchParams]);
 
   const getTotalFaturas = () => {
     return cards.reduce((total, card) => total + (card.fatura_atual || 0), 0);
@@ -252,6 +270,17 @@ export default function CardsPage() {
           </div>
         </div>
       )}
+
+      {/* Invoice Drawer */}
+      <InvoiceDrawer
+        card={selectedCardForInvoice}
+        isOpen={isInvoiceDrawerOpen}
+        onClose={() => {
+          setIsInvoiceDrawerOpen(false);
+          setSelectedCardForInvoice(null);
+          fetchCards(); // Refresh card data after potential payment
+        }}
+      />
 
       {/* Formulário de cartão */}
       <CreditCardForm

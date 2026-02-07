@@ -258,14 +258,14 @@ export class CreditCardService {
     const now = new Date();
     const mesAtual = now.getMonth() + 1;
     const anoAtual = now.getFullYear();
-    
+
     const proximoMes = mesAtual === 12 ? 1 : mesAtual + 1;
     const proximoAno = mesAtual === 12 ? anoAtual + 1 : anoAtual;
 
-    // Buscar faturas atual e próxima
+    // Buscar faturas atual e próxima (com IDs para cálculo dinâmico)
     const { data: faturas, error } = await supabase
       .from('app_fatura')
-      .select('mes, ano, valor_total')
+      .select('id, mes, ano')
       .eq('cartao_id', cardId)
       .in('status', ['aberta', 'fechada'])
       .or(`and(mes.eq.${mesAtual},ano.eq.${anoAtual}),and(mes.eq.${proximoMes},ano.eq.${proximoAno})`);
@@ -276,11 +276,18 @@ export class CreditCardService {
     let faturaProxima = 0;
 
     if (faturas) {
-      for (const fatura of faturas) {
+      // Use calcular_valor_total_fatura RPC for dynamic values (includes virtual fixed)
+      const results = await Promise.all(
+        faturas.map(f => supabase.rpc('calcular_valor_total_fatura', { p_fatura_id: f.id }))
+      );
+
+      for (let i = 0; i < faturas.length; i++) {
+        const fatura = faturas[i];
+        const valor = Number(results[i].data) || 0;
         if (fatura.mes === mesAtual && fatura.ano === anoAtual) {
-          faturaAtual = Number(fatura.valor_total);
+          faturaAtual = valor;
         } else if (fatura.mes === proximoMes && fatura.ano === proximoAno) {
-          faturaProxima = Number(fatura.valor_total);
+          faturaProxima = valor;
         }
       }
     }
@@ -289,7 +296,7 @@ export class CreditCardService {
 
     return {
       limite_usado: limiteUsado,
-      limite_disponivel: 0, // Será calculado quando buscar o limite
+      limite_disponivel: 0,
       fatura_atual: faturaAtual,
       fatura_proxima: faturaProxima,
     };

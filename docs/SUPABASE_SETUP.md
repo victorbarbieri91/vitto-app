@@ -255,7 +255,46 @@ npx supabase inspect db  # Análise do banco
 
 ---
 
-**📅 Última atualização**: Janeiro 2025  
+## 🔒 **Segurança - Configurações Recomendadas**
+
+### ⚠️ **Ação Manual Necessária: Proteção contra Senhas Vazadas**
+
+O Supabase pode verificar se senhas usadas pelos usuários já foram vazadas em breaches de dados conhecidos (usando HaveIBeenPwned). Esta proteção está **desabilitada por padrão**.
+
+**Para habilitar:**
+
+1. Acesse o **Dashboard do Supabase**: https://supabase.com/dashboard
+2. Selecione o projeto **Vitto** (omgrgbyexbxtqoyewwra)
+3. Navegue para: **Authentication** → **Providers** → **Email**
+4. Na seção **Password Security**, habilite:
+   - ✅ **Leaked Password Protection** (Proteção contra senhas vazadas)
+5. Clique em **Save**
+
+**Por que isso é importante?**
+- Previne que usuários usem senhas que já foram comprometidas
+- Aumenta significativamente a segurança das contas
+- É uma verificação silenciosa (não expõe a senha)
+
+### ✅ **Configurações de Segurança Aplicadas (Migrations)**
+
+As seguintes correções de segurança foram aplicadas via migrations:
+
+| Correção | Status | Migration |
+|----------|--------|-----------|
+| RLS em `app_admin_users` | ✅ Aplicado | `enable_rls_app_admin_users` |
+| `search_path` em funções SECURITY DEFINER | ✅ Aplicado | `add_search_path_via_alter` |
+| Lógica de período de faturas | ✅ Corrigido | `fix_credit_card_invoice_period_v3` |
+
+### 🔐 **Boas Práticas de Segurança**
+
+1. **Row Level Security (RLS)**: Todas as tabelas devem ter RLS habilitado
+2. **Funções SECURITY DEFINER**: Sempre usar `SET search_path TO 'public'`
+3. **Chaves de API**: Nunca expor `service_role` key no frontend
+4. **Policies**: Revisar policies regularmente
+
+---
+
+**📅 Última atualização**: Fevereiro 2026
 **👨‍💻 Projeto**: Vitto - Assistente Financeiro Inteligente
 
 ---

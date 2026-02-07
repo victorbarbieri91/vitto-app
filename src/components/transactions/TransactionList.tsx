@@ -44,6 +44,8 @@ export interface TransactionListRef {
   fetchTransactions: () => void;
 }
 
+type RecurrenceFilter = 'all' | 'fixa' | 'parcelada' | 'unica';
+
 interface TransactionListProps {
   onEditTransaction?: (transaction: Transaction) => void;
   onDeleteTransaction?: (transactionId: number) => void;
@@ -53,12 +55,14 @@ interface TransactionListProps {
   onEditFixedTransaction?: (fixedTransactionId: number) => void;
   onDeleteInvoice?: (invoiceId: number) => void;
   onActivateTransaction?: (transactionId: number) => void;
+  onInvoiceClick?: (transaction: Transaction) => void;
   className?: string;
   showFilters?: boolean;
   defaultFilters?: Partial<TransactionFilters>;
   includeVirtualFixed?: boolean;
   excludeCardTransactions?: boolean;
   preloadedTransactions?: Transaction[];
+  recurrenceFilter?: RecurrenceFilter;
 }
 
 interface ExtendedFilters extends TransactionFilters {
@@ -95,12 +99,14 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
   onEditFixedTransaction,
   onDeleteInvoice,
   onActivateTransaction,
+  onInvoiceClick,
   className,
   showFilters = true,
   defaultFilters = {},
   includeVirtualFixed = false,
   excludeCardTransactions = false,
-  preloadedTransactions = null
+  preloadedTransactions = null,
+  recurrenceFilter = 'all'
 }, ref) => {
   const { user } = useAuth();
   const { accounts, loading: accountsLoading } = useAccounts();
@@ -372,17 +378,36 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
     fetchTransactions,
   }));
 
-  // Filtrar por texto localmente, agora usando os campos da view
+  // Filtrar por texto e recorrencia localmente
   const filteredTransactions = useMemo(() => {
-    if (!filters.searchText) return transactions;
-    
-    const searchLower = filters.searchText.toLowerCase();
-    return transactions.filter((transaction: Transaction) => 
-      (transaction.descricao || '').toLowerCase().includes(searchLower) ||
-      (transaction.categoria_nome || '').toLowerCase().includes(searchLower) ||
-      (transaction.conta_nome || '').toLowerCase().includes(searchLower)
-    );
-  }, [transactions, filters.searchText]);
+    let data = transactions;
+
+    // Filtro por recorrencia (chips)
+    if (recurrenceFilter && recurrenceFilter !== 'all') {
+      data = data.filter((t: Transaction) => {
+        const isFixed = t.is_virtual_fixed || t.origem === 'fixo' || t.fixo_id;
+        const isInstallment = t.total_parcelas > 1 || t.parcela_atual;
+        const isInvoice = t.is_fatura || t.tipo_registro === 'fatura';
+
+        if (recurrenceFilter === 'fixa') return isFixed;
+        if (recurrenceFilter === 'parcelada') return isInstallment;
+        if (recurrenceFilter === 'unica') return !isFixed && !isInstallment && !isInvoice;
+        return true;
+      });
+    }
+
+    // Filtro por texto
+    if (filters.searchText) {
+      const searchLower = filters.searchText.toLowerCase();
+      data = data.filter((transaction: Transaction) =>
+        (transaction.descricao || '').toLowerCase().includes(searchLower) ||
+        (transaction.categoria_nome || '').toLowerCase().includes(searchLower) ||
+        (transaction.conta_nome || '').toLowerCase().includes(searchLower)
+      );
+    }
+
+    return data;
+  }, [transactions, filters.searchText, recurrenceFilter]);
 
   // Paginação otimizada
   const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
@@ -788,6 +813,7 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
                     onEditFixedTransaction={onEditFixedTransaction}
                     onDeleteInvoice={onDeleteInvoice}
                     onActivateTransaction={onActivateTransaction}
+                    onInvoiceClick={onInvoiceClick}
                   />
                 ))}
               </div>
@@ -906,16 +932,28 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       {/* Verificar se é uma fatura */}
                       {transaction.is_fatura ? (
-                        // Botão especial para excluir fatura
-                        onDeleteInvoice && (
-                          <button
-                            onClick={() => onDeleteInvoice(transaction.id)}
-                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                            title="Excluir fatura e todas as transações do cartão neste mês"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )
+                        <div className="flex items-center gap-1">
+                          {/* Botão para ver detalhes da fatura no módulo cartões */}
+                          {onInvoiceClick && (
+                            <button
+                              onClick={() => onInvoiceClick(transaction)}
+                              className="p-1.5 text-slate-400 hover:text-coral-500 hover:bg-coral-50 rounded transition-colors"
+                              title="Ver detalhes da fatura"
+                            >
+                              <CreditCard className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {/* Botão para excluir fatura */}
+                          {onDeleteInvoice && (
+                            <button
+                              onClick={() => onDeleteInvoice(transaction.id)}
+                              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                              title="Excluir fatura"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       ) : transaction.is_virtual || transaction.is_virtual_fixed || (transaction.fatura_details && transaction.fatura_details.is_virtual) ? (
                         // Botões para lançamentos fixos virtuais (pendentes)
                         <>

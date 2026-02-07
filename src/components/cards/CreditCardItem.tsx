@@ -73,9 +73,7 @@ export default function CreditCardItem({
     if (onViewInvoices) {
       onViewInvoices(card);
     } else {
-      const currentMonth = new Date().getMonth() + 1;
-      const currentYear = new Date().getFullYear();
-      navigate(`/transactions?type=cartao&card_id=${card.id}&month=${currentMonth}-${currentYear}`);
+      navigate(`/cartoes?card_id=${card.id}`);
     }
   };
 

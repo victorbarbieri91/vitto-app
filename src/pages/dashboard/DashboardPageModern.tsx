@@ -92,6 +92,27 @@ function DashboardContent() {
     openModal(type);
   };
 
+  // Helper para subtitles dos KPIs (mostra valor efetivado quando há previstos)
+  const fmtShort = (v: number) => new Intl.NumberFormat('pt-BR', {
+    style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0
+  }).format(v);
+
+  const receitasConfirmadas = kpiDetailData.receitasConfirmadas;
+  const despesasConfirmadas = kpiDetailData.despesasConfirmadas;
+  const receitasPrevistas = consolidatedData.totalReceitas - receitasConfirmadas;
+  const despesasPrevistas = consolidatedData.totalDespesas - despesasConfirmadas;
+
+  const receitasSubtitle = receitasPrevistas > 0
+    ? `${fmtShort(receitasConfirmadas)} efetivado`
+    : undefined;
+  const despesasSubtitle = despesasPrevistas > 0
+    ? `${fmtShort(despesasConfirmadas)} efetivado`
+    : undefined;
+  const economiaConfirmada = receitasConfirmadas - despesasConfirmadas;
+  const economiaSubtitle = (receitasPrevistas > 0 || despesasPrevistas > 0)
+    ? `${fmtShort(economiaConfirmada)} efetivado`
+    : undefined;
+
   return (
     <motion.div
       className={classes.container}
@@ -160,6 +181,7 @@ function DashboardContent() {
               <SimpleMetricCard
                 title="Receitas"
                 value={consolidatedData.totalReceitas}
+                subtitle={receitasSubtitle}
                 icon={<TrendingUp className="w-3 h-3" />}
                 isLoading={loading}
                 colorScheme="green"
@@ -170,6 +192,7 @@ function DashboardContent() {
               <SimpleMetricCard
                 title="Despesas"
                 value={consolidatedData.totalDespesas}
+                subtitle={despesasSubtitle}
                 icon={<TrendingDown className="w-3 h-3" />}
                 isLoading={loading}
                 colorScheme="coral"
@@ -178,6 +201,7 @@ function DashboardContent() {
               <SimpleMetricCard
                 title="Economia do Mês"
                 value={consolidatedData.economiaMes}
+                subtitle={economiaSubtitle}
                 icon={<Activity className="w-3 h-3" />}
                 isLoading={loading}
                 colorScheme="neutral"
@@ -230,6 +254,7 @@ function DashboardContent() {
               <SimpleMetricCard
                 title="Receitas do Mes"
                 value={consolidatedData.totalReceitas}
+                subtitle={receitasSubtitle}
                 icon={<TrendingUp className={classes.iconSize} />}
                 isLoading={loading}
                 colorScheme="green"
@@ -238,6 +263,7 @@ function DashboardContent() {
               <SimpleMetricCard
                 title="Despesas do Mes"
                 value={consolidatedData.totalDespesas}
+                subtitle={despesasSubtitle}
                 icon={<TrendingDown className={classes.iconSize} />}
                 isLoading={loading}
                 colorScheme="coral"
@@ -246,6 +272,7 @@ function DashboardContent() {
               <SimpleMetricCard
                 title="Economia do Mês"
                 value={consolidatedData.economiaMes}
+                subtitle={economiaSubtitle}
                 icon={<Activity className={classes.iconSize} />}
                 isLoading={loading}
                 colorScheme="neutral"

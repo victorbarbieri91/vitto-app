@@ -9,6 +9,7 @@ type ColorScheme = 'blue' | 'green' | 'coral' | 'auto' | 'neutral';
 interface SimpleMetricCardProps {
   title: string;
   value: number | null;
+  subtitle?: string;
   icon?: ReactNode;
   isLoading?: boolean;
   className?: string;
@@ -19,6 +20,7 @@ interface SimpleMetricCardProps {
 export default function SimpleMetricCard({
   title,
   value,
+  subtitle,
   icon,
   isLoading = false,
   className,
@@ -135,6 +137,14 @@ export default function SimpleMetricCard({
               }).format(v)}
             />
           </p>
+          {subtitle && (
+            <p className={cn(
+              "text-[9px] mt-0.5 opacity-70 font-medium",
+              colors.title
+            )}>
+              {subtitle}
+            </p>
+          )}
         </div>
       </div>
     </motion.div>

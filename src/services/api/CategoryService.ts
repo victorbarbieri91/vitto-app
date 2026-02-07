@@ -273,13 +273,13 @@ export class CategoryService extends BaseApi {
 
       console.log(`📊 Buscando distribuição de categorias para ${mes}/${ano}:`, { startDate, endDate });
 
-      // Get all expenses for the month (including card expenses)
+      // Get all expenses for the month (including card expenses, all statuses)
       const { data: transactions, error: transactionError } = await this.supabase
         .from('app_transacoes')
         .select('valor, categoria_id')
         .eq('user_id', user.id)
         .in('tipo', ['despesa', 'despesa_cartao'])
-        .eq('status', 'confirmado')
+        .in('status', ['confirmado', 'efetivado', 'pendente'])
         .gte('data', startDate)
         .lte('data', endDate);
 

@@ -1,28 +1,24 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  X, 
+import {
+  X,
   ChevronLeft,
   ChevronRight,
   Loader2,
-  TrendingUp,
-  Repeat,
-  Copy,
-  Plus
 } from 'lucide-react';
 import { ModernButton, ModernBadge } from '../ui/modern';
 import InvoicePaymentModal from './InvoicePaymentModal';
 import { TransactionFormModal } from '../forms/transaction/TransactionFormModal';
 import CreditCardExpenseForm from '../forms/transaction/CreditCardExpenseForm';
-import { 
+import {
   faturaService,
   transactionService,
-  Fatura, 
+  Fatura,
   CreditCardWithUsage,
-  Transaction,
-  Category,
+  FaturaTransaction,
   CreateTransactionRequest
 } from '../../services/api';
+import FilterChip from '../ui/FilterChip';
 import { cn } from '../../utils/cn';
 import { formatCurrency } from '../../utils/format';
 import { getCategoryIcon } from '../../utils/getCategoryIcon';
@@ -51,7 +47,8 @@ export default function InvoiceDrawer({ card, isOpen, onClose }: InvoiceDrawerPr
   const { user } = useAuth();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [invoice, setInvoice] = useState<Fatura | null>(null);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [dynamicTotal, setDynamicTotal] = useState<number>(0);
+  const [transactions, setTransactions] = useState<FaturaTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -74,14 +71,26 @@ export default function InvoiceDrawer({ card, isOpen, onClose }: InvoiceDrawerPr
     try {
       const year = currentMonth.getFullYear();
       const month = currentMonth.getMonth() + 1;
-      const [invoiceRes, transactionsRes] = await Promise.all([
-        faturaService.findByCardAndMonth(card.id, year, month),
-        transactionService.listByCardAndMonth(card.id, year, month),
-      ]);
+
+      // 1. Get the fatura record
+      const invoiceRes = await faturaService.findByCardAndMonth(card.id, year, month);
       if (invoiceRes.error) throw new Error(invoiceRes.error.message);
-      setInvoice(invoiceRes.data?.[0] || null);
-      if (transactionsRes.error) throw new Error(transactionsRes.error.message);
-      setTransactions(transactionsRes.data || []);
+      const fatura = invoiceRes.data?.[0] || null;
+      setInvoice(fatura);
+
+      if (fatura) {
+        // 2. Use RPC to get transactions by fatura period (not calendar month)
+        const txRes = await faturaService.getInvoiceTransactions(fatura.id);
+        if (txRes.error) throw new Error(txRes.error.message);
+        setTransactions(txRes.data || []);
+
+        // 3. Calculate dynamic total (includes virtual fixed)
+        const total = (txRes.data || []).reduce((sum, t) => sum + Number(t.valor), 0);
+        setDynamicTotal(total);
+      } else {
+        setTransactions([]);
+        setDynamicTotal(0);
+      }
     } catch (err: any) {
       setError(err.message || 'Erro ao carregar dados');
     } finally {
@@ -120,31 +129,21 @@ export default function InvoiceDrawer({ card, isOpen, onClose }: InvoiceDrawerPr
 
   const filteredAndSortedTransactions = useMemo(() => {
     let filtered = [...transactions];
-    if (filterType === 'parceladas') filtered = filtered.filter(t => t.parcelado);
-    if (filterType === 'fixas') filtered = filtered.filter(t => t.recorrente);
+    if (filterType === 'parceladas') filtered = filtered.filter(t => t.total_parcelas != null);
+    if (filterType === 'fixas') filtered = filtered.filter(t => t.is_fixed);
     const sorters = {
-      date: (a: Transaction, b: Transaction) => new Date(b.data).getTime() - new Date(a.data).getTime(),
-      value_asc: (a: Transaction, b: Transaction) => a.valor - b.valor,
-      value_desc: (a: Transaction, b: Transaction) => b.valor - a.valor,
+      date: (a: FaturaTransaction, b: FaturaTransaction) => new Date(b.data).getTime() - new Date(a.data).getTime(),
+      value_asc: (a: FaturaTransaction, b: FaturaTransaction) => Number(a.valor) - Number(b.valor),
+      value_desc: (a: FaturaTransaction, b: FaturaTransaction) => Number(b.valor) - Number(a.valor),
     };
     return filtered.sort(sorters[sortBy]);
   }, [transactions, sortBy, filterType]);
 
   const insights = useMemo(() => ({
     totalCount: transactions.length,
-    installmentCount: transactions.filter(t => t.parcelado).length,
-    recurringCount: transactions.filter(t => t.recorrente).length,
-    biggestPurchase: transactions.reduce((max, t) => t.valor > max.valor ? t : max, { valor: 0 } as Transaction)
+    installmentCount: transactions.filter(t => t.total_parcelas != null).length,
+    recurringCount: transactions.filter(t => t.is_fixed).length,
   }), [transactions]);
-  
-  const groupedTransactions = useMemo(() => {
-    return filteredAndSortedTransactions.reduce((acc, transaction) => {
-      const date = new Date(transaction.data).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
-      if (!acc[date]) acc[date] = [];
-      acc[date].push(transaction);
-      return acc;
-    }, {} as Record<string, Transaction[]>);
-  }, [filteredAndSortedTransactions]);
 
   const navigateMonth = (direction: 'prev' | 'next') => {
     setCurrentMonth(prev => {
@@ -183,7 +182,7 @@ export default function InvoiceDrawer({ card, isOpen, onClose }: InvoiceDrawerPr
                     <div className="flex items-baseline gap-2">
                         <h2 className="text-lg font-bold text-deep-blue">{card?.nome}</h2>
                         <div className="flex items-baseline space-x-2">
-                            <span className="font-semibold text-base text-deep-blue">{formatCurrency(invoice?.valor_total || 0)}</span>
+                            <span className="font-semibold text-base text-deep-blue">{formatCurrency(dynamicTotal)}</span>
                             {getStatusBadge(invoice?.status)}
                         </div>
                     </div>
@@ -289,22 +288,7 @@ export default function InvoiceDrawer({ card, isOpen, onClose }: InvoiceDrawerPr
   );
 }
 
-const FilterChip = ({ label, isActive, onClick }: { label: string; isActive: boolean; onClick: () => void }) => (
-  <button
-    onClick={onClick}
-    className={cn(
-      'px-3 py-1.5 rounded-full text-xs font-medium transition-all',
-      isActive
-        ? 'bg-coral-500 text-white shadow-sm'
-        : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-    )}
-  >
-    {label}
-  </button>
-);
-
-const TransactionItem = ({ transaction, isLast }: { transaction: Transaction, isLast: boolean }) => {
-  const category = transaction.categoria as Category | undefined;
+const TransactionItem = ({ transaction, isLast }: { transaction: FaturaTransaction, isLast: boolean }) => {
   const transactionDate = new Date(transaction.data).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 
   return (
@@ -318,24 +302,24 @@ const TransactionItem = ({ transaction, isLast }: { transaction: Transaction, is
       </span>
 
       {/* Ícone da categoria (compacto) */}
-      {category && (
+      {transaction.categoria_icone && (
         <div
           className="w-6 h-6 rounded flex-shrink-0 flex items-center justify-center mr-2"
-          style={{ backgroundColor: `${category.cor}15` }}
+          style={{ backgroundColor: `${transaction.categoria_cor || '#6B7280'}15` }}
         >
-          {getCategoryIcon(category.icone, category.cor, 14)}
+          {getCategoryIcon(transaction.categoria_icone, transaction.categoria_cor || '#6B7280', 14)}
         </div>
       )}
 
       {/* Descrição + badges */}
       <div className="flex-1 min-w-0 flex items-center gap-2">
         <span className="text-[13px] text-slate-700 truncate">{transaction.descricao}</span>
-        {transaction.parcelado && (
+        {transaction.total_parcelas != null && (
           <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-medium whitespace-nowrap">
             {transaction.parcela_atual}/{transaction.total_parcelas}
           </span>
         )}
-        {transaction.recorrente && (
+        {transaction.is_fixed && (
           <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded font-medium">
             Fixa
           </span>
@@ -344,7 +328,7 @@ const TransactionItem = ({ transaction, isLast }: { transaction: Transaction, is
 
       {/* Valor */}
       <span className="text-[13px] font-semibold text-slate-800 ml-3 whitespace-nowrap tabular-nums">
-        {formatCurrency(transaction.valor)}
+        {formatCurrency(Number(transaction.valor))}
       </span>
     </div>
   );

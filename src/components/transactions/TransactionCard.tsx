@@ -25,6 +25,7 @@ interface TransactionCardProps {
   onEditFixedTransaction?: (fixedTransactionId: number) => void;
   onDeleteInvoice?: (invoiceId: number) => void;
   onActivateTransaction?: (transactionId: number) => void;
+  onInvoiceClick?: (transaction: Transaction) => void;
 }
 
 export const TransactionCard: React.FC<TransactionCardProps> = ({
@@ -37,6 +38,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
   onEditFixedTransaction,
   onDeleteInvoice,
   onActivateTransaction,
+  onInvoiceClick,
 }) => {
   // Helpers para formatação
   const formatCurrency = useCallback((value: number) => {
@@ -157,15 +159,28 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
 
     // Verificar se é uma fatura
     if (transaction.is_fatura) {
-      return onDeleteInvoice ? (
-        <button
-          onClick={() => onDeleteInvoice(transaction.id)}
-          className={`${baseButtonClass} text-slate-400 hover:text-red-500 hover:bg-red-50`}
-          title="Excluir fatura e todas as transações do cartão neste mês"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
-      ) : null;
+      return (
+        <div className="flex gap-2">
+          {onInvoiceClick && (
+            <button
+              onClick={() => onInvoiceClick(transaction)}
+              className={`${baseButtonClass} text-slate-400 hover:text-coral-500 hover:bg-coral-50`}
+              title="Ver detalhes da fatura"
+            >
+              <CreditCard className="w-4 h-4" />
+            </button>
+          )}
+          {onDeleteInvoice && (
+            <button
+              onClick={() => onDeleteInvoice(transaction.id)}
+              className={`${baseButtonClass} text-slate-400 hover:text-red-500 hover:bg-red-50`}
+              title="Excluir fatura"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      );
     }
 
     // Lançamentos fixos virtuais (pendentes)

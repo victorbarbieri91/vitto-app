@@ -70,10 +70,10 @@ export type {
 } from './CreditCardService';
 export type {
   Fatura,
-  NewFatura,
-  FaturaWithTransactions,
-  PayInvoiceRequest, 
-  GenerateInvoiceRequest
+  CreateFaturaRequest,
+  UpdateFaturaRequest,
+  PayInvoiceRequest,
+  FaturaTransaction,
 } from './FaturaService';
 export type {
   FinancialGoal,

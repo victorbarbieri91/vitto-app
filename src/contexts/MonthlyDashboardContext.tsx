@@ -353,20 +353,18 @@ export const MonthlyDashboardProvider: React.FC<MonthlyDashboardProviderProps> =
       // Usar campos corretos da RPC corrigida
       setSaldoAtualTotal(Number(indicadores.saldo_atual_total));
       setSaldoPrevistoTotal(Number(indicadores.saldo_previsto_fim_mes)); // Fórmula corrigida na RPC
-      // CORREÇÃO: Usar apenas valores CONFIRMADOS para Receitas/Despesas/Economia do Mês
-      // Os valores com pendentes e fixas são apenas para o Saldo Previsto
-      setReceitasMes(Number(indicadores.receitas_confirmadas)); // Apenas receitas efetivadas
-      setDespesasMes(Number(indicadores.despesas_confirmadas)); // Apenas despesas efetivadas
+      // Usar TOTAIS (confirmado + pendente + fixas) para visão completa do mês
+      // O breakdown confirmado/previsto é mostrado nos subtitles dos KPIs
+      setReceitasMes(Number(indicadores.total_receitas_mes)); // Receitas totais do mês
+      setDespesasMes(Number(indicadores.total_despesas_mes)); // Despesas totais do mês
 
       console.log(`🎯 Valores interpretados:`, {
         saldoAtual: Number(indicadores.saldo_atual_total),
         saldoPrevisto: Number(indicadores.saldo_previsto_fim_mes),
+        receitasTotais: Number(indicadores.total_receitas_mes),
+        despesasTotais: Number(indicadores.total_despesas_mes),
         receitasConfirmadas: Number(indicadores.receitas_confirmadas),
         despesasConfirmadas: Number(indicadores.despesas_confirmadas),
-        economiaMes: Number(indicadores.receitas_confirmadas) - Number(indicadores.despesas_confirmadas),
-        // Dados para Saldo Previsto (inclui pendentes e fixas)
-        totalReceitasPrevistas: Number(indicadores.total_receitas_mes),
-        totalDespesasPrevistas: Number(indicadores.total_despesas_mes)
       });
 
       // Atualizar dados detalhados para memória de cálculo dos KPIs
