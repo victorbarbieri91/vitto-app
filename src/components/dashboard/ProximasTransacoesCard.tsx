@@ -97,7 +97,6 @@ export default function ProximasTransacoesCard({ className, limit = 5 }: Proxima
             .lte('data_vencimento', futureStr);
 
           if (faturas && faturas.length > 0) {
-            // Get dynamic totals for each fatura
             const totals = await Promise.all(
               faturas.map(f =>
                 supabase.rpc('calcular_valor_total_fatura', { p_fatura_id: f.id })
@@ -116,6 +115,54 @@ export default function ProximasTransacoesCard({ className, limit = 5 }: Proxima
                   categoria_nome: 'Cartao de Credito',
                 });
               }
+            });
+          }
+        }
+
+        // 4. Fetch virtual fixed transactions (not yet generated in app_transacoes)
+        const { data: fixedTx } = await supabase
+          .from('app_transacoes_fixas')
+          .select('id, descricao, valor, tipo, dia_mes, data_inicio, data_fim, app_categoria(nome)')
+          .eq('user_id', user.id)
+          .eq('ativo', true)
+          .in('tipo', ['receita', 'despesa']);
+
+        if (fixedTx && fixedTx.length > 0) {
+          const now = new Date();
+          const curMonth = now.getMonth(); // 0-based
+          const curYear = now.getFullYear();
+          const lastDay = new Date(curYear, curMonth + 1, 0).getDate();
+          const monthStr = String(curMonth + 1).padStart(2, '0');
+
+          // Check which fixed transactions already exist in app_transacoes this month
+          const fixedIds = fixedTx.map(f => f.id);
+          const { data: generated } = await supabase
+            .from('app_transacoes')
+            .select('fixo_id')
+            .eq('user_id', user.id)
+            .in('fixo_id', fixedIds)
+            .gte('data', `${curYear}-${monthStr}-01`)
+            .lte('data', `${curYear}-${monthStr}-${lastDay}`);
+
+          const generatedIds = new Set((generated || []).map((g: any) => g.fixo_id));
+
+          for (const ft of fixedTx) {
+            if (generatedIds.has(ft.id)) continue;
+
+            const dia = Math.min(ft.dia_mes, lastDay);
+            const virtualDate = `${curYear}-${monthStr}-${String(dia).padStart(2, '0')}`;
+
+            if (virtualDate < today || virtualDate > futureStr) continue;
+            if (ft.data_inicio && virtualDate < ft.data_inicio) continue;
+            if (ft.data_fim && virtualDate > ft.data_fim) continue;
+
+            allItems.push({
+              id: `fixed-${ft.id}`,
+              descricao: ft.descricao,
+              valor: Number(ft.valor),
+              data: virtualDate,
+              tipo: ft.tipo as 'receita' | 'despesa',
+              categoria_nome: (ft as any).app_categoria?.nome || 'Sem categoria',
             });
           }
         }
