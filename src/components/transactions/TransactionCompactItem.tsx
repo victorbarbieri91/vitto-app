@@ -1,21 +1,14 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ChevronDown,
   Edit3,
   Trash2,
   CheckCircle,
   DollarSign,
   RotateCcw,
   CreditCard,
-  Calendar,
-  Tag,
-  Wallet,
-  Repeat,
-  FileText,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
-import { getCategoryIcon } from '../../utils/getCategoryIcon';
 import { formatLocalDate } from '../../utils/format';
 
 type Transaction = any;
@@ -59,10 +52,13 @@ export const TransactionCompactItem: React.FC<TransactionCompactItemProps> = ({
 
   const isExpense = ['despesa', 'despesa_cartao'].includes(transaction.tipo);
   const isIncome = transaction.tipo === 'receita';
-  const categoryName = transaction.categoria_nome || '-';
-  const accountName = transaction.conta_nome || transaction.cartao_nome || '-';
-  const categoryIcon = transaction.categoria_icone;
-  const categoryColor = transaction.categoria_cor || '#6B7280';
+  const isCard = transaction.tipo === 'despesa_cartao';
+  const categoryName = transaction.categoria_nome || '';
+  const accountName = transaction.conta_nome || transaction.cartao_nome || '';
+
+  // Subtitle - only non-empty parts
+  const subtitleParts = [categoryName, accountName].filter(Boolean);
+  const subtitle = subtitleParts.join(' · ');
 
   // Recurrence label
   const getRecurrenceLabel = () => {
@@ -70,174 +66,178 @@ export const TransactionCompactItem: React.FC<TransactionCompactItemProps> = ({
       case 'fixa': return 'Fixa';
       case 'parcelada':
         return transaction.total_parcelas
-          ? `${transaction.parcela_atual}/${transaction.total_parcelas}x`
+          ? `Parcela ${transaction.parcela_atual}/${transaction.total_parcelas}`
           : 'Parcelada';
       default: return 'Unica';
     }
   };
 
-  // Status label
-  const getStatusLabel = () => {
+  // Status info
+  const getStatusInfo = (): { label: string; color: string } => {
     if (transaction.is_fatura || transaction.tipo_registro === 'fatura') {
       switch (transaction.status) {
-        case 'paga': return 'Paga';
-        case 'fechada': return 'Fechada';
-        default: return 'Aberta';
+        case 'paga': return { label: 'Paga', color: 'text-emerald-500' };
+        case 'fechada': return { label: 'Fechada', color: 'text-amber-500' };
+        default: return { label: 'Aberta', color: 'text-red-500' };
       }
     }
-    if (transaction.is_virtual_fixed) return 'Aguardando';
+    if (transaction.is_virtual_fixed) return { label: 'Aguardando', color: 'text-blue-500' };
     switch (transaction.status) {
       case 'efetivado':
       case 'concluido':
       case 'confirmado':
-        return 'Efetivada';
-      case 'pendente': return 'Pendente';
-      case 'cancelado': return 'Cancelado';
-      default: return '-';
+        return { label: 'Efetivada', color: 'text-emerald-500' };
+      case 'pendente': return { label: 'Pendente', color: 'text-amber-500' };
+      case 'cancelado': return { label: 'Cancelado', color: 'text-red-500' };
+      default: return { label: '', color: '' };
     }
   };
 
-  // Can undo fixed transaction
   const canUndo = transaction.origem === 'fixo' &&
     transaction.status === 'confirmado' &&
     transaction.fixo_id &&
     Math.floor((Date.now() - new Date(transaction.data).getTime()) / (1000 * 60 * 60 * 24)) <= 30;
 
-  // Is virtual/pending fixed
   const isVirtual = transaction.is_virtual || transaction.is_virtual_fixed ||
     (transaction.fatura_details && transaction.fatura_details.is_virtual);
 
-  const btnClass = "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors min-h-[36px]";
+  const statusInfo = getStatusInfo();
+  const isPending = transaction.status === 'pendente' || isVirtual;
+
+  const btnClass = "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors active:scale-95";
 
   const renderActions = () => {
-    // Invoice
     if (transaction.is_fatura) {
       return (
-        <div className="flex gap-2">
+        <>
           {onInvoiceClick && (
-            <button onClick={() => onInvoiceClick(transaction)} className={cn(btnClass, "text-purple-600 bg-purple-50 active:bg-purple-100")}>
+            <button onClick={(e) => { e.stopPropagation(); onInvoiceClick(transaction); }} className={cn(btnClass, "text-purple-600 bg-purple-50")}>
               <CreditCard className="w-3.5 h-3.5" /> Ver fatura
             </button>
           )}
           {onDeleteInvoice && (
-            <button onClick={() => onDeleteInvoice(transaction.id)} className={cn(btnClass, "text-red-600 bg-red-50 active:bg-red-100")}>
+            <button onClick={(e) => { e.stopPropagation(); onDeleteInvoice(transaction.id); }} className={cn(btnClass, "text-red-500 bg-red-50")}>
               <Trash2 className="w-3.5 h-3.5" /> Excluir
             </button>
           )}
-        </div>
+        </>
       );
     }
 
-    // Virtual fixed transactions
     if (isVirtual) {
       const fixoId = transaction.fixed_transaction_id || transaction.fixo_id ||
         (transaction.fatura_details && transaction.fatura_details.fixo_id);
       return (
-        <div className="flex flex-wrap gap-2">
+        <>
           {onConfirmFixedTransaction && fixoId && (
-            <button onClick={() => onConfirmFixedTransaction(fixoId, transaction.data)} className={cn(btnClass, "text-emerald-600 bg-emerald-50 active:bg-emerald-100")}>
+            <button onClick={(e) => { e.stopPropagation(); onConfirmFixedTransaction(fixoId, transaction.data); }} className={cn(btnClass, "text-emerald-600 bg-emerald-50")}>
               <CheckCircle className="w-3.5 h-3.5" /> Confirmar
             </button>
           )}
           {onPartialFixedTransaction && fixoId && (
-            <button onClick={() => onPartialFixedTransaction(fixoId, transaction.data)} className={cn(btnClass, "text-blue-600 bg-blue-50 active:bg-blue-100")}>
+            <button onClick={(e) => { e.stopPropagation(); onPartialFixedTransaction(fixoId, transaction.data); }} className={cn(btnClass, "text-blue-600 bg-blue-50")}>
               <DollarSign className="w-3.5 h-3.5" /> Parcial
             </button>
           )}
           {onEditFixedTransaction && fixoId && (
-            <button onClick={() => onEditFixedTransaction(fixoId)} className={cn(btnClass, "text-coral-600 bg-coral-50 active:bg-coral-100")}>
+            <button onClick={(e) => { e.stopPropagation(); onEditFixedTransaction(fixoId); }} className={cn(btnClass, "text-slate-600 bg-slate-100")}>
               <Edit3 className="w-3.5 h-3.5" /> Editar
             </button>
           )}
-        </div>
+        </>
       );
     }
 
-    // Undoable fixed confirmed
     if (canUndo) {
       const fixoId = transaction.fixed_transaction_id || transaction.fixo_id;
       return (
-        <div className="flex gap-2">
+        <>
           {onUndoFixedTransaction && (
-            <button onClick={() => onUndoFixedTransaction(transaction.id)} className={cn(btnClass, "text-blue-600 bg-blue-50 active:bg-blue-100")}>
+            <button onClick={(e) => { e.stopPropagation(); onUndoFixedTransaction(transaction.id); }} className={cn(btnClass, "text-blue-600 bg-blue-50")}>
               <RotateCcw className="w-3.5 h-3.5" /> Desfazer
             </button>
           )}
           {onEditFixedTransaction && fixoId && (
-            <button onClick={() => onEditFixedTransaction(fixoId)} className={cn(btnClass, "text-coral-600 bg-coral-50 active:bg-coral-100")}>
+            <button onClick={(e) => { e.stopPropagation(); onEditFixedTransaction(fixoId); }} className={cn(btnClass, "text-slate-600 bg-slate-100")}>
               <Edit3 className="w-3.5 h-3.5" /> Editar
             </button>
           )}
-        </div>
+        </>
       );
     }
 
-    // Normal transactions
     return (
-      <div className="flex gap-2">
+      <>
         {transaction.status === 'pendente' && onActivateTransaction && (
-          <button onClick={() => onActivateTransaction(transaction.id)} className={cn(btnClass, "text-emerald-600 bg-emerald-50 active:bg-emerald-100")}>
+          <button onClick={(e) => { e.stopPropagation(); onActivateTransaction(transaction.id); }} className={cn(btnClass, "text-emerald-600 bg-emerald-50")}>
             <CheckCircle className="w-3.5 h-3.5" /> Efetivar
           </button>
         )}
         {onEditTransaction && (
-          <button onClick={() => onEditTransaction(transaction)} className={cn(btnClass, "text-slate-600 bg-slate-100 active:bg-slate-200")}>
+          <button onClick={(e) => { e.stopPropagation(); onEditTransaction(transaction); }} className={cn(btnClass, "text-slate-600 bg-slate-100")}>
             <Edit3 className="w-3.5 h-3.5" /> Editar
           </button>
         )}
         {onDeleteTransaction && (
-          <button onClick={() => onDeleteTransaction(transaction.id)} className={cn(btnClass, "text-red-600 bg-red-50 active:bg-red-100")}>
+          <button onClick={(e) => { e.stopPropagation(); onDeleteTransaction(transaction.id); }} className={cn(btnClass, "text-red-500 bg-red-50")}>
             <Trash2 className="w-3.5 h-3.5" /> Excluir
           </button>
         )}
-      </div>
+      </>
     );
   };
 
   return (
-    <div className="border-b border-slate-100 last:border-b-0">
-      {/* Compact row - tappable */}
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center gap-3 px-3 py-3 text-left active:bg-slate-50 transition-colors"
-      >
-        {/* Category icon */}
+    <div
+      className={cn(
+        "transition-colors cursor-pointer",
+        isExpanded ? "bg-slate-50/60" : "active:bg-slate-50/80"
+      )}
+      onClick={onToggle}
+    >
+      {/* Main row - Nubank style: thin color bar + description + value */}
+      <div className="flex items-center px-4 py-2.5 gap-3">
+        {/* Left: thin color indicator */}
         <div
-          className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-          style={{ backgroundColor: `${categoryColor}15` }}
-        >
-          {categoryIcon ? (
-            getCategoryIcon(categoryIcon, categoryColor, 16)
-          ) : (
-            <Tag className="w-4 h-4 text-slate-400" />
+          className={cn(
+            "w-[3px] self-stretch rounded-full flex-shrink-0 min-h-[32px]",
+            isIncome ? "bg-emerald-400" : isCard ? "bg-purple-400" : isExpense ? "bg-red-300" : "bg-slate-200",
+            isPending && "opacity-40"
+          )}
+        />
+
+        {/* Center: description + category */}
+        <div className="flex-1 min-w-0">
+          <p className={cn(
+            "text-[13px] leading-tight truncate",
+            isPending ? "text-slate-400" : "text-slate-700"
+          )}>
+            {transaction.descricao}
+          </p>
+          {subtitle && (
+            <p className="text-[10.5px] text-slate-300 truncate mt-px">
+              {subtitle}
+            </p>
           )}
         </div>
 
-        {/* Description + subtitle */}
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-slate-800 truncate leading-tight">
-            {transaction.descricao}
-          </p>
-          <p className="text-[11px] text-slate-400 truncate mt-0.5">
-            {categoryName} · {accountName}
-          </p>
-        </div>
-
-        {/* Value + chevron */}
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <span className={cn(
-            "text-sm font-semibold tabular-nums",
-            isIncome ? 'text-emerald-600' : isExpense ? 'text-red-500' : 'text-slate-700'
+        {/* Right: value + parcela */}
+        <div className="flex-shrink-0 text-right pl-2">
+          <p className={cn(
+            "text-[13px] font-medium tabular-nums whitespace-nowrap",
+            isPending && "opacity-50",
+            isIncome ? "text-emerald-600" : isExpense ? "text-red-500" : "text-slate-600"
           )}>
-            {isExpense ? '-' : isIncome ? '+' : ''}
+            {isExpense ? '- ' : isIncome ? '+ ' : ''}
             {formatCurrency(transaction.valor)}
-          </span>
-          <ChevronDown className={cn(
-            "w-4 h-4 text-slate-300 transition-transform duration-200",
-            isExpanded && "rotate-180"
-          )} />
+          </p>
+          {transaction.tipo_recorrencia === 'parcelada' && transaction.total_parcelas && (
+            <p className="text-[10px] text-slate-300 mt-px">
+              {transaction.parcela_atual}/{transaction.total_parcelas}x
+            </p>
+          )}
         </div>
-      </button>
+      </div>
 
       {/* Expanded details */}
       <AnimatePresence>
@@ -246,40 +246,35 @@ export const TransactionCompactItem: React.FC<TransactionCompactItemProps> = ({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: 'easeInOut' }}
+            transition={{ duration: 0.15, ease: 'easeOut' }}
             className="overflow-hidden"
           >
-            <div className="px-3 pb-3 pt-1 ml-11 space-y-3">
-              {/* Detail grid */}
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                <div className="flex items-center gap-1.5 text-slate-500">
-                  <Calendar className="w-3 h-3" />
-                  <span>{formatLocalDate(transaction.data)}</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-slate-500">
-                  <Wallet className="w-3 h-3" />
-                  <span className="truncate">{accountName}</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-slate-500">
-                  <Repeat className="w-3 h-3" />
-                  <span>{getRecurrenceLabel()}</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-slate-500">
-                  <CheckCircle className="w-3 h-3" />
-                  <span>{getStatusLabel()}</span>
-                </div>
+            <div className="px-4 pb-3 ml-[15px]">
+              {/* Thin divider */}
+              <div className="border-t border-slate-100 mb-2" />
+
+              {/* Details as simple inline text */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400 mb-2.5">
+                <span>{formatLocalDate(transaction.data)}</span>
+                <span className="text-slate-200">|</span>
+                <span>{getRecurrenceLabel()}</span>
+                {statusInfo.label && (
+                  <>
+                    <span className="text-slate-200">|</span>
+                    <span className={statusInfo.color}>{statusInfo.label}</span>
+                  </>
+                )}
               </div>
 
-              {/* Observation if exists */}
+              {/* Observation */}
               {transaction.observacao && (
-                <div className="flex items-start gap-1.5 text-xs text-slate-400">
-                  <FileText className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                  <span className="line-clamp-2">{transaction.observacao}</span>
-                </div>
+                <p className="text-[11px] text-slate-300 mb-2.5 line-clamp-2 italic">
+                  {transaction.observacao}
+                </p>
               )}
 
-              {/* Action buttons */}
-              <div className="pt-1">
+              {/* Actions row */}
+              <div className="flex flex-wrap gap-2">
                 {renderActions()}
               </div>
             </div>

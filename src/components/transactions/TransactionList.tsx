@@ -998,9 +998,9 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
 
                   return groups.map((group) => (
                     <div key={group.dateKey}>
-                      {/* Date separator */}
-                      <div className="sticky top-0 z-10 px-3 py-1.5 bg-slate-50/95 backdrop-blur-sm border-b border-slate-100">
-                        <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                      {/* Date separator - subtle Nubank style */}
+                      <div className="px-4 pt-4 pb-1.5">
+                        <span className="text-[11px] font-medium text-slate-300 uppercase tracking-wide">
                           {group.label}
                         </span>
                       </div>
