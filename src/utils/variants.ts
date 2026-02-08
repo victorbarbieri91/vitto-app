@@ -86,7 +86,7 @@ export const inputVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-white border-neutral-200 text-neutral-900 placeholder:text-neutral-400 focus:border-primary-500',
+        default: 'bg-white border-neutral-200 text-neutral-900 placeholder:text-neutral-400 focus:border-slate-400',
         error: 'bg-white border-danger-300 text-neutral-900 placeholder:text-neutral-400 focus:border-danger-500',
         success: 'bg-white border-success-300 text-neutral-900 placeholder:text-neutral-400 focus:border-success-500',
       },

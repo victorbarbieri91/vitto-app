@@ -239,56 +239,56 @@ export default function BudgetsPage() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="grid grid-cols-3 gap-3"
+          className="grid grid-cols-3 gap-2 sm:gap-3"
         >
           {/* No Limite */}
           <div className={cn(
-            "rounded-xl shadow-sm border p-4",
+            "rounded-xl shadow-sm border p-3 sm:p-4",
             "bg-teal-700"
           )}>
             <div className="flex justify-between items-start">
-              <p className="text-[10px] font-medium text-teal-100 uppercase tracking-wide">
+              <p className="text-[9px] sm:text-[10px] font-medium text-teal-100 uppercase tracking-wide">
                 No Limite
               </p>
-              <CheckCircle2 className="w-4 h-4 text-teal-200" />
+              <CheckCircle2 className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-teal-200" />
             </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-white">{budgetsNoLimite}</span>
-              <span className="text-xs text-teal-200">orçamentos</span>
+            <div className="mt-1.5 sm:mt-2 flex items-baseline gap-1 sm:gap-2">
+              <span className="text-xl sm:text-2xl font-bold text-white">{budgetsNoLimite}</span>
+              <span className="text-[10px] sm:text-xs text-teal-200 hidden sm:inline">orcamentos</span>
             </div>
           </div>
 
           {/* Em Risco */}
           <div className={cn(
-            "rounded-xl shadow-sm border p-4",
+            "rounded-xl shadow-sm border p-3 sm:p-4",
             "bg-amber-500"
           )}>
             <div className="flex justify-between items-start">
-              <p className="text-[10px] font-medium text-amber-100 uppercase tracking-wide">
+              <p className="text-[9px] sm:text-[10px] font-medium text-amber-100 uppercase tracking-wide">
                 Em Risco
               </p>
-              <AlertTriangle className="w-4 h-4 text-amber-100" />
+              <AlertTriangle className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-amber-100" />
             </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-white">{budgetsEmRisco}</span>
-              <span className="text-xs text-amber-100">orçamentos</span>
+            <div className="mt-1.5 sm:mt-2 flex items-baseline gap-1 sm:gap-2">
+              <span className="text-xl sm:text-2xl font-bold text-white">{budgetsEmRisco}</span>
+              <span className="text-[10px] sm:text-xs text-amber-100 hidden sm:inline">orcamentos</span>
             </div>
           </div>
 
           {/* Excedidos */}
           <div className={cn(
-            "rounded-xl shadow-sm border p-4",
+            "rounded-xl shadow-sm border p-3 sm:p-4",
             "bg-coral-500"
           )}>
             <div className="flex justify-between items-start">
-              <p className="text-[10px] font-medium text-coral-100 uppercase tracking-wide">
+              <p className="text-[9px] sm:text-[10px] font-medium text-coral-100 uppercase tracking-wide">
                 Excedidos
               </p>
-              <XCircle className="w-4 h-4 text-coral-100" />
+              <XCircle className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-coral-100" />
             </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-white">{budgetsExcedidos}</span>
-              <span className="text-xs text-coral-100">orçamentos</span>
+            <div className="mt-1.5 sm:mt-2 flex items-baseline gap-1 sm:gap-2">
+              <span className="text-xl sm:text-2xl font-bold text-white">{budgetsExcedidos}</span>
+              <span className="text-[10px] sm:text-xs text-coral-100 hidden sm:inline">orcamentos</span>
             </div>
           </div>
         </motion.div>
@@ -308,7 +308,7 @@ export default function BudgetsPage() {
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
+            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4"
           >
             {despesasBudgets.map((budgetItem) => (
               <motion.div key={budgetItem.budget.id} variants={itemVariants}>
@@ -337,7 +337,7 @@ export default function BudgetsPage() {
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
+            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4"
           >
             {receitasBudgets.map((budgetItem) => (
               <motion.div key={budgetItem.budget.id} variants={itemVariants}>

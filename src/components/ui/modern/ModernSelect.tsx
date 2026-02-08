@@ -8,7 +8,7 @@ const selectVariants = cva(
   {
     variants: {
       variant: {
-        default: 'focus:border-coral-500 focus:ring-coral-500/10',
+        default: 'focus:border-slate-400 focus:ring-slate-400/10',
         error: 'border-red-300 text-red-900 placeholder-red-300 focus:border-red-500 focus:ring-red-500/20',
       },
     },

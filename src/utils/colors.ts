@@ -91,13 +91,96 @@ export const darkenColor = (hex: string, percent: number): string => {
 };
 
 /**
- * Cores padrão por tipo de conta - tons muito foscos/muted
+ * Cores de bancos brasileiros (tons elegantes, levemente escurecidos)
+ */
+const bankColors: Record<string, string> = {
+  nubank:        '#7B2D8E',
+  nu:            '#7B2D8E',
+  c6:            '#2A2A2A',
+  'c6 bank':     '#2A2A2A',
+  itau:          '#CF6300',
+  itaú:          '#CF6300',
+  bradesco:      '#B0082A',
+  'banco do brasil': '#003070',
+  bb:            '#003070',
+  santander:     '#C40000',
+  caixa:         '#005090',
+  inter:         '#D46800',
+  'banco inter': '#D46800',
+  btg:           '#002840',
+  'btg pactual': '#002840',
+  xp:            '#1A1A1A',
+  neon:          '#0F9B7A',
+  picpay:        '#1EA84E',
+  'mercado pago': '#0080C8',
+  stone:         '#008A58',
+  pagbank:       '#35A86E',
+  pagseguro:     '#35A86E',
+  safra:         '#003560',
+  original:      '#008A48',
+  sicoob:        '#003038',
+  sicredi:       '#2E8B3E',
+  rico:          '#D84600',
+  clear:         '#1A1A28',
+  modal:         '#1A365D',
+  daycoval:      '#004070',
+  will:          '#D43060',
+  'will bank':   '#D43060',
+  next:          '#00A850',
+  pan:           '#0055A0',
+  bmg:           '#E85C00',
+  sofisa:        '#2C2C5A',
+  abc:           '#004880',
+  pine:          '#005830',
+};
+
+/**
+ * Paleta de cores elegantes para contas sem banco reconhecido
+ */
+const elegantPalette = [
+  '#475569', // slate-600
+  '#3730A3', // indigo-800
+  '#0F766E', // teal-700
+  '#9F1239', // rose-800
+  '#92400E', // amber-800
+  '#5B21B6', // violet-800
+  '#0E7490', // cyan-700
+  '#166534', // green-800
+];
+
+/**
+ * Detecta cor do banco pelo nome da conta
+ */
+const getBankColor = (nome: string): string | null => {
+  const normalized = nome.toLowerCase().trim();
+  // Tenta match exato primeiro, depois parcial
+  for (const [bank, color] of Object.entries(bankColors)) {
+    if (normalized.includes(bank)) {
+      return color;
+    }
+  }
+  return null;
+};
+
+/**
+ * Retorna uma cor elegante baseada em hash do nome (determinística)
+ */
+const getElegantColor = (nome: string): string => {
+  let hash = 0;
+  for (let i = 0; i < nome.length; i++) {
+    hash = nome.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return elegantPalette[Math.abs(hash) % elegantPalette.length];
+};
+
+/**
+ * Cores padrão por tipo de conta (fallback)
  */
 export const accountTypeColors: Record<string, string> = {
-  corrente: '#4B5563',     // gray-600 (cinza neutro fosco)
-  poupanca: '#047857',     // emerald-700 (verde bem fosco)
-  investimento: '#5B21B6', // violet-800 (roxo escuro fosco)
-  carteira: '#92400E',     // amber-800 (marrom alaranjado fosco)
+  corrente: '#475569',     // slate-600
+  poupanca: '#0F766E',     // teal-700
+  investimento: '#5B21B6', // violet-800
+  carteira: '#92400E',     // amber-800
 };
 
 /**
@@ -133,15 +216,23 @@ export const desaturateColor = (hex: string, amount: number = 0.35): string => {
 };
 
 /**
- * Retorna a cor para um tipo de conta (sempre fosca)
- * @param tipo - Tipo da conta
- * @param customColor - Cor customizada (opcional)
- * @returns Cor hex fosca
+ * Retorna a cor para uma conta com lógica inteligente:
+ * 1. Detecta banco pelo nome → usa cor da marca
+ * 2. Se não reconhecer → cor elegante determinística pelo nome
+ * 3. Fallback → cor por tipo de conta
  */
-export const getAccountColor = (tipo: string, customColor?: string | null): string => {
-  if (customColor) {
-    // Aplicar tom fosco mais intenso na cor customizada
-    return desaturateColor(customColor, 0.40);
+export const getAccountColor = (tipo: string, customColor?: string | null, nome?: string): string => {
+  // Prioridade 1: Detectar banco pelo nome
+  if (nome) {
+    const bankColor = getBankColor(nome);
+    if (bankColor) return bankColor;
   }
+
+  // Prioridade 2: Cor elegante baseada no nome (determinística)
+  if (nome) {
+    return getElegantColor(nome);
+  }
+
+  // Prioridade 3: Cor por tipo de conta
   return accountTypeColors[tipo.toLowerCase()] || accountTypeColors.corrente;
 };

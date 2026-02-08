@@ -250,7 +250,7 @@ export default function CardsPage() {
               <h2 className="text-lg font-semibold text-slate-800">Meus Cartões</h2>
               <span className="text-sm text-slate-500">{cards.length} cartões</span>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
               {cards.map((card, index) => (
                 <motion.div
                   key={card.id}

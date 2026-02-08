@@ -5,8 +5,8 @@ export const getCategoryIcon = (iconName: string, color: string, size = 20) => {
   const LucideIcon = icons[iconName as keyof typeof icons];
 
   if (!LucideIcon) {
-    // Retorna um ícone padrão caso o nome não seja encontrado
-    const DefaultIcon = icons['HelpCircle'];
+    const DefaultIcon = icons['HelpCircle'] || icons['CircleHelp'] || icons['Circle'];
+    if (!DefaultIcon) return null;
     return <DefaultIcon color={color} size={size} />;
   }
 

@@ -4,6 +4,7 @@ import {
   FileText,
   CalendarCheck,
   Wallet,
+  BookOpen,
   LogOut,
   ChevronLeft,
   ChevronRight
@@ -22,6 +23,7 @@ const navItems: NavItem[] = [
   { to: '/admin/business-plan', icon: <FileText size={20} />, label: 'Business Plan' },
   { to: '/admin/agenda', icon: <CalendarCheck size={20} />, label: 'Agenda' },
   { to: '/admin/financeiro', icon: <Wallet size={20} />, label: 'Financeiro' },
+  { to: '/admin/base-conhecimento', icon: <BookOpen size={20} />, label: 'Conhecimento' },
 ];
 
 export default function AdminSidebar() {

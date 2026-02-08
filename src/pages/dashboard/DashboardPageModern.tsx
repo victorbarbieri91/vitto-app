@@ -1,7 +1,6 @@
 import { motion } from 'framer-motion';
 import { useAuth } from '../../store/AuthContext';
 import { useResponsiveClasses } from '../../hooks/useScreenDetection';
-import { cn } from '../../utils/cn';
 import {
   WelcomeHeader
 } from '../../components/ui/modern';
@@ -12,8 +11,6 @@ import DivisaoCategoriaCard from '../../components/dashboard/DivisaoCategoriaCar
 import FluxoMensalChart from '../../components/dashboard/FluxoMensalChart';
 import ProximasTransacoesCard from '../../components/dashboard/ProximasTransacoesCard';
 import AlertaInteligenteCard from '../../components/dashboard/AlertaInteligenteCard';
-import NewTransactionButton from '../../components/dashboard/NewTransactionButton';
-import { useTransactionModal } from '../../hooks/useTransactionModal';
 import { useKPIDetailModal } from '../../hooks/useKPIDetailModal';
 import { MonthlyDashboardProvider, useMonthlyDashboard } from '../../contexts/MonthlyDashboardContext';
 import KPIDetailModal from '../../components/modals/KPIDetailModal';
@@ -61,8 +58,6 @@ function DashboardContent() {
     refreshData
   } = useMonthlyDashboard();
 
-  const { openModal, TransactionModalComponent } = useTransactionModal(refreshData);
-
   // Hook para modal de detalhes dos KPIs
   const { isOpen: isKPIModalOpen, kpiType, openModal: openKPIModal, closeModal: closeKPIModal } = useKPIDetailModal();
 
@@ -86,11 +81,6 @@ function DashboardContent() {
       </div>
     );
   }
-
-  const handleNewTransaction = (type: 'receita' | 'despesa' | 'despesa_cartao') => {
-    console.log('Novo lancamento do tipo:', type);
-    openModal(type);
-  };
 
   // Helper para subtitles dos KPIs (mostra valor efetivado quando há previstos)
   const fmtShort = (v: number) => new Intl.NumberFormat('pt-BR', {
@@ -162,22 +152,18 @@ function DashboardContent() {
            LAYOUT MOBILE - KPIs em grid, depois cards
            ============================================ */
         <div className="flex flex-col space-y-4 pb-24">
-          {/* 5 KPIs - Grid 3 + 2 */}
-          <motion.div variants={itemVariants}>
-            <div className="grid grid-cols-3 gap-2 mb-2">
+          {/* KPIs - Saldo Previsto sozinho, Receitas+Despesas, Saldo+Economia */}
+          <motion.div variants={itemVariants} className="space-y-2">
+            {/* Linha 1: Saldo Previsto sozinho */}
+            <div>
               <SaldoScore
                 saldo={consolidatedData.saldoPrevisto || 0}
                 isLoading={loading}
                 onClick={() => openKPIModal('saldo_previsto')}
               />
-              <SimpleMetricCard
-                title="Saldo em Conta"
-                value={consolidatedData.totalSaldo}
-                icon={<DollarSign className="w-3 h-3" />}
-                isLoading={loading}
-                colorScheme="blue"
-                onClick={() => openKPIModal('saldo_conta')}
-              />
+            </div>
+            {/* Linha 2: Receitas + Despesas */}
+            <div className="grid grid-cols-2 gap-2">
               <SimpleMetricCard
                 title="Receitas"
                 value={consolidatedData.totalReceitas}
@@ -187,8 +173,6 @@ function DashboardContent() {
                 colorScheme="green"
                 onClick={() => openKPIModal('receitas')}
               />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
               <SimpleMetricCard
                 title="Despesas"
                 value={consolidatedData.totalDespesas}
@@ -197,6 +181,17 @@ function DashboardContent() {
                 isLoading={loading}
                 colorScheme="coral"
                 onClick={() => openKPIModal('despesas')}
+              />
+            </div>
+            {/* Linha 3: Saldo em Conta + Economia */}
+            <div className="grid grid-cols-2 gap-2">
+              <SimpleMetricCard
+                title="Saldo em Conta"
+                value={consolidatedData.totalSaldo}
+                icon={<DollarSign className="w-3 h-3" />}
+                isLoading={loading}
+                colorScheme="blue"
+                onClick={() => openKPIModal('saldo_conta')}
               />
               <SimpleMetricCard
                 title="Economia do Mês"
@@ -210,24 +205,24 @@ function DashboardContent() {
             </div>
           </motion.div>
 
-          {/* Alerta Inteligente */}
-          <motion.div variants={itemVariants}>
-            <AlertaInteligenteCard />
-          </motion.div>
-
-          {/* Proximas Transacoes */}
-          <motion.div variants={itemVariants}>
-            <ProximasTransacoesCard limit={3} />
-          </motion.div>
-
-          {/* Grafico de Fluxo */}
+          {/* Fluxo Mensal */}
           <motion.div variants={itemVariants} className="h-56">
             <FluxoMensalChart months={4} />
+          </motion.div>
+
+          {/* Proximos Lancamentos */}
+          <motion.div variants={itemVariants}>
+            <ProximasTransacoesCard limit={3} />
           </motion.div>
 
           {/* Divisao por Categoria */}
           <motion.div variants={itemVariants}>
             <DivisaoCategoriaCard />
+          </motion.div>
+
+          {/* Conselhos Inteligentes */}
+          <motion.div variants={itemVariants}>
+            <AlertaInteligenteCard />
           </motion.div>
         </div>
       ) : (
@@ -298,18 +293,6 @@ function DashboardContent() {
           </motion.div>
         </div>
       )}
-
-      {/* Botao FAB - Novo Lancamento */}
-      <NewTransactionButton
-        onSelect={handleNewTransaction}
-        className={cn(
-          "fixed z-50",
-          size === 'mobile' ? "bottom-4 right-4" : "bottom-6 right-6"
-        )}
-      />
-
-      {/* Modal de Novo Lancamento */}
-      <TransactionModalComponent />
 
       {/* Modal de Detalhes dos KPIs */}
       <KPIDetailModal

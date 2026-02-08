@@ -210,18 +210,26 @@ export default function DivisaoCategoriaCard({ className }: DivisaoCategoriaCard
       </div>
 
       <div className="flex-1 flex items-center justify-center min-h-0 px-4 py-3">
-        {/* Layout centralizado: Gráfico + legenda lado a lado */}
-        <div className="flex items-center gap-4 w-full max-w-[320px]">
-          {/* Gráfico */}
-          <div className="w-[90px] h-[90px] flex-shrink-0">
+        {/* Mobile: stacked (pie em cima, legenda embaixo) | Desktop: side-by-side */}
+        <div className={cn(
+          "w-full",
+          size === 'mobile'
+            ? "flex flex-col items-center gap-2"
+            : "flex items-center gap-4 max-w-[320px]"
+        )}>
+          {/* Grafico */}
+          <div className={cn(
+            "flex-shrink-0",
+            size === 'mobile' ? "w-[100px] h-[100px]" : "w-[90px] h-[90px]"
+          )}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={chartData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={25}
-                  outerRadius={42}
+                  innerRadius={size === 'mobile' ? 28 : 25}
+                  outerRadius={size === 'mobile' ? 46 : 42}
                   paddingAngle={2}
                   dataKey="value"
                   animationBegin={0}
@@ -245,8 +253,11 @@ export default function DivisaoCategoriaCard({ className }: DivisaoCategoriaCard
             </ResponsiveContainer>
           </div>
 
-          {/* Legenda vertical com valores completos */}
-          <div className="flex flex-col justify-center gap-1 flex-1 min-w-0">
+          {/* Legenda */}
+          <div className={cn(
+            "flex flex-col gap-1 min-w-0",
+            size === 'mobile' ? "w-full" : "flex-1 justify-center"
+          )}>
             {chartData.slice(0, 5).map((item, index) => (
               <motion.button
                 key={item.name}
@@ -255,19 +266,26 @@ export default function DivisaoCategoriaCard({ className }: DivisaoCategoriaCard
                 transition={{ delay: index * 0.05 }}
                 onClick={() => handleLegendClick(item.id)}
                 className={cn(
-                  "flex items-center gap-2 py-0.5 px-1 rounded",
-                  "hover:bg-slate-50 transition-colors",
-                  "cursor-pointer text-left"
+                  "flex items-center gap-2 rounded transition-colors cursor-pointer text-left",
+                  size === 'mobile'
+                    ? "py-1 px-2 active:bg-slate-50"
+                    : "py-0.5 px-1 hover:bg-slate-50"
                 )}
               >
                 <div
                   className="w-2 h-2 rounded-full flex-shrink-0"
                   style={{ backgroundColor: item.color }}
                 />
-                <span className="text-[10px] text-slate-600 truncate flex-1 min-w-0">
+                <span className={cn(
+                  "text-slate-600 truncate flex-1 min-w-0",
+                  size === 'mobile' ? "text-xs" : "text-[10px]"
+                )}>
                   {item.name}
                 </span>
-                <span className="text-[10px] text-slate-700 font-semibold whitespace-nowrap">
+                <span className={cn(
+                  "text-slate-700 font-semibold whitespace-nowrap",
+                  size === 'mobile' ? "text-xs" : "text-[10px]"
+                )}>
                   {showPercentage ? `${item.percentage.toFixed(1)}%` : formatCurrency(item.value)}
                 </span>
               </motion.button>

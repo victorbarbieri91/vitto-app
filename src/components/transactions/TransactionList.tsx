@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle, useRef } from 'react';
 import { ModernCard, ModernButton, ModernInput } from '../ui/modern';
 import { useAccounts } from '../../hooks/useAccounts';
 import { useCategories } from '../../hooks/useCategories';
@@ -7,6 +7,10 @@ import { useIsMobile } from '../../hooks/useIsMobile';
 import { TransactionCard } from './TransactionCard';
 import { cn } from '../../utils/cn';
 import { formatLocalDate } from '../../utils/format';
+import { DayPicker } from 'react-day-picker';
+import { ptBR } from 'date-fns/locale';
+import { format as fnsFormat } from 'date-fns';
+import 'react-day-picker/src/style.css';
 import transactionService, { TransactionFilters } from '../../services/api/TransactionService';
 import { fixedTransactionService } from '../../services/api/FixedTransactionService';
 // A view retorna uma estrutura diferente, então vamos usar um tipo mais flexível por enquanto.
@@ -37,7 +41,8 @@ import {
   CreditCard,
   DollarSign,
   AlertTriangle,
-  RotateCcw
+  RotateCcw,
+  X
 } from 'lucide-react';
 
 export interface TransactionListRef {
@@ -119,6 +124,12 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [dateFilterApplied, setDateFilterApplied] = useState(false);
+  const [dateStart, setDateStart] = useState(new Date().toISOString().split('T')[0]);
+  const [dateEnd, setDateEnd] = useState('');
+  const [activeDateField, setActiveDateField] = useState<'start' | 'end' | null>(null);
+  const datePickerRef = useRef<HTMLDivElement>(null);
 
   const [filters, setFilters] = useState<ExtendedFilters>({
     ...defaultFilters,
@@ -522,10 +533,10 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
   }, []);
 
   const getRecurrenceBadge = useCallback((tipoRecorrencia: 'unica' | 'fixa' | 'parcelada') => {
-    const baseClass = "px-2 py-0.5 rounded-full text-xs font-medium";
+    const baseClass = "px-1.5 py-px rounded text-[10px] font-medium";
     switch (tipoRecorrencia) {
       case 'unica':
-        return <span className={`${baseClass} bg-slate-100 text-slate-700`}>Única</span>;
+        return <span className={`${baseClass} bg-slate-100 text-slate-600`}>Unica</span>;
       case 'fixa':
         return <span className={`${baseClass} bg-purple-100 text-purple-700`}>Fixa</span>;
       case 'parcelada':
@@ -581,192 +592,345 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
     setCurrentPage(1);
   }, []);
 
+  // Computed filter state for UI
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.tipo) count++;
+    if (filters.conta_id) count++;
+    if (filters.categoria_id) count++;
+    if (filters.status) count++;
+    return count;
+  }, [filters]);
+
+  const hasActiveFilters = activeFilterCount > 0;
+  const hasDateFilter = dateFilterApplied;
+
+  // Close date picker on click outside
+  useEffect(() => {
+    if (!showDatePicker) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (datePickerRef.current && !datePickerRef.current.contains(e.target as Node)) {
+        setShowDatePicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showDatePicker]);
+
+  // Apply date filter to transactions
+  const applyDateFilter = useCallback(() => {
+    if (dateStart || dateEnd) {
+      setFilters(prev => ({
+        ...prev,
+        startDate: dateStart || undefined,
+        endDate: dateEnd || dateStart || undefined,
+      }));
+      setDateFilterApplied(true);
+    }
+    setShowDatePicker(false);
+    setActiveDateField(null);
+  }, [dateStart, dateEnd]);
+
+  const clearDateFilter = useCallback(() => {
+    setDateStart(new Date().toISOString().split('T')[0]);
+    setDateEnd('');
+    setFilters(prev => {
+      const newFilters = { ...prev };
+      if ((defaultFilters as any)?.startDate) {
+        (newFilters as any).startDate = (defaultFilters as any).startDate;
+      } else {
+        delete (newFilters as any).startDate;
+      }
+      if ((defaultFilters as any)?.endDate) {
+        (newFilters as any).endDate = (defaultFilters as any).endDate;
+      } else {
+        delete (newFilters as any).endDate;
+      }
+      return newFilters;
+    });
+    setDateFilterApplied(false);
+    setShowDatePicker(false);
+    setActiveDateField(null);
+  }, [defaultFilters]);
+
+  // Handle single day selection from the calendar
+  const handleCalendarDaySelect = useCallback((day: Date | undefined) => {
+    if (!day) return;
+    const dateStr = fnsFormat(day, 'yyyy-MM-dd');
+    if (activeDateField === 'start') {
+      setDateStart(dateStr);
+    } else if (activeDateField === 'end') {
+      setDateEnd(dateStr);
+    }
+    setActiveDateField(null);
+  }, [activeDateField]);
+
+  // Open date picker with a specific date pre-selected (from table row click)
+  const openDatePickerWithDate = useCallback((dateStr: string) => {
+    setDateStart(dateStr);
+    setDateEnd(dateStr);
+    setShowDatePicker(true);
+    setActiveDateField(null);
+  }, []);
+
+  // Short date format: "07 fev"
+  const formatDateShort = useCallback((dateString: string) => {
+    const date = new Date(dateString + 'T00:00:00');
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '');
+  }, []);
+
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* Header com controles em linha única otimizada */}
+      {/* Barra de busca e filtros minimalista */}
       {showFilters && (
-        <ModernCard variant="default" className="p-4">
-          <div className={cn(
-            "flex flex-col gap-3",
-            !isMobile && "md:grid md:grid-cols-3 md:items-center md:gap-4"
-          )}>
-            {/* Busca */}
-            <div className={cn(
-              "w-full",
-              !isMobile && "md:justify-self-start md:w-80"
-            )}>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none">
-                  <Search className="w-4 h-4" />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Descrição, categoria ou conta"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  className="w-full h-9 pl-10 pr-4 text-sm rounded-lg border border-slate-200 bg-white
-                            placeholder:text-slate-400
-                            focus:outline-none focus:ring-2 focus:ring-deep-blue focus:border-transparent
-                            hover:border-slate-300 transition-colors"
-                  autoComplete="off"
-                  name="search-transactions"
-                />
-              </div>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            {/* Search Input */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Buscar lançamentos..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className="w-full h-10 pl-10 pr-9 text-sm rounded-xl
+                           bg-white/80 backdrop-blur-sm
+                           border border-slate-200/60
+                           placeholder:text-slate-400
+                           focus:outline-none focus:ring-2 focus:ring-coral-500/30 focus:border-coral-400
+                           hover:border-slate-300 transition-all"
+                autoComplete="off"
+                name="search-transactions"
+              />
+              {searchInput && (
+                <button
+                  onClick={() => setSearchInput('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-full
+                             text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
 
-            {/* Contador e botões - flexbox em mobile, posicionamento em desktop */}
-            <div className={cn(
-              "flex justify-between items-center",
-              !isMobile && "md:contents"
-            )}>
-              {/* Contador */}
-              <div className={cn(
-                "flex-shrink-0",
-                !isMobile && "md:justify-self-center"
-              )}>
-                <p className="text-sm text-slate-600">
-                  <span className="font-medium">{filteredTransactions.length}</span> transações
-                  {filters.searchText && <span className="text-slate-400"> • filtradas</span>}
-                </p>
-              </div>
-
-              {/* Botões */}
-              <div className={cn(
-                "flex items-center gap-2",
-                !isMobile && "md:justify-self-end"
-              )}>
-              <ModernButton
-                variant="outline"
-                size="sm"
+            {/* Counter + Actions */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <span className="text-xs text-slate-500 hidden sm:inline whitespace-nowrap">
+                {filteredTransactions.length} itens
+              </span>
+              <button
                 onClick={fetchTransactions}
                 disabled={loading}
-                className="text-slate-600 border-slate-300 hover:bg-slate-50"
+                className="h-10 w-10 flex items-center justify-center rounded-xl
+                           bg-white/80 border border-slate-200/60
+                           text-slate-500 hover:text-slate-700 hover:border-slate-300
+                           disabled:opacity-50 transition-all"
               >
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              </ModernButton>
-
-              <ModernButton
-                variant="primary"
-                size="sm"
+                <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
+              </button>
+              {/* Date filter button */}
+              <div className="relative" ref={datePickerRef}>
+                <button
+                  onClick={() => setShowDatePicker(!showDatePicker)}
+                  className={cn(
+                    "h-10 w-10 flex items-center justify-center rounded-xl transition-all border",
+                    hasDateFilter
+                      ? "bg-coral-50 border-coral-200 text-coral-700"
+                      : "bg-white/80 border-slate-200/60 text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                  )}
+                  title="Filtrar por data"
+                >
+                  <Calendar className="w-4 h-4" />
+                </button>
+                {hasDateFilter && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-coral-500" />
+                )}
+                {/* Date picker popover */}
+                {showDatePicker && (
+                  <div className={cn(
+                    "absolute top-full mt-2 z-50 rounded-xl bg-white/95 backdrop-blur-sm border border-slate-200/60 shadow-lg overflow-hidden",
+                    isMobile ? "fixed left-4 right-4" : "right-0 w-[280px]"
+                  )}>
+                    <div className="px-3 pt-3 pb-2">
+                      <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Filtrar por data</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] text-slate-400 mb-0.5 block">Data inicial</label>
+                          <button
+                            onClick={() => setActiveDateField(activeDateField === 'start' ? null : 'start')}
+                            className={cn(
+                              "w-full px-2.5 py-1.5 text-xs rounded-lg border text-left transition-all",
+                              activeDateField === 'start'
+                                ? "border-coral-400 ring-2 ring-coral-500/20 bg-white"
+                                : "border-slate-200 bg-white hover:border-slate-300"
+                            )}
+                          >
+                            {dateStart ? fnsFormat(new Date(dateStart + 'T00:00:00'), 'dd/MM/yyyy') : 'Selecionar'}
+                          </button>
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-400 mb-0.5 block">Data final</label>
+                          <button
+                            onClick={() => setActiveDateField(activeDateField === 'end' ? null : 'end')}
+                            className={cn(
+                              "w-full px-2.5 py-1.5 text-xs rounded-lg border text-left transition-all",
+                              activeDateField === 'end'
+                                ? "border-coral-400 ring-2 ring-coral-500/20 bg-white"
+                                : "border-slate-200 bg-white hover:border-slate-300"
+                            )}
+                          >
+                            {dateEnd ? fnsFormat(new Date(dateEnd + 'T00:00:00'), 'dd/MM/yyyy') : 'Selecionar'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Inline calendar - shows when a date field is active */}
+                    {activeDateField && (
+                      <div className="border-t border-slate-100 flex justify-center py-1">
+                        <DayPicker
+                          mode="single"
+                          selected={activeDateField === 'start' && dateStart
+                            ? new Date(dateStart + 'T00:00:00')
+                            : activeDateField === 'end' && dateEnd
+                            ? new Date(dateEnd + 'T00:00:00')
+                            : undefined
+                          }
+                          onSelect={handleCalendarDaySelect}
+                          locale={ptBR}
+                          numberOfMonths={1}
+                          showOutsideDays
+                          style={{
+                            '--rdp-accent-color': '#F87060',
+                            '--rdp-accent-background-color': '#FEF2F0',
+                            '--rdp-day-height': '32px',
+                            '--rdp-day-width': '32px',
+                            '--rdp-day_button-height': '30px',
+                            '--rdp-day_button-width': '30px',
+                            '--rdp-day_button-border-radius': '8px',
+                            fontSize: '13px',
+                          } as React.CSSProperties}
+                        />
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between px-3 py-2 border-t border-slate-100">
+                      <button
+                        onClick={clearDateFilter}
+                        className="text-xs text-slate-500 hover:text-slate-700 transition-colors"
+                      >
+                        Limpar
+                      </button>
+                      <button
+                        onClick={applyDateFilter}
+                        disabled={!dateStart}
+                        className="px-3 py-1 text-xs font-medium text-white bg-coral-500 hover:bg-coral-600 disabled:opacity-50 rounded-lg transition-colors"
+                      >
+                        Aplicar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <button
                 onClick={() => setShowFiltersPanel(!showFiltersPanel)}
-                className="bg-deep-blue hover:bg-deep-blue/90 text-white border-deep-blue"
+                className={cn(
+                  "flex items-center gap-1.5 h-10 px-3 rounded-xl text-sm font-medium transition-all border",
+                  hasActiveFilters
+                    ? "bg-coral-50 border-coral-200 text-coral-700"
+                    : "bg-white/80 border-slate-200/60 text-slate-600 hover:border-slate-300"
+                )}
               >
-                Filtros
-              </ModernButton>
-              </div>
+                <Filter className="w-4 h-4" />
+                {hasActiveFilters && (
+                  <span className="flex items-center justify-center w-5 h-5 rounded-full bg-coral-500 text-white text-[10px] font-bold">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
             </div>
           </div>
-        </ModernCard>
-      )}
 
-      {/* Painel de Filtros Compacto */}
-      {showFilters && showFiltersPanel && (
-          <div className="mt-4 p-4 bg-slate-50 rounded-lg border">
-            <div className={cn(
-              "grid gap-3",
-              isMobile ? "grid-cols-1" : "grid-cols-2 md:grid-cols-3 lg:grid-cols-6"
-            )}>
-              <div>
-                <label className="text-xs font-medium text-slate-700 mb-1 block">Data Inicial</label>
-                <input
-                  type="date"
-                  value={tempFilters.startDate || ''}
-                  onChange={(e) => handleFilterChange('startDate', e.target.value)}
-                  className="w-full px-2 py-1.5 text-sm rounded border border-slate-200 focus:border-coral-500 focus:outline-none"
-                />
+          {/* Filter Panel - Popover elegante */}
+          {showFiltersPanel && (
+            <div className="p-4 rounded-xl bg-white/90 backdrop-blur-sm border border-slate-200/60 shadow-lg">
+              <div className={cn(
+                "grid gap-3",
+                isMobile ? "grid-cols-1" : "grid-cols-2 md:grid-cols-4"
+              )}>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Tipo</label>
+                  <select
+                    value={tempFilters.tipo || ''}
+                    onChange={(e) => handleFilterChange('tipo', e.target.value)}
+                    className="w-full px-2.5 py-2 text-sm rounded-lg border border-slate-200 focus:border-coral-500 focus:ring-1 focus:ring-coral-500/20 focus:outline-none bg-white"
+                  >
+                    <option value="">Todos</option>
+                    <option value="receita">Receita</option>
+                    <option value="despesa">Despesa</option>
+                    <option value="despesa_cartao">Despesa no Cartao</option>
+                    <option value="transferencia">Transferencia</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Conta</label>
+                  <select
+                    value={tempFilters.conta_id || ''}
+                    onChange={(e) => handleFilterChange('conta_id', e.target.value)}
+                    className="w-full px-2.5 py-2 text-sm rounded-lg border border-slate-200 focus:border-coral-500 focus:ring-1 focus:ring-coral-500/20 focus:outline-none bg-white"
+                    disabled={accountsLoading}
+                  >
+                    <option value="">Todas</option>
+                    {accounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Categoria</label>
+                  <select
+                    value={tempFilters.categoria_id || ''}
+                    onChange={(e) => handleFilterChange('categoria_id', e.target.value)}
+                    className="w-full px-2.5 py-2 text-sm rounded-lg border border-slate-200 focus:border-coral-500 focus:ring-1 focus:ring-coral-500/20 focus:outline-none bg-white"
+                    disabled={categoriesLoading}
+                  >
+                    <option value="">Todas</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Status</label>
+                  <select
+                    value={tempFilters.status || ''}
+                    onChange={(e) => handleFilterChange('status', e.target.value)}
+                    className="w-full px-2.5 py-2 text-sm rounded-lg border border-slate-200 focus:border-coral-500 focus:ring-1 focus:ring-coral-500/20 focus:outline-none bg-white"
+                  >
+                    <option value="">Todos</option>
+                    <option value="efetivado">Efetivado</option>
+                    <option value="pendente">Pendente</option>
+                    <option value="cancelado">Cancelado</option>
+                  </select>
+                </div>
               </div>
 
-              <div>
-                <label className="text-xs font-medium text-slate-700 mb-1 block">Data Final</label>
-                <input
-                  type="date"
-                  value={tempFilters.endDate || ''}
-                  onChange={(e) => handleFilterChange('endDate', e.target.value)}
-                  className="w-full px-2 py-1.5 text-sm rounded border border-slate-200 focus:border-coral-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-slate-700 mb-1 block">Tipo</label>
-                <select
-                  value={tempFilters.tipo || ''}
-                  onChange={(e) => handleFilterChange('tipo', e.target.value)}
-                  className="w-full px-2 py-1.5 text-sm rounded border border-slate-200 focus:border-coral-500 focus:outline-none"
-                >
-                  <option value="">Todos</option>
-                  <option value="receita">Receita</option>
-                  <option value="despesa">Despesa</option>
-                  <option value="despesa_cartao">Despesa no Cartão</option>
-                  <option value="transferencia">Transferência</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-slate-700 mb-1 block">Conta</label>
-                <select
-                  value={tempFilters.conta_id || ''}
-                  onChange={(e) => handleFilterChange('conta_id', e.target.value)}
-                  className="w-full px-2 py-1.5 text-sm rounded border border-slate-200 focus:border-coral-500 focus:outline-none"
-                  disabled={accountsLoading}
-                >
-                  <option value="">Todas</option>
-                  {accounts.map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {account.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-slate-700 mb-1 block">Categoria</label>
-                <select
-                  value={tempFilters.categoria_id || ''}
-                  onChange={(e) => handleFilterChange('categoria_id', e.target.value)}
-                  className="w-full px-2 py-1.5 text-sm rounded border border-slate-200 focus:border-coral-500 focus:outline-none"
-                  disabled={categoriesLoading}
-                >
-                  <option value="">Todas</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-slate-700 mb-1 block">Status</label>
-                <select
-                  value={tempFilters.status || ''}
-                  onChange={(e) => handleFilterChange('status', e.target.value)}
-                  className="w-full px-2 py-1.5 text-sm rounded border border-slate-200 focus:border-coral-500 focus:outline-none"
-                >
-                  <option value="">Todos</option>
-                  <option value="efetivado">Efetivado</option>
-                  <option value="pendente">Pendente</option>
-                  <option value="cancelado">Cancelado</option>
-                </select>
+              <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
+                <button onClick={clearFilters} className="text-sm text-slate-500 hover:text-slate-700 transition-colors">
+                  Limpar filtros
+                </button>
+                <ModernButton variant="primary" size="sm" onClick={applyFilters}>
+                  Aplicar
+                </ModernButton>
               </div>
             </div>
-
-            <div className="flex gap-2 mt-3 pt-3 border-t border-slate-200">
-              <ModernButton
-                variant="primary"
-                size="sm"
-                onClick={applyFilters}
-              >
-                Aplicar
-              </ModernButton>
-              <ModernButton
-                variant="outline"
-                size="sm"
-                onClick={clearFilters}
-              >
-                Limpar
-              </ModernButton>
-            </div>
-          </div>
+          )}
+        </div>
       )}
 
       {/* Lista de Transações - Formato Tabela Compacta */}
@@ -800,7 +964,7 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
           <>
             {isMobile ? (
               // Renderização para mobile usando cards
-              <div className="space-y-3 p-4">
+              <div className="space-y-2 p-3">
                 {paginatedTransactions.map((transaction) => (
                   <TransactionCard
                     key={transaction.is_virtual_fixed ? `virtual-${transaction.fixed_transaction_id}-${transaction.data}` : `real-${transaction.id}`}
@@ -818,157 +982,142 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
                 ))}
               </div>
             ) : (
-              // Renderização para desktop usando tabela
+              // Renderização para desktop usando tabela compacta
               <>
                 {/* Header da Tabela */}
-                <div className="bg-slate-50 border-b border-slate-200">
-                  <div className="grid grid-cols-12 gap-4 px-4 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider">
-                    <div className="col-span-1">Tipo</div>
-                    <div className="col-span-2">Descrição</div>
+                <div className="border-b border-slate-200">
+                  <div className="grid grid-cols-12 gap-3 px-4 py-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                    <div className="col-span-3">Descricao</div>
                     <div className="col-span-2 hidden md:block">Categoria</div>
-                    <div className="col-span-1 hidden lg:block">Recorrência</div>
-                    <div className="col-span-2 hidden lg:block">Cartão</div>
+                    <div className="col-span-2 hidden lg:block">Conta</div>
+                    <div className="col-span-1 hidden lg:block">Tipo</div>
                     <div className="col-span-1 hidden md:block">Data</div>
                     <div className="col-span-2 text-right">Valor</div>
-                    <div className="col-span-1 text-center">Ações</div>
+                    <div className="col-span-1"></div>
                   </div>
                 </div>
 
             {/* Linhas da Tabela */}
-            <div className="divide-y divide-slate-100">
-              {paginatedTransactions.map((transaction) => (
+            <div>
+              {paginatedTransactions.map((transaction, index) => (
                 <div
                   key={transaction.is_virtual_fixed ? `virtual-${transaction.fixed_transaction_id}-${transaction.data}` : `real-${transaction.id}`}
-                  className="grid grid-cols-12 gap-4 px-4 py-2.5 hover:bg-slate-25 transition-colors group"
+                  className={cn(
+                    "grid grid-cols-12 gap-3 px-4 py-2 transition-colors group",
+                    index % 2 === 0 ? "bg-white" : "bg-slate-50/40",
+                    "hover:bg-coral-50/30"
+                  )}
                 >
-                  {/* Tipo */}
-                  <div className="col-span-1 flex items-center">
-                    <div className="flex items-center">
+                  {/* Icone + Descricao */}
+                  <div className="col-span-3 flex items-center gap-2 min-w-0">
+                    <div className="flex-shrink-0">
                       {getTransactionIcon(transaction.tipo)}
                     </div>
-                  </div>
-
-                  {/* Descrição */}
-                  <div className="col-span-2 flex items-center min-w-0">
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-slate-900 truncate">
+                      <p className="text-[13px] font-medium text-slate-800 truncate leading-tight">
                         {transaction.descricao}
                       </p>
                       {transaction.total_parcelas && (
-                        <p className="text-xs text-slate-500">
+                        <span className="text-[11px] text-slate-400">
                           {transaction.parcela_atual}/{transaction.total_parcelas}x
-                        </p>
+                        </span>
                       )}
-                      {/* Mobile: mostrar info extra */}
-                      <div className="md:hidden text-xs mt-0.5 flex items-center gap-1 flex-wrap">
-                        {getTransactionTypeBadge(transaction.tipo)}
+                      {/* Mobile fallback info */}
+                      <div className="md:hidden text-[10px] mt-0.5 flex items-center gap-1 flex-wrap">
                         {getRecurrenceBadge(transaction.tipo_recorrencia || 'unica')}
                         <span className="text-slate-500">
-                          • {getCategoryName(transaction)} • {getAccountName(transaction)}
+                          {getCategoryName(transaction)} - {formatDateShort(transaction.data)}
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Categoria - Hidden on mobile */}
+                  {/* Categoria */}
                   <div className="col-span-2 hidden md:flex items-center min-w-0">
-                    <span className="text-sm text-slate-600 truncate">
+                    <span className="text-xs text-slate-600 truncate">
                       {getCategoryName(transaction)}
                     </span>
                   </div>
 
-                  {/* Badge de Recorrência - Hidden on tablet and mobile */}
-                  <div className="col-span-1 hidden lg:flex items-center min-w-0">
-                    {getRecurrenceBadge(transaction.tipo_recorrencia || 'unica')}
-                  </div>
-
-                  {/* Cartão - Hidden on tablet and mobile */}
+                  {/* Conta */}
                   <div className="col-span-2 hidden lg:flex items-center min-w-0">
-                    <span className="text-sm text-slate-600 truncate">
+                    <span className="text-xs text-slate-600 truncate">
                       {getAccountName(transaction)}
                     </span>
                   </div>
 
-                  {/* Data - Hidden on mobile */}
+                  {/* Recorrencia */}
+                  <div className="col-span-1 hidden lg:flex items-center min-w-0">
+                    {getRecurrenceBadge(transaction.tipo_recorrencia || 'unica')}
+                  </div>
+
+                  {/* Data */}
                   <div className="col-span-1 hidden md:flex items-center">
-                    <span className="text-sm text-slate-600">
-                      {formatDate(transaction.data)}
+                    <button
+                      onClick={() => openDatePickerWithDate(transaction.data)}
+                      className="text-xs text-slate-500 hover:text-coral-600 hover:underline transition-colors cursor-pointer"
+                      title="Filtrar por esta data"
+                    >
+                      {formatDateShort(transaction.data)}
+                    </button>
+                  </div>
+
+                  {/* Valor + Status dot */}
+                  <div className="col-span-2 flex items-center justify-end gap-1.5">
+                    <div className={cn(
+                      "w-1.5 h-1.5 rounded-full flex-shrink-0",
+                      transaction.is_virtual_fixed ? "bg-blue-400" :
+                      (transaction.status === 'confirmado' || transaction.status === 'efetivado' || transaction.status === 'paga') ? "bg-emerald-400" :
+                      transaction.status === 'pendente' ? "bg-amber-400" :
+                      (transaction.is_fatura && (transaction.status === 'fechada' || transaction.status === 'aberta')) ? "bg-amber-400" :
+                      "bg-slate-300"
+                    )} />
+                    <span className={cn(
+                      "text-[13px] font-semibold tabular-nums",
+                      transaction.tipo === 'receita' ? 'text-emerald-600' :
+                      transaction.tipo === 'despesa' ? 'text-red-600' :
+                      transaction.tipo === 'despesa_cartao' ? 'text-purple-600' :
+                      'text-blue-600'
+                    )}>
+                      {['despesa', 'despesa_cartao'].includes(transaction.tipo) ? '-' : '+'}
+                      {formatCurrency(transaction.valor)}
                     </span>
                   </div>
 
-                  {/* Valor */}
-                  <div className="col-span-2 flex items-center justify-end">
-                    <div className="text-right">
-                      <p className={`text-sm font-semibold ${
-                        transaction.tipo === 'receita' 
-                          ? 'text-emerald-600' 
-                          : transaction.tipo === 'despesa' 
-                            ? 'text-red-600' 
-                            : transaction.tipo === 'despesa_cartao'
-                              ? 'text-purple-600'
-                              : 'text-blue-600'
-                      }`}>
-                        {['despesa', 'despesa_cartao'].includes(transaction.tipo) ? '-' : '+'}
-                        {formatCurrency(transaction.valor)}
-                      </p>
-                      <div className="flex items-center justify-end mt-0.5">
-                        {transaction.is_virtual_fixed
-                          ? <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                              Aguardando Confirmação
-                            </span>
-                          : transaction.tipo === 'despesa_cartao'
-                            ? null // Não mostrar status para transações de cartão
-                            : getStatusBadge(transaction.status || 'pendente', transaction)}
-                      </div>
-                      {/* Mobile: mostrar data */}
-                      <div className="md:hidden text-xs text-slate-500 mt-0.5">
-                        {formatDate(transaction.data)}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Ações */}
+                  {/* Acoes */}
                   <div className="col-span-1 flex items-center justify-center">
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {/* Verificar se é uma fatura */}
+                    <div className="flex items-center gap-0.5">
                       {transaction.is_fatura ? (
-                        <div className="flex items-center gap-1">
-                          {/* Botão para ver detalhes da fatura no módulo cartões */}
+                        <>
                           {onInvoiceClick && (
                             <button
                               onClick={() => onInvoiceClick(transaction)}
-                              className="p-1.5 text-slate-400 hover:text-coral-500 hover:bg-coral-50 rounded transition-colors"
+                              className="p-1 text-slate-400 hover:text-coral-500 hover:bg-coral-50 rounded transition-colors"
                               title="Ver detalhes da fatura"
                             >
                               <CreditCard className="w-3.5 h-3.5" />
                             </button>
                           )}
-                          {/* Botão para excluir fatura */}
                           {onDeleteInvoice && (
                             <button
                               onClick={() => onDeleteInvoice(transaction.id)}
-                              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                              className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
                               title="Excluir fatura"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           )}
-                        </div>
+                        </>
                       ) : transaction.is_virtual || transaction.is_virtual_fixed || (transaction.fatura_details && transaction.fatura_details.is_virtual) ? (
-                        // Botões para lançamentos fixos virtuais (pendentes)
                         <>
                           {onConfirmFixedTransaction && (
                             <button
                               onClick={() => {
-                                const fixoId = transaction.fixed_transaction_id ||
-                                              transaction.fixo_id ||
-                                              (transaction.fatura_details && transaction.fatura_details.fixo_id);
-                                if (fixoId) {
-                                  onConfirmFixedTransaction(fixoId, transaction.data);
-                                }
+                                const fixoId = transaction.fixed_transaction_id || transaction.fixo_id || transaction.fatura_details?.fixo_id;
+                                if (fixoId) onConfirmFixedTransaction(fixoId, transaction.data);
                               }}
-                              className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded transition-colors"
-                              title="Confirmar recebimento/pagamento completo"
+                              className="p-1 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded transition-colors"
+                              title="Confirmar"
                             >
                               <CheckCircle className="w-3.5 h-3.5" />
                             </button>
@@ -976,71 +1125,55 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
                           {onPartialFixedTransaction && (
                             <button
                               onClick={() => {
-                                const fixoId = transaction.fixed_transaction_id ||
-                                              transaction.fixo_id ||
-                                              (transaction.fatura_details && transaction.fatura_details.fixo_id);
-                                if (fixoId) {
-                                  onPartialFixedTransaction(fixoId, transaction.data);
-                                }
+                                const fixoId = transaction.fixed_transaction_id || transaction.fixo_id || transaction.fatura_details?.fixo_id;
+                                if (fixoId) onPartialFixedTransaction(fixoId, transaction.data);
                               }}
-                              className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
-                              title="Registrar recebimento/pagamento parcial"
+                              className="p-1 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
+                              title="Parcial"
                             >
                               <DollarSign className="w-3.5 h-3.5" />
                             </button>
                           )}
-                          {/* Adicionar botão de edição para lançamentos fixos virtuais */}
                           {onEditFixedTransaction && (
                             <button
                               onClick={() => {
-                                const fixoId = transaction.fixed_transaction_id ||
-                                              transaction.fixo_id ||
-                                              (transaction.fatura_details && transaction.fatura_details.fixo_id);
-                                if (fixoId) {
-                                  onEditFixedTransaction(fixoId);
-                                }
+                                const fixoId = transaction.fixed_transaction_id || transaction.fixo_id || transaction.fatura_details?.fixo_id;
+                                if (fixoId) onEditFixedTransaction(fixoId);
                               }}
-                              className="p-1.5 text-slate-400 hover:text-coral-500 hover:bg-coral-50 rounded transition-colors"
-                              title="Editar lançamento fixo"
+                              className="p-1 text-slate-400 hover:text-coral-500 hover:bg-coral-50 rounded transition-colors"
+                              title="Editar fixo"
                             >
                               <Edit3 className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </>
                       ) : canUndoFixedTransaction(transaction) ? (
-                        // Botões para lançamentos fixos confirmados (que podem ser desfeitos)
                         <>
                           {onUndoFixedTransaction && (
                             <button
                               onClick={() => onUndoFixedTransaction(transaction.id)}
-                              className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
-                              title="Desfazer confirmação e retornar ao estado pendente"
+                              className="p-1 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
+                              title="Desfazer"
                             >
                               <RotateCcw className="w-3.5 h-3.5" />
                             </button>
                           )}
-                          {/* Botão de edição para lançamentos fixos confirmados */}
                           {onEditFixedTransaction && (
                             <button
                               onClick={() => {
-                                const fixoId = transaction.fixed_transaction_id ||
-                                              transaction.fixo_id ||
-                                              (transaction.fatura_details && transaction.fatura_details.fixo_id);
-                                if (fixoId) {
-                                  onEditFixedTransaction(fixoId);
-                                }
+                                const fixoId = transaction.fixed_transaction_id || transaction.fixo_id || transaction.fatura_details?.fixo_id;
+                                if (fixoId) onEditFixedTransaction(fixoId);
                               }}
-                              className="p-1.5 text-slate-400 hover:text-coral-500 hover:bg-coral-50 rounded transition-colors"
-                              title="Editar lançamento fixo"
+                              className="p-1 text-slate-400 hover:text-coral-500 hover:bg-coral-50 rounded transition-colors"
+                              title="Editar fixo"
                             >
                               <Edit3 className="w-3.5 h-3.5" />
                             </button>
                           )}
-                          {/* Manter o botão de edição normal como fallback */}
                           {!onEditFixedTransaction && onEditTransaction && (
                             <button
                               onClick={() => onEditTransaction(transaction)}
-                              className="p-1.5 text-slate-400 hover:text-coral-500 hover:bg-coral-50 rounded transition-colors"
+                              className="p-1 text-slate-400 hover:text-coral-500 hover:bg-coral-50 rounded transition-colors"
                               title="Editar"
                             >
                               <Edit3 className="w-3.5 h-3.5" />
@@ -1048,14 +1181,12 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
                           )}
                         </>
                       ) : (
-                        // Botões padrão para transações normais
                         <>
-                          {/* Botão para efetivar transações pendentes */}
                           {transaction.status === 'pendente' && onActivateTransaction && (
                             <button
                               onClick={() => onActivateTransaction(transaction.id)}
-                              className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded transition-colors"
-                              title="Efetivar transação"
+                              className="p-1 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded transition-colors"
+                              title="Efetivar"
                             >
                               <CheckCircle className="w-3.5 h-3.5" />
                             </button>
@@ -1063,7 +1194,7 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
                           {onEditTransaction && (
                             <button
                               onClick={() => onEditTransaction(transaction)}
-                              className="p-1.5 text-slate-400 hover:text-coral-500 hover:bg-coral-50 rounded transition-colors"
+                              className="p-1 text-slate-400 hover:text-coral-500 hover:bg-coral-50 rounded transition-colors"
                               title="Editar"
                             >
                               <Edit3 className="w-3.5 h-3.5" />
@@ -1072,7 +1203,7 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
                           {onDeleteTransaction && (
                             <button
                               onClick={() => onDeleteTransaction(transaction.id)}
-                              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                              className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
                               title="Excluir"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -1090,101 +1221,123 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
           </>
         )}
 
-        {/* Paginação Avançada */}
+        {/* Paginacao Compacta */}
         {filteredTransactions.length > 0 && (
-          <div className="border-t border-slate-200 px-4 py-3 bg-slate-50">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              {/* Info e controle de itens por página */}
-              <div className="flex items-center gap-4 text-sm">
-                <span className="text-slate-600">
-                  Mostrando {((currentPage - 1) * itemsPerPage) + 1} a {Math.min(currentPage * itemsPerPage, filteredTransactions.length)} de {filteredTransactions.length}
+          <div className="border-t border-slate-100 px-4 py-2 bg-slate-50/50">
+            {isMobile ? (
+              /* Paginacao mobile simplificada */
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-500">
+                  {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, filteredTransactions.length)} de {filteredTransactions.length}
                 </span>
-                
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-600">Itens por página:</span>
-                  <select
-                    value={itemsPerPage}
-                    onChange={(e) => changeItemsPerPage(Number(e.target.value))}
-                    className="border border-slate-200 rounded px-2 py-1 text-sm focus:border-coral-500 focus:outline-none"
-                  >
-                    {ITEMS_PER_PAGE_OPTIONS.map(option => (
-                      <option key={option} value={option}>{option}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Controles de navegação */}
-              {totalPages > 1 && (
-                <div className="flex items-center gap-2">
-                  <ModernButton
-                    variant="outline"
-                    size="sm"
-                    onClick={() => goToPage(1)}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronsLeft className="w-4 h-4" />
-                  </ModernButton>
-                  
-                  <ModernButton
-                    variant="outline"
-                    size="sm"
-                    onClick={() => goToPage(currentPage - 1)}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </ModernButton>
-                  
+                {totalPages > 1 && (
                   <div className="flex items-center gap-1">
-                    {/* Páginas numeradas (adaptativo) */}
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      let pageNum;
-                      if (totalPages <= 5) {
-                        pageNum = i + 1;
-                      } else if (currentPage <= 3) {
-                        pageNum = i + 1;
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i;
-                      } else {
-                        pageNum = currentPage - 2 + i;
-                      }
-                      
-                      return (
-                        <button
-                          key={pageNum}
-                          onClick={() => goToPage(pageNum)}
-                          className={`px-3 py-1 text-sm rounded transition-colors ${
-                            currentPage === pageNum
-                              ? 'bg-coral-500 text-white'
-                              : 'text-slate-600 hover:bg-slate-100'
-                          }`}
-                        >
-                          {pageNum}
-                        </button>
-                      );
-                    })}
+                    <button
+                      onClick={() => goToPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="p-2 rounded-lg text-slate-400 active:bg-slate-100 disabled:opacity-30 transition-colors"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <span className="text-xs font-medium text-slate-600 min-w-[3rem] text-center">
+                      {currentPage}/{totalPages}
+                    </span>
+                    <button
+                      onClick={() => goToPage(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="p-2 rounded-lg text-slate-400 active:bg-slate-100 disabled:opacity-30 transition-colors"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
                   </div>
-                  
-                  <ModernButton
-                    variant="outline"
-                    size="sm"
-                    onClick={() => goToPage(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </ModernButton>
-                  
-                  <ModernButton
-                    variant="outline"
-                    size="sm"
-                    onClick={() => goToPage(totalPages)}
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronsRight className="w-4 h-4" />
-                  </ModernButton>
+                )}
+              </div>
+            ) : (
+              /* Paginacao desktop completa */
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="text-slate-500">
+                    {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, filteredTransactions.length)} de {filteredTransactions.length}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-400">Por pagina:</span>
+                    <select
+                      value={itemsPerPage}
+                      onChange={(e) => changeItemsPerPage(Number(e.target.value))}
+                      className="border border-slate-200 rounded px-1.5 py-0.5 text-xs focus:border-coral-500 focus:outline-none bg-white"
+                    >
+                      {ITEMS_PER_PAGE_OPTIONS.map(option => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-              )}
-            </div>
+
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => goToPage(1)}
+                      disabled={currentPage === 1}
+                      className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30 transition-colors"
+                    >
+                      <ChevronsLeft className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => goToPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30 transition-colors"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                    </button>
+
+                    <div className="flex items-center gap-0.5">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum;
+                        if (totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i;
+                        } else {
+                          pageNum = currentPage - 2 + i;
+                        }
+
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => goToPage(pageNum)}
+                            className={cn(
+                              "px-2.5 py-0.5 text-xs rounded transition-colors",
+                              currentPage === pageNum
+                                ? 'bg-coral-500 text-white'
+                                : 'text-slate-500 hover:bg-slate-100'
+                            )}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <button
+                      onClick={() => goToPage(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30 transition-colors"
+                    >
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => goToPage(totalPages)}
+                      disabled={currentPage === totalPages}
+                      className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30 transition-colors"
+                    >
+                      <ChevronsRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </ModernCard>

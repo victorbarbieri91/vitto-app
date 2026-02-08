@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus } from 'lucide-react';
 import { useCentralIA } from '../../hooks/useCentralIA';
 import { useChatSession } from '../../hooks/useChatSession';
+import { useScreenDetection } from '../../hooks/useScreenDetection';
 import {
   ChatContainer,
   ActionConfirmModal,
@@ -36,6 +37,9 @@ export function CentralIAPage() {
     deleteSession,
     refreshSessions,
   } = useChatSession();
+
+  const { size, isTouch, width } = useScreenDetection();
+  const isMobileNav = size === 'mobile' || (isTouch && width <= 768);
 
   // Ref para rastrear última sessão conhecida
   const lastSessionIdRef = useRef<string | null>(null);
@@ -77,7 +81,7 @@ export function CentralIAPage() {
   const hasMessages = messages.length > 0;
 
   return (
-    <div className="h-full flex flex-col overflow-hidden -m-4 sm:-m-6">
+    <div className={`flex flex-col overflow-hidden ${isMobileNav ? '-mx-4 -mt-4 h-[calc(100%+2rem)]' : '-m-4 sm:-m-6 h-full'}`}>
       {/* Header */}
       <header className="flex items-center justify-between px-4 sm:px-6 py-3">
         {/* Botão Nova Conversa */}

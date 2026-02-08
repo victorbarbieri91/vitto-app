@@ -72,13 +72,13 @@ const ModernInput = forwardRef<HTMLInputElement, ModernInputProps>(
               isDisabled && 'opacity-50'
             )}
             initial={false}
-            animate={{ 
-              color: isFocused 
-                ? error 
-                  ? '#DC2626' 
-                  : '#F87060'
-                : error 
-                  ? '#DC2626' 
+            animate={{
+              color: isFocused
+                ? error
+                  ? '#DC2626'
+                  : '#334155'
+                : error
+                  ? '#DC2626'
                   : '#404040'
             }}
           >

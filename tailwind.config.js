@@ -18,7 +18,19 @@ module.exports = {
         sans: ["Inter", ...fontFamily.sans],
       },
       colors: {
-        'deep-blue': '#102542', // Nosso azul marinho sofisticado
+        'deep-blue': {
+          DEFAULT: '#102542',
+          50: '#E8EDF3',
+          100: '#D1DBE7',
+          200: '#A3B7CF',
+          300: '#7593B7',
+          400: '#476F9F',
+          500: '#1A3A5C',
+          600: '#102542',
+          700: '#0D1E35',
+          800: '#0A1728',
+          900: '#07101B',
+        },
         'coral': {
           50: '#FEF6F5',
           100: '#FDECEB',

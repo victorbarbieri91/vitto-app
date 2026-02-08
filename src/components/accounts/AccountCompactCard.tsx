@@ -1,20 +1,21 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import {
-  MoreVertical,
   Edit,
   Trash2,
-  Calculator,
-  ExternalLink,
   Building2,
   Wallet,
   PiggyBank,
-  TrendingUp
+  TrendingUp,
+  ExternalLink,
 } from 'lucide-react';
 import type { Account } from '../../services/api/AccountService';
+import { ModernButton } from '../ui/modern';
 import AdjustBalanceModal from './AdjustBalanceModal';
 import { getAccountColor } from '../../utils/colors';
+import SwipeableCard from '../ui/SwipeableCard';
+import type { SwipeAction } from '../ui/SwipeableCard';
+import { useScreenDetection } from '../../hooks/useScreenDetection';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -23,7 +24,6 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-// Ícones por tipo de conta
 const getAccountIcon = (tipo: string) => {
   const icons = {
     corrente: Building2,
@@ -34,13 +34,12 @@ const getAccountIcon = (tipo: string) => {
   return icons[tipo as keyof typeof icons] || Building2;
 };
 
-// Labels amigáveis para tipo de conta
 const getTypeLabel = (tipo: string) => {
   const labels: Record<string, string> = {
-    corrente: 'Conta Corrente',
-    poupanca: 'Poupança',
-    investimento: 'Investimento',
-    carteira: 'Carteira',
+    corrente: 'conta_corrente',
+    poupanca: 'poupança',
+    investimento: 'investimento',
+    carteira: 'carteira',
   };
   return labels[tipo.toLowerCase()] || tipo;
 };
@@ -59,24 +58,15 @@ export default function AccountCompactCard({
   onBalanceAdjusted
 }: AccountCompactCardProps) {
   const navigate = useNavigate();
-  const [isHovered, setIsHovered] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
+  const { size, isTouch, width } = useScreenDetection();
   const [adjustingAccount, setAdjustingAccount] = useState<Account | null>(null);
 
   const IconComponent = getAccountIcon(account.tipo);
-  const accountColor = getAccountColor(account.tipo, account.cor);
+  const accountColor = getAccountColor(account.tipo, account.cor, account.nome);
+  const isMobileNav = size === 'mobile' || (isTouch && width <= 768);
 
   const handleViewTransactions = () => {
     navigate(`/lancamentos?conta=${account.id}`);
-  };
-
-  const handleOpenAdjustModal = () => {
-    setAdjustingAccount(account);
-    setShowMenu(false);
-  };
-
-  const handleCloseAdjustModal = () => {
-    setAdjustingAccount(null);
   };
 
   const handleAdjustSuccess = () => {
@@ -84,122 +74,121 @@ export default function AccountCompactCard({
     setAdjustingAccount(null);
   };
 
-  return (
-    <>
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        whileHover={{ y: -2 }}
-        transition={{ duration: 0.2 }}
-        onHoverStart={() => setIsHovered(true)}
-        onHoverEnd={() => {
-          setIsHovered(false);
-          setShowMenu(false);
-        }}
-        className="relative group"
-      >
-        <div className="relative rounded-xl overflow-hidden shadow-sm border border-slate-200 hover:shadow-md transition-all duration-200 bg-white">
-          {/* Header com nome - fundo colorido */}
-          <div
-            className="px-3 py-2.5"
-            style={{ backgroundColor: accountColor }}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                <div className="p-1 rounded-md bg-white/20 flex-shrink-0">
-                  <IconComponent className="w-3.5 h-3.5 text-white" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3
-                    className="font-semibold text-sm text-white truncate"
-                    title={account.nome}
-                  >
-                    {account.nome}
-                  </h3>
-                  <p className="text-[10px] text-white/70 truncate">
-                    {getTypeLabel(account.tipo)}
-                  </p>
-                </div>
-              </div>
+  // Swipe actions para mobile
+  const rightSwipeActions: SwipeAction[] = [
+    {
+      icon: Edit,
+      label: 'Editar',
+      color: 'text-white',
+      bgColor: 'bg-blue-500',
+      onClick: () => onEdit(account),
+    },
+    {
+      icon: Trash2,
+      label: 'Excluir',
+      color: 'text-white',
+      bgColor: 'bg-red-500',
+      onClick: () => onDelete(account),
+    },
+  ];
 
-              {/* Menu de ações */}
-              <div className="relative">
-                <motion.button
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: isHovered ? 1 : 0 }}
-                  className="p-1 rounded-md hover:bg-white/20 transition-colors"
-                  onClick={() => setShowMenu(!showMenu)}
-                >
-                  <MoreVertical className="w-4 h-4 text-white/80" />
-                </motion.button>
+  const leftSwipeActions: SwipeAction[] = [
+    {
+      icon: ExternalLink,
+      label: 'Lanc.',
+      color: 'text-white',
+      bgColor: 'bg-emerald-500',
+      onClick: handleViewTransactions,
+    },
+  ];
 
-                {/* Dropdown menu */}
-                {showMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="absolute right-0 top-7 z-20 w-36 bg-white rounded-lg shadow-lg border border-slate-200 py-1 overflow-hidden"
-                  >
-                    <button
-                      onClick={handleViewTransactions}
-                      className="w-full px-3 py-1.5 text-left text-xs text-slate-600 hover:bg-slate-50 flex items-center gap-2"
-                    >
-                      <ExternalLink className="w-3 h-3" />
-                      Ver Extrato
-                    </button>
-                    <button
-                      onClick={handleOpenAdjustModal}
-                      className="w-full px-3 py-1.5 text-left text-xs text-slate-600 hover:bg-slate-50 flex items-center gap-2"
-                    >
-                      <Calculator className="w-3 h-3" />
-                      Ajustar Saldo
-                    </button>
-                    <button
-                      onClick={() => {
-                        onEdit(account);
-                        setShowMenu(false);
-                      }}
-                      className="w-full px-3 py-1.5 text-left text-xs text-slate-600 hover:bg-slate-50 flex items-center gap-2"
-                    >
-                      <Edit className="w-3 h-3" />
-                      Editar
-                    </button>
-                    <hr className="my-1 border-slate-100" />
-                    <button
-                      onClick={() => {
-                        onDelete(account);
-                        setShowMenu(false);
-                      }}
-                      className="w-full px-3 py-1.5 text-left text-xs text-red-500 hover:bg-red-50 flex items-center gap-2"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                      Excluir
-                    </button>
-                  </motion.div>
-                )}
-              </div>
+  const cardContent = (
+    <button
+      onClick={handleViewTransactions}
+      className="group relative p-4 rounded-xl transition-all duration-300 text-left shadow-md hover:shadow-lg transform hover:-translate-y-0.5 hover:scale-[1.02] border border-transparent hover:border-white/20 w-full"
+      style={{ background: `linear-gradient(135deg, ${accountColor}dd, ${accountColor})` }}
+    >
+      {/* Overlay para profundidade */}
+      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-black/15 rounded-xl" />
+
+      {/* Conteudo */}
+      <div className="relative z-10 text-white h-full flex flex-col justify-between min-h-[120px]">
+        {/* Header: icone + nome + acoes */}
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="p-1.5 rounded-md bg-white/15 flex-shrink-0">
+              <IconComponent className="w-4 h-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="font-semibold text-sm truncate" title={account.nome}>
+                {account.nome}
+              </h3>
+              <p className="text-white/70 text-xs">{getTypeLabel(account.tipo)}</p>
             </div>
           </div>
 
-          {/* Corpo do card - saldo */}
-          <div className="px-3 py-2">
-            <p
-              className={`text-sm font-semibold tracking-tight ${
-                account.saldo_atual >= 0 ? 'text-slate-700' : 'text-red-500'
-              }`}
-            >
-              {formatCurrency(account.saldo_atual)}
-            </p>
-          </div>
+          {/* Acoes no hover - apenas desktop */}
+          {!isMobileNav && (
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <ModernButton
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(account);
+                }}
+                className="text-white/80 hover:text-white hover:bg-white/20 h-6 w-6 p-0"
+              >
+                <Edit className="w-3 h-3" />
+              </ModernButton>
+              <ModernButton
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(account);
+                }}
+                className="text-white/80 hover:text-white hover:bg-red-500/30 h-6 w-6 p-0"
+              >
+                <Trash2 className="w-3 h-3" />
+              </ModernButton>
+            </div>
+          )}
         </div>
-      </motion.div>
+
+        {/* Saldo */}
+        <div className="mt-auto pt-3">
+          <p className="text-white/60 text-[10px]">Saldo</p>
+          <p className="text-white text-lg font-bold">
+            {formatCurrency(account.saldo_atual)}
+          </p>
+        </div>
+      </div>
+
+      {/* Shine Effect */}
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-[0.07] transition-opacity duration-500 rounded-xl" />
+    </button>
+  );
+
+  return (
+    <>
+      {isMobileNav ? (
+        <SwipeableCard
+          rightActions={rightSwipeActions}
+          leftActions={leftSwipeActions}
+        >
+          {cardContent}
+        </SwipeableCard>
+      ) : (
+        cardContent
+      )}
 
       {/* Modal de Ajuste de Saldo */}
       {adjustingAccount && (
         <AdjustBalanceModal
           account={adjustingAccount}
           isOpen={!!adjustingAccount}
-          onClose={handleCloseAdjustModal}
+          onClose={() => setAdjustingAccount(null)}
           onSuccess={handleAdjustSuccess}
         />
       )}

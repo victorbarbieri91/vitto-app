@@ -10,6 +10,7 @@ import {
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../store/AuthContext';
 import { supabase } from '../../services/supabase/client';
+import { useScreenDetection } from '../../hooks/useScreenDetection';
 
 interface ProximoLancamento {
   id: string;
@@ -37,9 +38,11 @@ interface ProximasTransacoesCardProps {
 
 export default function ProximasTransacoesCard({ className, limit = 5 }: ProximasTransacoesCardProps) {
   const { user } = useAuth();
+  const { size } = useScreenDetection();
   const [items, setItems] = useState<ProximoLancamento[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodFilter>('7days');
+  const isMobile = size === 'mobile';
 
   useEffect(() => {
     if (!user) return;
@@ -253,22 +256,36 @@ export default function ProximasTransacoesCard({ className, limit = 5 }: Proxima
       </div>
 
       {/* Filtro de periodo */}
-      <div className="flex gap-1 overflow-x-auto pb-1">
-        {PERIOD_OPTIONS.map(option => (
-          <button
-            key={option.value}
-            onClick={() => setSelectedPeriod(option.value)}
-            className={cn(
-              "px-2 py-1 text-[10px] font-medium rounded-md transition-colors whitespace-nowrap",
-              selectedPeriod === option.value
-                ? "bg-deep-blue text-white"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-            )}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
+      {isMobile ? (
+        <select
+          value={selectedPeriod}
+          onChange={(e) => setSelectedPeriod(e.target.value as PeriodFilter)}
+          className="w-full text-xs font-medium bg-slate-100 border-0 rounded-lg px-3 py-1.5 text-slate-700 focus:ring-1 focus:ring-coral-500"
+        >
+          {PERIOD_OPTIONS.map(option => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <div className="flex gap-1 overflow-x-auto pb-1">
+          {PERIOD_OPTIONS.map(option => (
+            <button
+              key={option.value}
+              onClick={() => setSelectedPeriod(option.value)}
+              className={cn(
+                "px-2 py-1 text-[10px] font-medium rounded-md transition-colors whitespace-nowrap",
+                selectedPeriod === option.value
+                  ? "bg-deep-blue text-white"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              )}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 

@@ -4,6 +4,7 @@ import { Send, Loader2 } from 'lucide-react';
 import { SuggestionsPopover } from './SuggestionsPopover';
 import { FileUploadButton } from './FileUploadButton';
 import { cn } from '../../utils/cn';
+import { useScreenDetection } from '../../hooks/useScreenDetection';
 
 interface MessageInputProps {
   onSend: (message: string) => void;
@@ -26,6 +27,8 @@ export function MessageInput({
 }: MessageInputProps) {
   const [message, setMessage] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { size } = useScreenDetection();
+  const isMobile = size === 'mobile';
 
   // Auto-resize do textarea
   useEffect(() => {
@@ -108,7 +111,8 @@ export function MessageInput({
           className={cn(
             'flex-1 py-3 bg-transparent resize-none',
             (showSuggestions || showFileUpload) ? 'pl-1' : 'pl-4',
-            'text-sm text-slate-700 placeholder-slate-400',
+            isMobile ? 'text-xs' : 'text-sm',
+            'text-slate-700 placeholder-slate-400',
             'focus:outline-none',
             'min-h-[48px] max-h-[150px]'
           )}

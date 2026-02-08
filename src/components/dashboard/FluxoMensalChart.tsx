@@ -5,6 +5,7 @@ import { BarChart3, TrendingUp } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../store/AuthContext';
 import { supabase } from '../../services/supabase/client';
+import { useScreenDetection } from '../../hooks/useScreenDetection';
 
 interface MonthData {
   mes: string;
@@ -22,9 +23,11 @@ interface FluxoMensalChartProps {
 
 export default function FluxoMensalChart({ className, months = 4 }: FluxoMensalChartProps) {
   const { user } = useAuth();
+  const { size } = useScreenDetection();
   const [data, setData] = useState<MonthData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isMobile = size === 'mobile';
 
   const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -96,7 +99,7 @@ export default function FluxoMensalChart({ className, months = 4 }: FluxoMensalC
     }).format(value);
   };
 
-  // Tooltip customizado - aparece só no hover
+  // Tooltip customizado - aparece só no hover/tap
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const saldo = (payload[0]?.value || 0) - (payload[1]?.value || 0);
@@ -104,13 +107,16 @@ export default function FluxoMensalChart({ className, months = 4 }: FluxoMensalC
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-deep-blue/95 backdrop-blur-sm rounded-xl shadow-xl p-3 border border-white/10"
+          className={cn(
+            "bg-deep-blue/95 backdrop-blur-sm rounded-xl shadow-xl border border-white/10",
+            isMobile ? "p-2" : "p-3"
+          )}
         >
-          <p className="font-semibold text-white mb-2">{label}</p>
+          <p className={cn("font-semibold text-white", isMobile ? "mb-1 text-xs" : "mb-2")}>{label}</p>
           {payload.map((entry: any, index: number) => (
-            <div key={index} className="flex items-center justify-between gap-4 text-sm">
+            <div key={index} className={cn("flex items-center justify-between gap-3", isMobile ? "text-xs" : "text-sm")}>
               <span className="text-white/70">
-                {entry.name === 'receitas' ? 'Receitas' : 'Despesas'}
+                {entry.name === 'receitas' ? 'Rec' : 'Desp'}
               </span>
               <span className={cn(
                 'font-semibold',
@@ -120,10 +126,11 @@ export default function FluxoMensalChart({ className, months = 4 }: FluxoMensalC
               </span>
             </div>
           ))}
-          <div className="mt-2 pt-2 border-t border-white/20 flex items-center justify-between">
-            <span className="text-white/70 text-sm">Saldo</span>
+          <div className={cn("border-t border-white/20 flex items-center justify-between", isMobile ? "mt-1 pt-1" : "mt-2 pt-2")}>
+            <span className={cn("text-white/70", isMobile ? "text-xs" : "text-sm")}>Saldo</span>
             <span className={cn(
               'font-bold',
+              isMobile ? 'text-xs' : '',
               saldo >= 0 ? 'text-emerald-400' : 'text-red-400'
             )}>
               {saldo >= 0 ? '+' : ''}{formatCurrency(saldo)}
@@ -212,18 +219,21 @@ export default function FluxoMensalChart({ className, months = 4 }: FluxoMensalC
       </div>
 
       {/* Grafico */}
-      <div className="flex-1 min-h-0 p-2">
+      <div className={cn("flex-1 min-h-0", isMobile ? "p-1" : "p-2")}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={data}
-            margin={{ top: 10, right: 5, left: 5, bottom: 5 }}
-            barCategoryGap="25%"
+            margin={isMobile
+              ? { top: 5, right: 2, left: 2, bottom: 2 }
+              : { top: 10, right: 5, left: 5, bottom: 5 }
+            }
+            barCategoryGap={isMobile ? "20%" : "25%"}
           >
             <XAxis
               dataKey="mes"
               axisLine={false}
               tickLine={false}
-              tick={{ fill: '#64748b', fontSize: 11 }}
+              tick={{ fill: '#64748b', fontSize: isMobile ? 10 : 11 }}
             />
             <Tooltip
               content={<CustomTooltip />}

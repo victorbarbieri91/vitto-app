@@ -44,6 +44,7 @@ import BusinessPlanSubmodulePage from './pages/admin/BusinessPlanSubmodulePage';
 import BusinessPlanPrintPage from './pages/admin/BusinessPlanPrintPage';
 import AgendaPage from './pages/admin/AgendaPage';
 import AdminFinancePage from './pages/admin/AdminFinancePage';
+import BaseConhecimentoPage from './pages/admin/BaseConhecimentoPage';
 
 // Componente para redirecionar com base na autenticação e onboarding
 const RedirectBasedOnAuth = () => {
@@ -152,6 +153,7 @@ function App() {
               <Route path="/admin/business-plan/:submodule" element={<BusinessPlanSubmodulePage />} />
               <Route path="/admin/agenda" element={<AgendaPage />} />
               <Route path="/admin/financeiro" element={<AdminFinancePage />} />
+              <Route path="/admin/base-conhecimento" element={<BaseConhecimentoPage />} />
             </Route>
 
             {/* Página 404 */}

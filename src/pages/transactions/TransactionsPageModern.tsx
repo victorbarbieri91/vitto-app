@@ -1,10 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { useTransactionModal } from '../../hooks/useTransactionModal';
-import { TransactionList } from '../../components/transactions/TransactionList';
+import { TransactionList, TransactionListRef } from '../../components/transactions/TransactionList';
 import TransactionForm from '../../components/forms/TransactionForm';
 import type { Transaction } from '../../services/api/AccountService';
-import TransactionTypeSelector from '../../components/transactions/TransactionTypeSelector';
 import { MonthNavigator, ModernButton } from '../../components/ui/modern';
 import FilterChip from '../../components/ui/FilterChip';
 import { fixedTransactionService, FixedTransactionWithDetails } from '../../services/api/FixedTransactionService';
@@ -28,7 +26,7 @@ export default function TransactionsPageModern() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const { openModal, TransactionModalComponent, transactionListRef } = useTransactionModal();
+  const transactionListRef = useRef<TransactionListRef>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -405,12 +403,6 @@ export default function TransactionsPageModern() {
 
   // === FORM HANDLERS ===
 
-  const handleSelectTransactionType = (type: 'receita' | 'despesa' | 'despesa_cartao') => {
-    setEditingTransaction(null);
-    setIsAddModalOpen(false);
-    openModal(type);
-  };
-
   const handleCloseModal = () => {
     setIsAddModalOpen(false);
     setEditingTransaction(null);
@@ -437,15 +429,6 @@ export default function TransactionsPageModern() {
 
   return (
     <div className="space-y-4">
-      {/* Header with transaction type selector */}
-      <div className="flex justify-between items-center relative">
-        <div>
-          <div className="h-8"></div>
-          <div className="h-5"></div>
-        </div>
-        <TransactionTypeSelector onSelect={handleSelectTransactionType} />
-      </div>
-
       {/* Month Navigation */}
       <div className="flex justify-center">
         <MonthNavigator
@@ -540,9 +523,6 @@ export default function TransactionsPageModern() {
           </div>
         </div>
       )}
-
-      {/* Shared Transaction Modal */}
-      <TransactionModalComponent />
 
       {/* Invoice Payment Modal */}
       {selectedInvoiceForPayment && (

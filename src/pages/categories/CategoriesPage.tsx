@@ -531,7 +531,7 @@ export default function CategoriesPage() {
                   <label className="block text-xs font-medium text-slate-600 mb-1.5">
                     Ícone
                   </label>
-                  <div className="grid grid-cols-10 gap-1 max-h-28 overflow-y-auto p-1.5 bg-slate-50/80 rounded-lg">
+                  <div className="grid grid-cols-6 sm:grid-cols-10 gap-1.5 sm:gap-1 max-h-28 overflow-y-auto p-1.5 bg-slate-50/80 rounded-lg">
                     {AVAILABLE_ICONS.map(({ name, icon: Icon, label }) => (
                       <button
                         key={name}

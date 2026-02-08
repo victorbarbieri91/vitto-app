@@ -17,6 +17,11 @@ html, body {
   overflow: hidden;
 }
 
+/* Safe area para iPhones com notch/home indicator */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 :root {
   /* Nova paleta de cores */
   --color-primary: #F87060;
