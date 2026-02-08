@@ -35,7 +35,7 @@ export function MessageList({ messages, isLoading, onInteractiveAction }: Messag
         '[scrollbar-width:none]'
       )}
     >
-      <div className="max-w-3xl mx-auto py-3 px-2 md:py-6 md:px-4">
+      <div className="max-w-3xl mx-auto py-3 px-1 md:py-6 md:px-4">
         <AnimatePresence mode="popLayout">
           {messages.map((message, index) => (
             <MessageBubble

@@ -4,6 +4,7 @@ import { User, Wrench } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { InteractiveMessage } from './interactive';
+import { useScreenDetection } from '../../hooks/useScreenDetection';
 import type { ChatMessage } from '../../types/central-ia';
 
 interface MessageBubbleProps {
@@ -17,6 +18,8 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
     const isUser = message.role === 'user';
     const isTool = message.role === 'tool';
     const hasInteractive = message.interactive && message.interactive.elements.length > 0;
+    const { size } = useScreenDetection();
+    const isMobile = size === 'mobile';
 
     // Não renderiza mensagens de sistema ou tool (mas pode mostrar indicador de tool)
     if (message.role === 'system') return null;
@@ -36,6 +39,69 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
       );
     }
 
+    // ========== MOBILE: layout estilo ChatGPT ==========
+    if (isMobile) {
+      if (isUser) {
+        // Usuário: bolha coral compacta à direita, sem avatar
+        return (
+          <motion.div
+            ref={ref}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+            className="flex justify-end py-1.5"
+          >
+            <div className="max-w-[80%] bg-coral-500 text-white rounded-2xl rounded-tr-sm px-3.5 py-2">
+              {message.content && (
+                <div className="text-[13px] leading-normal">
+                  <MarkdownRenderer content={message.content} isUser={true} />
+                </div>
+              )}
+            </div>
+          </motion.div>
+        );
+      }
+
+      // Assistente: full-width, sem bolha, sem avatar, texto direto
+      return (
+        <motion.div
+          ref={ref}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="py-2"
+        >
+          {message.content && (
+            <div className="text-[13px] leading-relaxed text-slate-700">
+              <MarkdownRenderer content={message.content} isUser={false} />
+            </div>
+          )}
+
+          {/* Indicador de tool calls */}
+          {message.tool_calls && message.tool_calls.length > 0 && (
+            <div className="mt-2 pt-2 border-t border-slate-100">
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <Wrench className="w-3 h-3" />
+                <span>{message.tool_calls.length} ferramenta(s) executada(s)</span>
+              </div>
+            </div>
+          )}
+
+          {/* Conteúdo interativo */}
+          {hasInteractive && (
+            <InteractiveMessage
+              interactive={message.interactive!}
+              onButtonClick={(value) => onInteractiveAction?.('button', value)}
+              onConfirm={() => onInteractiveAction?.('confirm')}
+              onCancel={() => onInteractiveAction?.('cancel')}
+              disabled={!isLast}
+            />
+          )}
+        </motion.div>
+      );
+    }
+
+    // ========== DESKTOP: layout original com avatars e bubbles ==========
     return (
       <motion.div
         ref={ref}
@@ -49,21 +115,21 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
       >
         {/* Avatar */}
         {isUser ? (
-          <div className="flex-shrink-0 w-7 h-7 md:w-10 md:h-10 rounded-full bg-coral-500 text-white flex items-center justify-center">
-            <User className="w-4 h-4 md:w-5 md:h-5" />
+          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-coral-500 text-white flex items-center justify-center">
+            <User className="w-5 h-5" />
           </div>
         ) : (
           <img
             src="/personagem.vitto.icone.red.png"
             alt="Vitto"
-            className="flex-shrink-0 w-7 h-7 md:w-10 md:h-10 rounded-full object-cover shadow-sm ring-1 ring-slate-200/60"
+            className="flex-shrink-0 w-10 h-10 rounded-full object-cover shadow-sm ring-1 ring-slate-200/60"
           />
         )}
 
         {/* Conteúdo */}
         <div
           className={cn(
-            'max-w-[92%] md:max-w-[85%] rounded-2xl px-3 py-2.5 md:px-4 md:py-3',
+            'max-w-[85%] rounded-2xl px-4 py-3',
             isUser
               ? 'bg-coral-500 text-white rounded-tr-sm'
               : 'bg-white/80 backdrop-blur-sm border border-slate-200/50 rounded-tl-sm shadow-sm'
@@ -71,7 +137,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
         >
           {/* Renderização de Markdown */}
           {message.content && (
-            <div className="text-[13px] leading-normal md:text-sm md:leading-relaxed">
+            <div className="text-sm leading-relaxed">
               <MarkdownRenderer
                 content={message.content}
                 isUser={isUser}
