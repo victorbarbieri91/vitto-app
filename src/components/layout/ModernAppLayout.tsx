@@ -286,7 +286,7 @@ export default function ModernAppLayout({ children, requireAuth = true }: Modern
       <main className="flex-1 overflow-y-auto overscroll-y-contain">
         <div className={cn(
           'h-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6',
-          isMobileNav ? 'pb-24' : 'pb-24',
+          isMobileNav ? 'pb-6' : 'pb-24',
           size === 'compact' ? 'max-w-7xl' : 'max-w-screen-2xl'
         )}>
             {children}

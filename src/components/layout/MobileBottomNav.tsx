@@ -24,7 +24,7 @@ export default function MobileBottomNav({ onMorePress, moreOpen }: MobileBottomN
   const location = useLocation();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-t border-slate-200/60 safe-area-bottom">
+    <nav className="flex-shrink-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/60 safe-area-bottom">
       <div className="flex items-center justify-around h-14 px-1">
         {tabs.map((tab) => {
           const isActive = location.pathname === tab.path;
