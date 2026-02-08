@@ -49,21 +49,21 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
       >
         {/* Avatar */}
         {isUser ? (
-          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-coral-500 text-white flex items-center justify-center">
-            <User className="w-5 h-5" />
+          <div className="flex-shrink-0 w-7 h-7 md:w-10 md:h-10 rounded-full bg-coral-500 text-white flex items-center justify-center">
+            <User className="w-4 h-4 md:w-5 md:h-5" />
           </div>
         ) : (
           <img
             src="/personagem.vitto.icone.red.png"
             alt="Vitto"
-            className="flex-shrink-0 w-10 h-10 rounded-full object-cover shadow-sm ring-1 ring-slate-200/60"
+            className="flex-shrink-0 w-7 h-7 md:w-10 md:h-10 rounded-full object-cover shadow-sm ring-1 ring-slate-200/60"
           />
         )}
 
         {/* Conteúdo */}
         <div
           className={cn(
-            'max-w-[85%] rounded-2xl px-4 py-3',
+            'max-w-[92%] md:max-w-[85%] rounded-2xl px-3 py-2.5 md:px-4 md:py-3',
             isUser
               ? 'bg-coral-500 text-white rounded-tr-sm'
               : 'bg-white/80 backdrop-blur-sm border border-slate-200/50 rounded-tl-sm shadow-sm'
@@ -71,7 +71,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
         >
           {/* Renderização de Markdown */}
           {message.content && (
-            <div className="text-sm leading-relaxed">
+            <div className="text-[13px] leading-normal md:text-sm md:leading-relaxed">
               <MarkdownRenderer
                 content={message.content}
                 isUser={isUser}

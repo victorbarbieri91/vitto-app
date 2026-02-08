@@ -207,10 +207,7 @@ export const TransactionCompactItem: React.FC<TransactionCompactItemProps> = ({
 
         {/* Center: description + category */}
         <div className="flex-1 min-w-0">
-          <p className={cn(
-            "text-sm leading-tight truncate",
-            isPending ? "text-slate-500" : "text-slate-800"
-          )}>
+          <p className="text-sm leading-tight truncate text-slate-800">
             {transaction.descricao}
           </p>
           {subtitle && (
@@ -247,7 +244,7 @@ export const TransactionCompactItem: React.FC<TransactionCompactItemProps> = ({
             transition={{ duration: 0.15, ease: 'easeOut' }}
             className="overflow-hidden"
           >
-            <div className="px-4 pb-3 ml-[15px]">
+            <div className="px-4 pb-3">
               {/* Thin divider */}
               <div className="border-t border-slate-100 mb-2" />
 

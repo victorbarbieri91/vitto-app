@@ -212,7 +212,7 @@ function DashboardContent() {
 
           {/* Proximos Lancamentos */}
           <motion.div variants={itemVariants}>
-            <ProximasTransacoesCard limit={3} />
+            <ProximasTransacoesCard limit={5} />
           </motion.div>
 
           {/* Divisao por Categoria */}
