@@ -73,23 +73,23 @@ export const TransactionCompactItem: React.FC<TransactionCompactItemProps> = ({
   };
 
   // Status info
-  const getStatusInfo = (): { label: string; color: string } => {
+  const getStatusInfo = (): { label: string; color: string; badgeClass: string } => {
     if (transaction.is_fatura || transaction.tipo_registro === 'fatura') {
       switch (transaction.status) {
-        case 'paga': return { label: 'Paga', color: 'text-emerald-500' };
-        case 'fechada': return { label: 'Fechada', color: 'text-amber-500' };
-        default: return { label: 'Aberta', color: 'text-red-500' };
+        case 'paga': return { label: 'Paga', color: 'text-emerald-500', badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+        case 'fechada': return { label: 'Fechada', color: 'text-amber-500', badgeClass: 'bg-amber-50 text-amber-700 border-amber-200' };
+        default: return { label: 'Aberta', color: 'text-red-500', badgeClass: 'bg-red-50 text-red-700 border-red-200' };
       }
     }
-    if (transaction.is_virtual_fixed) return { label: 'Aguardando', color: 'text-blue-500' };
+    if (transaction.is_virtual_fixed) return { label: 'Previsto', color: 'text-blue-500', badgeClass: 'bg-blue-50 text-blue-700 border-blue-200' };
     switch (transaction.status) {
       case 'efetivado':
       case 'concluido':
       case 'confirmado':
-        return { label: 'Efetivada', color: 'text-emerald-500' };
-      case 'pendente': return { label: 'Pendente', color: 'text-amber-500' };
-      case 'cancelado': return { label: 'Cancelado', color: 'text-red-500' };
-      default: return { label: '', color: '' };
+        return { label: 'Efetivada', color: 'text-emerald-500', badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+      case 'pendente': return { label: 'Pendente', color: 'text-amber-500', badgeClass: 'bg-amber-50 text-amber-700 border-amber-200' };
+      case 'cancelado': return { label: 'Cancelado', color: 'text-red-500', badgeClass: 'bg-red-50 text-red-700 border-red-200' };
+      default: return { label: '', color: '', badgeClass: '' };
     }
   };
 
@@ -217,6 +217,16 @@ export const TransactionCompactItem: React.FC<TransactionCompactItemProps> = ({
           )}
         </div>
 
+        {/* Status badge on main row for notable statuses */}
+        {(isPending || transaction.status === 'cancelado') && statusInfo.label && (
+          <span className={cn(
+            "text-[9px] px-1 py-px rounded font-medium border flex-shrink-0",
+            statusInfo.badgeClass
+          )}>
+            {statusInfo.label}
+          </span>
+        )}
+
         {/* Right: value */}
         <div className="flex-shrink-0 text-right pl-2">
           <p className={cn(
@@ -256,7 +266,9 @@ export const TransactionCompactItem: React.FC<TransactionCompactItemProps> = ({
                 {statusInfo.label && (
                   <>
                     <span className="text-slate-200">|</span>
-                    <span className={statusInfo.color}>{statusInfo.label}</span>
+                    <span className={cn("text-[10px] px-1.5 py-0.5 rounded-md font-medium border", statusInfo.badgeClass)}>
+                      {statusInfo.label}
+                    </span>
                   </>
                 )}
               </div>

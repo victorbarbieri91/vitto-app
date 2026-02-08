@@ -21,7 +21,6 @@ import {
   Search,
   Filter,
   Calendar,
-  Wallet,
   Tag,
   Edit3,
   Trash2,
@@ -40,8 +39,6 @@ import {
   Download,
   Settings,
   CreditCard,
-  DollarSign,
-  AlertTriangle,
   RotateCcw,
   X
 } from 'lucide-react';
@@ -62,6 +59,10 @@ interface TransactionListProps {
   onDeleteInvoice?: (invoiceId: number) => void;
   onActivateTransaction?: (transactionId: number) => void;
   onInvoiceClick?: (transaction: Transaction) => void;
+  onEfetivar?: (transaction: Transaction) => void;
+  onPayInvoice?: (transaction: Transaction) => void;
+  onDeleteFixedVirtual?: (transaction: Transaction, scope: 'this_month' | 'all') => void;
+  onQuickAccountChange?: (transactionId: number | string, newAccountId: number, isFixed: boolean, fixedId?: number) => void;
   className?: string;
   showFilters?: boolean;
   defaultFilters?: Partial<TransactionFilters>;
@@ -106,6 +107,10 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
   onDeleteInvoice,
   onActivateTransaction,
   onInvoiceClick,
+  onEfetivar,
+  onPayInvoice,
+  onDeleteFixedVirtual,
+  onQuickAccountChange,
   className,
   showFilters = true,
   defaultFilters = {},
@@ -140,6 +145,13 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
   const [tempFilters, setTempFilters] = useState<ExtendedFilters>(filters);
   const [searchInput, setSearchInput] = useState('');
   const [expandedTransactionId, setExpandedTransactionId] = useState<string | null>(null);
+
+  // Inline account edit
+  const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
+
+  // Delete virtual popover
+  const [deleteVirtualId, setDeleteVirtualId] = useState<string | null>(null);
+  const deleteVirtualRef = useRef<HTMLDivElement>(null);
 
   // Debounce da busca para otimizar performance
   const debouncedSearch = useDebounce(searchInput, 300);
@@ -566,16 +578,16 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
   }, []);
 
   const getCategoryName = useCallback((transaction: Transaction) => {
-    // Usar os novos campos da função SQL atualizada
-    return transaction.categoria_nome || '-';
+    return transaction.categoria_nome || transaction.categoria?.nome || '-';
   }, []);
 
-  // Verificar se uma transação fixa confirmada pode ser desfeita
-  const canUndoFixedTransaction = useCallback((transaction: Transaction) => {
-    // Verificar se é uma transação fixa confirmada
-    if (transaction.origem !== 'fixo' || transaction.status !== 'confirmado' || !transaction.fixo_id) {
-      return false;
-    }
+  // Verificar se uma transação confirmada pode ser desfeita (fixas e regulares)
+  const canUndoTransaction = useCallback((transaction: Transaction) => {
+    // Deve estar confirmada e não ser fatura nem virtual
+    if (transaction.status !== 'confirmado') return false;
+    if (transaction.is_fatura) return false;
+    const isVirt = transaction.is_virtual || transaction.is_virtual_fixed || transaction.fatura_details?.is_virtual;
+    if (isVirt) return false;
 
     // Verificar se não é muito antiga (máximo 30 dias)
     const transactionDate = new Date(transaction.data);
@@ -618,6 +630,18 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showDatePicker]);
+
+  // Close delete virtual popover on click outside
+  useEffect(() => {
+    if (!deleteVirtualId) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (deleteVirtualRef.current && !deleteVirtualRef.current.contains(e.target as Node)) {
+        setDeleteVirtualId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [deleteVirtualId]);
 
   // Apply date filter to transactions
   const applyDateFilter = useCallback(() => {
@@ -673,6 +697,45 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
     setDateEnd(dateStr);
     setShowDatePicker(true);
     setActiveDateField(null);
+  }, []);
+
+  // Inline account change handler
+  const handleAccountChange = useCallback((transaction: Transaction, newAccountId: string) => {
+    if (!onQuickAccountChange || !newAccountId) return;
+    const isFixed = transaction.is_virtual_fixed || transaction.is_virtual || transaction.origem === 'fixo';
+    const fixoId = transaction.fixed_transaction_id || transaction.fixo_id;
+    onQuickAccountChange(transaction.id, parseInt(newAccountId), isFixed, fixoId);
+    setEditingAccountId(null);
+  }, [onQuickAccountChange]);
+
+  // Get status badge for desktop table
+  const getStatusBadgeCompact = useCallback((transaction: Transaction) => {
+    const baseClass = "text-[10px] px-1.5 py-0.5 rounded-md font-medium whitespace-nowrap border";
+
+    if (transaction.is_virtual_fixed || transaction.is_virtual) {
+      return <span className={`${baseClass} bg-blue-50 text-blue-700 border-blue-200`}>Previsto</span>;
+    }
+    if (transaction.is_fatura) {
+      if (transaction.status === 'paga') return <span className={`${baseClass} bg-emerald-50 text-emerald-700 border-emerald-200`}>Paga</span>;
+      return <span className={`${baseClass} bg-purple-50 text-purple-700 border-purple-200`}>Fatura</span>;
+    }
+    switch (transaction.status) {
+      case 'efetivado':
+      case 'confirmado':
+      case 'concluido':
+        return <span className={`${baseClass} bg-emerald-50 text-emerald-700 border-emerald-200`}>Efetivado</span>;
+      case 'pendente':
+        return <span className={`${baseClass} bg-amber-50 text-amber-700 border-amber-200`}>Pendente</span>;
+      case 'cancelado':
+        return <span className={`${baseClass} bg-red-50 text-red-700 border-red-200`}>Cancelado</span>;
+      default:
+        return <span className={`${baseClass} bg-slate-50 text-slate-500 border-slate-200`}>-</span>;
+    }
+  }, []);
+
+  // Check if transaction is already confirmed/effectuated
+  const isEffectuated = useCallback((transaction: Transaction) => {
+    return ['efetivado', 'confirmado', 'concluido', 'paga'].includes(transaction.status);
   }, []);
 
   // Short date format: "07 fev"
@@ -1039,21 +1102,28 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
                   <div className="grid grid-cols-12 gap-3 px-4 py-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                     <div className="col-span-3">Descricao</div>
                     <div className="col-span-2 hidden md:block">Categoria</div>
-                    <div className="col-span-2 hidden lg:block">Conta</div>
-                    <div className="col-span-1 hidden lg:block">Tipo</div>
+                    <div className="col-span-1 hidden lg:block">Conta</div>
                     <div className="col-span-1 hidden md:block">Data</div>
+                    <div className="col-span-1">Status</div>
                     <div className="col-span-2 text-right">Valor</div>
-                    <div className="col-span-1"></div>
+                    <div className="col-span-2 text-center">Acoes</div>
                   </div>
                 </div>
 
             {/* Linhas da Tabela */}
             <div>
-              {paginatedTransactions.map((transaction, index) => (
+              {paginatedTransactions.map((transaction, index) => {
+                const key = transaction.is_virtual_fixed ? `virtual-${transaction.fixed_transaction_id}-${transaction.data}` : `real-${transaction.id}`;
+                const isVirtual = transaction.is_virtual || transaction.is_virtual_fixed || (transaction.fatura_details && transaction.fatura_details.is_virtual);
+                const isFixedOrigin = transaction.origem === 'fixo' || isVirtual;
+                const fixoId = transaction.fixed_transaction_id || transaction.fixo_id || transaction.fatura_details?.fixo_id;
+                const alreadyEffectuated = isEffectuated(transaction);
+
+                return (
                 <div
-                  key={transaction.is_virtual_fixed ? `virtual-${transaction.fixed_transaction_id}-${transaction.data}` : `real-${transaction.id}`}
+                  key={key}
                   className={cn(
-                    "grid grid-cols-12 gap-3 px-4 py-2 transition-colors group",
+                    "grid grid-cols-12 gap-3 px-4 py-2 transition-colors",
                     index % 2 === 0 ? "bg-white" : "bg-slate-50/40",
                     "hover:bg-coral-50/30"
                   )}
@@ -1064,9 +1134,12 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
                       {getTransactionIcon(transaction.tipo)}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-medium text-slate-800 truncate leading-tight">
-                        {transaction.descricao}
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-[13px] font-medium text-slate-800 truncate leading-tight">
+                          {transaction.descricao}
+                        </p>
+                        {getRecurrenceBadge(transaction.tipo_recorrencia || 'unica')}
+                      </div>
                       {transaction.total_parcelas && (
                         <span className="text-[11px] text-slate-400">
                           {transaction.parcela_atual}/{transaction.total_parcelas}x
@@ -1074,7 +1147,6 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
                       )}
                       {/* Mobile fallback info */}
                       <div className="md:hidden text-[10px] mt-0.5 flex items-center gap-1 flex-wrap">
-                        {getRecurrenceBadge(transaction.tipo_recorrencia || 'unica')}
                         <span className="text-slate-500">
                           {getCategoryName(transaction)} - {formatDateShort(transaction.data)}
                         </span>
@@ -1089,16 +1161,32 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
                     </span>
                   </div>
 
-                  {/* Conta */}
-                  <div className="col-span-2 hidden lg:flex items-center min-w-0">
-                    <span className="text-xs text-slate-600 truncate">
-                      {getAccountName(transaction)}
-                    </span>
-                  </div>
-
-                  {/* Recorrencia */}
+                  {/* Conta - editavel inline */}
                   <div className="col-span-1 hidden lg:flex items-center min-w-0">
-                    {getRecurrenceBadge(transaction.tipo_recorrencia || 'unica')}
+                    {editingAccountId === key ? (
+                      <select
+                        value={transaction.conta_id || ''}
+                        onChange={(e) => handleAccountChange(transaction, e.target.value)}
+                        onBlur={() => setEditingAccountId(null)}
+                        onKeyDown={(e) => e.key === 'Escape' && setEditingAccountId(null)}
+                        autoFocus
+                        className="text-[11px] border border-coral-300 rounded-lg px-1 py-0.5 w-full focus:ring-1 focus:ring-coral-500/20 focus:outline-none bg-white"
+                      >
+                        <option value="">-</option>
+                        {accounts.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
+                      </select>
+                    ) : (
+                      <span
+                        onClick={() => onQuickAccountChange && setEditingAccountId(key)}
+                        className={cn(
+                          "text-[11px] text-slate-600 truncate",
+                          onQuickAccountChange && "cursor-pointer hover:text-coral-600 hover:underline"
+                        )}
+                        title={onQuickAccountChange ? "Clique para alterar conta" : undefined}
+                      >
+                        {getAccountName(transaction)}
+                      </span>
+                    )}
                   </div>
 
                   {/* Data */}
@@ -1112,16 +1200,13 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
                     </button>
                   </div>
 
-                  {/* Valor + Status dot */}
-                  <div className="col-span-2 flex items-center justify-end gap-1.5">
-                    <div className={cn(
-                      "w-1.5 h-1.5 rounded-full flex-shrink-0",
-                      transaction.is_virtual_fixed ? "bg-blue-400" :
-                      (transaction.status === 'confirmado' || transaction.status === 'efetivado' || transaction.status === 'paga') ? "bg-emerald-400" :
-                      transaction.status === 'pendente' ? "bg-amber-400" :
-                      (transaction.is_fatura && (transaction.status === 'fechada' || transaction.status === 'aberta')) ? "bg-amber-400" :
-                      "bg-slate-300"
-                    )} />
+                  {/* Status */}
+                  <div className="col-span-1 flex items-center">
+                    {getStatusBadgeCompact(transaction)}
+                  </div>
+
+                  {/* Valor */}
+                  <div className="col-span-2 flex items-center justify-end">
                     <span className={cn(
                       "text-[13px] font-semibold tabular-nums",
                       transaction.tipo === 'receita' ? 'text-emerald-600' :
@@ -1134,15 +1219,25 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
                     </span>
                   </div>
 
-                  {/* Acoes */}
-                  <div className="col-span-1 flex items-center justify-center">
+                  {/* Acoes - sempre visiveis */}
+                  <div className="col-span-2 flex items-center justify-center">
                     <div className="flex items-center gap-0.5">
                       {transaction.is_fatura ? (
+                        /* Faturas: Pagar + Ver fatura + Excluir */
                         <>
+                          {onPayInvoice && transaction.status !== 'paga' && (
+                            <button
+                              onClick={() => onPayInvoice(transaction)}
+                              className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"
+                              title="Pagar fatura"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                           {onInvoiceClick && (
                             <button
                               onClick={() => onInvoiceClick(transaction)}
-                              className="p-1 text-slate-400 hover:text-coral-500 hover:bg-coral-50 rounded transition-colors"
+                              className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-purple-50 rounded-lg transition-colors"
                               title="Ver detalhes da fatura"
                             >
                               <CreditCard className="w-3.5 h-3.5" />
@@ -1151,120 +1246,106 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
                           {onDeleteInvoice && (
                             <button
                               onClick={() => onDeleteInvoice(transaction.id)}
-                              className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                               title="Excluir fatura"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </>
-                      ) : transaction.is_virtual || transaction.is_virtual_fixed || (transaction.fatura_details && transaction.fatura_details.is_virtual) ? (
+                      ) : (
+                        /* Transacoes normais/fixas/virtuais: Efetivar + Editar + Excluir */
                         <>
-                          {onConfirmFixedTransaction && (
+                          {/* Efetivar / Desfazer */}
+                          {canUndoTransaction(transaction) ? (
                             <button
-                              onClick={() => {
-                                const fixoId = transaction.fixed_transaction_id || transaction.fixo_id || transaction.fatura_details?.fixo_id;
-                                if (fixoId) onConfirmFixedTransaction(fixoId, transaction.data);
-                              }}
-                              className="p-1 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded transition-colors"
-                              title="Confirmar"
-                            >
-                              <CheckCircle className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                          {onPartialFixedTransaction && (
-                            <button
-                              onClick={() => {
-                                const fixoId = transaction.fixed_transaction_id || transaction.fixo_id || transaction.fatura_details?.fixo_id;
-                                if (fixoId) onPartialFixedTransaction(fixoId, transaction.data);
-                              }}
-                              className="p-1 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
-                              title="Parcial"
-                            >
-                              <DollarSign className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                          {onEditFixedTransaction && (
-                            <button
-                              onClick={() => {
-                                const fixoId = transaction.fixed_transaction_id || transaction.fixo_id || transaction.fatura_details?.fixo_id;
-                                if (fixoId) onEditFixedTransaction(fixoId);
-                              }}
-                              className="p-1 text-slate-400 hover:text-coral-500 hover:bg-coral-50 rounded transition-colors"
-                              title="Editar fixo"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </>
-                      ) : canUndoFixedTransaction(transaction) ? (
-                        <>
-                          {onUndoFixedTransaction && (
-                            <button
-                              onClick={() => onUndoFixedTransaction(transaction.id)}
-                              className="p-1 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
-                              title="Desfazer"
+                              onClick={() => onUndoFixedTransaction && onUndoFixedTransaction(transaction.id)}
+                              className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="Desfazer efetivacao"
                             >
                               <RotateCcw className="w-3.5 h-3.5" />
                             </button>
-                          )}
-                          {onEditFixedTransaction && (
+                          ) : (
                             <button
-                              onClick={() => {
-                                const fixoId = transaction.fixed_transaction_id || transaction.fixo_id || transaction.fatura_details?.fixo_id;
-                                if (fixoId) onEditFixedTransaction(fixoId);
-                              }}
-                              className="p-1 text-slate-400 hover:text-coral-500 hover:bg-coral-50 rounded transition-colors"
-                              title="Editar fixo"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                          {!onEditFixedTransaction && onEditTransaction && (
-                            <button
-                              onClick={() => onEditTransaction(transaction)}
-                              className="p-1 text-slate-400 hover:text-coral-500 hover:bg-coral-50 rounded transition-colors"
-                              title="Editar"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          {transaction.status === 'pendente' && onActivateTransaction && (
-                            <button
-                              onClick={() => onActivateTransaction(transaction.id)}
-                              className="p-1 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded transition-colors"
-                              title="Efetivar"
+                              onClick={() => !alreadyEffectuated && onEfetivar && onEfetivar(transaction)}
+                              disabled={alreadyEffectuated || !onEfetivar}
+                              className={cn(
+                                "p-1.5 rounded-lg transition-colors",
+                                alreadyEffectuated || !onEfetivar
+                                  ? "text-slate-200 cursor-not-allowed"
+                                  : "text-slate-400 hover:text-emerald-500 hover:bg-emerald-50"
+                              )}
+                              title={alreadyEffectuated ? "Ja efetivado" : "Efetivar"}
                             >
                               <CheckCircle className="w-3.5 h-3.5" />
                             </button>
                           )}
-                          {onEditTransaction && (
+
+                          {/* Editar */}
+                          <button
+                            onClick={() => {
+                              if (onEditTransaction) {
+                                onEditTransaction(transaction);
+                              }
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-coral-500 hover:bg-coral-50 rounded-lg transition-colors"
+                            title="Editar"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Excluir - com popover de escopo para virtuais fixas */}
+                          <div className="relative">
                             <button
-                              onClick={() => onEditTransaction(transaction)}
-                              className="p-1 text-slate-400 hover:text-coral-500 hover:bg-coral-50 rounded transition-colors"
-                              title="Editar"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                          {onDeleteTransaction && (
-                            <button
-                              onClick={() => onDeleteTransaction(transaction.id)}
-                              className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                              title="Excluir"
+                              onClick={() => {
+                                if (isVirtual && isFixedOrigin && onDeleteFixedVirtual) {
+                                  setDeleteVirtualId(deleteVirtualId === key ? null : key);
+                                } else if (!isVirtual && onDeleteTransaction) {
+                                  onDeleteTransaction(transaction.id);
+                                }
+                              }}
+                              disabled={isVirtual && !onDeleteFixedVirtual}
+                              className={cn(
+                                "p-1.5 rounded-lg transition-colors",
+                                isVirtual && !onDeleteFixedVirtual
+                                  ? "text-slate-200 cursor-not-allowed"
+                                  : "text-slate-400 hover:text-red-500 hover:bg-red-50"
+                              )}
+                              title={isVirtual ? "Excluir lancamento fixo" : "Excluir"}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
-                          )}
+                            {/* Popover de escopo para exclusao de virtual */}
+                            {deleteVirtualId === key && isVirtual && onDeleteFixedVirtual && (
+                              <div
+                                ref={deleteVirtualRef}
+                                className="absolute right-0 top-full mt-1 z-50 w-48 bg-white rounded-xl shadow-lg border border-slate-200/60 overflow-hidden"
+                              >
+                                <p className="px-3 py-2 text-[11px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100">
+                                  Excluir
+                                </p>
+                                <button
+                                  onClick={() => { onDeleteFixedVirtual(transaction, 'this_month'); setDeleteVirtualId(null); }}
+                                  className="w-full px-3 py-2 text-xs text-left text-slate-700 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                >
+                                  Somente este mes
+                                </button>
+                                <button
+                                  onClick={() => { onDeleteFixedVirtual(transaction, 'all'); setDeleteVirtualId(null); }}
+                                  className="w-full px-3 py-2 text-xs text-left text-slate-700 hover:bg-red-50 hover:text-red-600 transition-colors border-t border-slate-100"
+                                >
+                                  Todos os meses (desativar)
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </>
                       )}
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
               </>
             )}
@@ -1275,13 +1356,29 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
         {filteredTransactions.length > 0 && (
           <div className="border-t border-slate-100 px-4 py-2 bg-slate-50/50">
             {isMobile ? (
-              /* Paginacao mobile simplificada */
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-500">
-                  {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, filteredTransactions.length)} de {filteredTransactions.length}
-                </span>
+              /* Paginacao mobile com selector de itens */
+              <div className="flex flex-col gap-2">
+                {/* Top row: count info + items per page */}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500">
+                    {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, filteredTransactions.length)} de {filteredTransactions.length}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-slate-400">Exibir:</span>
+                    <select
+                      value={itemsPerPage}
+                      onChange={(e) => changeItemsPerPage(Number(e.target.value))}
+                      className="border border-slate-200 rounded px-1.5 py-0.5 text-xs focus:border-coral-500 focus:outline-none bg-white"
+                    >
+                      {[10, 25, 50].map(option => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {/* Bottom row: page navigation */}
                 {totalPages > 1 && (
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center justify-center gap-1">
                     <button
                       onClick={() => goToPage(currentPage - 1)}
                       disabled={currentPage === 1}
