@@ -195,44 +195,42 @@ export const TransactionCompactItem: React.FC<TransactionCompactItemProps> = ({
       )}
       onClick={onToggle}
     >
-      {/* Main row - Nubank style: thin color bar + description + value */}
+      {/* Main row - clean style: thin color bar + description + value */}
       <div className="flex items-center px-4 py-2.5 gap-3">
         {/* Left: thin color indicator */}
         <div
           className={cn(
             "w-[3px] self-stretch rounded-full flex-shrink-0 min-h-[32px]",
-            isIncome ? "bg-emerald-400" : isCard ? "bg-purple-400" : isExpense ? "bg-red-300" : "bg-slate-200",
-            isPending && "opacity-40"
+            isIncome ? "bg-emerald-500" : isCard ? "bg-purple-400" : isExpense ? "bg-red-400" : "bg-slate-200"
           )}
         />
 
         {/* Center: description + category */}
         <div className="flex-1 min-w-0">
           <p className={cn(
-            "text-[13px] leading-tight truncate",
-            isPending ? "text-slate-400" : "text-slate-700"
+            "text-sm leading-tight truncate",
+            isPending ? "text-slate-500" : "text-slate-800"
           )}>
             {transaction.descricao}
           </p>
           {subtitle && (
-            <p className="text-[10.5px] text-slate-300 truncate mt-px">
+            <p className="text-[11px] text-slate-400 truncate mt-0.5">
               {subtitle}
             </p>
           )}
         </div>
 
-        {/* Right: value + parcela */}
+        {/* Right: value */}
         <div className="flex-shrink-0 text-right pl-2">
           <p className={cn(
-            "text-[13px] font-medium tabular-nums whitespace-nowrap",
-            isPending && "opacity-50",
-            isIncome ? "text-emerald-600" : isExpense ? "text-red-500" : "text-slate-600"
+            "text-sm font-semibold tabular-nums whitespace-nowrap",
+            isIncome ? "text-emerald-600" : isExpense ? "text-red-500" : "text-slate-700"
           )}>
             {isExpense ? '- ' : isIncome ? '+ ' : ''}
             {formatCurrency(transaction.valor)}
           </p>
           {transaction.tipo_recorrencia === 'parcelada' && transaction.total_parcelas && (
-            <p className="text-[10px] text-slate-300 mt-px">
+            <p className="text-[10px] text-slate-400 mt-px">
               {transaction.parcela_atual}/{transaction.total_parcelas}x
             </p>
           )}
