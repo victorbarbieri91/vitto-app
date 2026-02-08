@@ -493,7 +493,7 @@ export function ChatContainer({
       {renderImportQuestion()}
       {renderImportPreview()}
 
-      <div className="flex-shrink-0 px-4 pb-4 pt-2">
+      <div className="flex-shrink-0 px-4 pb-1 pt-2">
         <div className="max-w-3xl mx-auto">
           <MessageInput
             onSend={onSendMessage}
