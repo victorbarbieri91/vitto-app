@@ -22,6 +22,12 @@ html, body {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* iOS momentum scrolling para containers de scroll */
+.overflow-y-auto,
+.overflow-y-scroll {
+  -webkit-overflow-scrolling: touch;
+}
+
 :root {
   /* Nova paleta de cores */
   --color-primary: #F87060;

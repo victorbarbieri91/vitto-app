@@ -5,6 +5,7 @@ import { useCategories } from '../../hooks/useCategories';
 import { useAuth } from '../../store/AuthContext';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { TransactionCard } from './TransactionCard';
+import { TransactionCompactItem } from './TransactionCompactItem';
 import { cn } from '../../utils/cn';
 import { formatLocalDate } from '../../utils/format';
 import { DayPicker } from 'react-day-picker';
@@ -138,6 +139,7 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
 
   const [tempFilters, setTempFilters] = useState<ExtendedFilters>(filters);
   const [searchInput, setSearchInput] = useState('');
+  const [expandedTransactionId, setExpandedTransactionId] = useState<string | null>(null);
 
   // Debounce da busca para otimizar performance
   const debouncedSearch = useDebounce(searchInput, 300);
@@ -963,23 +965,71 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
         ) : (
           <>
             {isMobile ? (
-              // Renderização para mobile usando cards
-              <div className="space-y-2 p-3">
-                {paginatedTransactions.map((transaction) => (
-                  <TransactionCard
-                    key={transaction.is_virtual_fixed ? `virtual-${transaction.fixed_transaction_id}-${transaction.data}` : `real-${transaction.id}`}
-                    transaction={transaction}
-                    onEditTransaction={onEditTransaction}
-                    onDeleteTransaction={onDeleteTransaction}
-                    onConfirmFixedTransaction={onConfirmFixedTransaction}
-                    onPartialFixedTransaction={onPartialFixedTransaction}
-                    onUndoFixedTransaction={onUndoFixedTransaction}
-                    onEditFixedTransaction={onEditFixedTransaction}
-                    onDeleteInvoice={onDeleteInvoice}
-                    onActivateTransaction={onActivateTransaction}
-                    onInvoiceClick={onInvoiceClick}
-                  />
-                ))}
+              // Renderização mobile - estilo extrato bancário agrupado por data
+              <div className="bg-white">
+                {(() => {
+                  // Agrupar transações por data
+                  const groups: { label: string; dateKey: string; transactions: Transaction[] }[] = [];
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const yesterday = new Date(today);
+                  yesterday.setDate(yesterday.getDate() - 1);
+
+                  const getDateLabel = (dateStr: string) => {
+                    const parts = dateStr.split('-');
+                    const date = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+                    date.setHours(0, 0, 0, 0);
+                    if (date.getTime() === today.getTime()) return 'Hoje';
+                    if (date.getTime() === yesterday.getTime()) return 'Ontem';
+                    const day = date.getDate().toString().padStart(2, '0');
+                    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+                    return `${day} ${months[date.getMonth()]}`;
+                  };
+
+                  paginatedTransactions.forEach((t) => {
+                    const dateKey = (t.data || '').split('T')[0];
+                    let group = groups.find((g) => g.dateKey === dateKey);
+                    if (!group) {
+                      group = { label: getDateLabel(dateKey), dateKey, transactions: [] };
+                      groups.push(group);
+                    }
+                    group.transactions.push(t);
+                  });
+
+                  return groups.map((group) => (
+                    <div key={group.dateKey}>
+                      {/* Date separator */}
+                      <div className="sticky top-0 z-10 px-3 py-1.5 bg-slate-50/95 backdrop-blur-sm border-b border-slate-100">
+                        <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                          {group.label}
+                        </span>
+                      </div>
+                      {/* Transactions for this date */}
+                      {group.transactions.map((transaction) => {
+                        const key = transaction.is_virtual_fixed
+                          ? `virtual-${transaction.fixed_transaction_id}-${transaction.data}`
+                          : `real-${transaction.id}`;
+                        return (
+                          <TransactionCompactItem
+                            key={key}
+                            transaction={transaction}
+                            isExpanded={expandedTransactionId === key}
+                            onToggle={() => setExpandedTransactionId(expandedTransactionId === key ? null : key)}
+                            onEditTransaction={onEditTransaction}
+                            onDeleteTransaction={onDeleteTransaction}
+                            onConfirmFixedTransaction={onConfirmFixedTransaction}
+                            onPartialFixedTransaction={onPartialFixedTransaction}
+                            onUndoFixedTransaction={onUndoFixedTransaction}
+                            onEditFixedTransaction={onEditFixedTransaction}
+                            onDeleteInvoice={onDeleteInvoice}
+                            onActivateTransaction={onActivateTransaction}
+                            onInvoiceClick={onInvoiceClick}
+                          />
+                        );
+                      })}
+                    </div>
+                  ));
+                })()}
               </div>
             ) : (
               // Renderização para desktop usando tabela compacta

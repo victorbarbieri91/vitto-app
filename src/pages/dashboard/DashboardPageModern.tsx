@@ -152,17 +152,9 @@ function DashboardContent() {
            LAYOUT MOBILE - KPIs em grid, depois cards
            ============================================ */
         <div className="flex flex-col space-y-4 pb-24">
-          {/* KPIs - Saldo Previsto sozinho, Receitas+Despesas, Saldo+Economia */}
+          {/* KPIs - Receitas+Despesas, Saldo+Economia, Saldo Previsto */}
           <motion.div variants={itemVariants} className="space-y-2">
-            {/* Linha 1: Saldo Previsto sozinho */}
-            <div>
-              <SaldoScore
-                saldo={consolidatedData.saldoPrevisto || 0}
-                isLoading={loading}
-                onClick={() => openKPIModal('saldo_previsto')}
-              />
-            </div>
-            {/* Linha 2: Receitas + Despesas */}
+            {/* Linha 1: Receitas + Despesas */}
             <div className="grid grid-cols-2 gap-2">
               <SimpleMetricCard
                 title="Receitas"
@@ -183,7 +175,7 @@ function DashboardContent() {
                 onClick={() => openKPIModal('despesas')}
               />
             </div>
-            {/* Linha 3: Saldo em Conta + Economia */}
+            {/* Linha 2: Saldo em Conta + Economia */}
             <div className="grid grid-cols-2 gap-2">
               <SimpleMetricCard
                 title="Saldo em Conta"
@@ -201,6 +193,14 @@ function DashboardContent() {
                 isLoading={loading}
                 colorScheme="neutral"
                 onClick={() => openKPIModal('economia')}
+              />
+            </div>
+            {/* Linha 3: Saldo Previsto sozinho */}
+            <div>
+              <SaldoScore
+                saldo={consolidatedData.saldoPrevisto || 0}
+                isLoading={loading}
+                onClick={() => openKPIModal('saldo_previsto')}
               />
             </div>
           </motion.div>

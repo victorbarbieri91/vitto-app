@@ -121,7 +121,7 @@ export default function SwipeableCard({
         dragMomentum={false}
         onDragStart={() => setSwiping(true)}
         onDragEnd={handleDragEnd}
-        style={{ x }}
+        style={{ x, touchAction: 'pan-y' }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         className={cn("relative z-10", swiping && "cursor-grabbing")}
       >

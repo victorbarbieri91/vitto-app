@@ -39,9 +39,11 @@ export function MessageInput({
     }
   }, [message]);
 
-  // Focus no input quando componente monta
+  // Focus no input quando componente monta (apenas desktop - no mobile abre o teclado)
   useEffect(() => {
-    textareaRef.current?.focus();
+    if (!isMobile) {
+      textareaRef.current?.focus();
+    }
   }, []);
 
   const handleSubmit = (e?: React.FormEvent) => {
