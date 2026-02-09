@@ -4,9 +4,10 @@ import {
   Edit3,
   Trash2,
   CheckCircle,
-  DollarSign,
   RotateCcw,
   CreditCard,
+  XCircle,
+  Power,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { formatLocalDate } from '../../utils/format';
@@ -26,6 +27,8 @@ interface TransactionCompactItemProps {
   onDeleteInvoice?: (invoiceId: number) => void;
   onActivateTransaction?: (transactionId: number) => void;
   onInvoiceClick?: (transaction: Transaction) => void;
+  onEfetivar?: (transaction: Transaction) => void;
+  onDeleteFixedVirtual?: (transaction: Transaction, scope: 'this_month' | 'all') => void;
 }
 
 export const TransactionCompactItem: React.FC<TransactionCompactItemProps> = ({
@@ -41,6 +44,8 @@ export const TransactionCompactItem: React.FC<TransactionCompactItemProps> = ({
   onDeleteInvoice,
   onActivateTransaction,
   onInvoiceClick,
+  onEfetivar,
+  onDeleteFixedVirtual,
 }) => {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -106,7 +111,11 @@ export const TransactionCompactItem: React.FC<TransactionCompactItemProps> = ({
 
   const btnClass = "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors active:scale-95";
 
+  const alreadyEffectuated = ['efetivado', 'confirmado', 'concluido', 'paga'].includes(transaction.status);
+  const isFixedOrigin = transaction.origem === 'fixo' || isVirtual;
+
   const renderActions = () => {
+    // Faturas: Ver fatura + Excluir
     if (transaction.is_fatura) {
       return (
         <>
@@ -124,65 +133,44 @@ export const TransactionCompactItem: React.FC<TransactionCompactItemProps> = ({
       );
     }
 
-    if (isVirtual) {
-      const fixoId = transaction.fixed_transaction_id || transaction.fixo_id ||
-        (transaction.fatura_details && transaction.fatura_details.fixo_id);
-      return (
-        <>
-          {onConfirmFixedTransaction && fixoId && (
-            <button onClick={(e) => { e.stopPropagation(); onConfirmFixedTransaction(fixoId, transaction.data); }} className={cn(btnClass, "text-emerald-600 bg-emerald-50")}>
-              <CheckCircle className="w-3.5 h-3.5" /> Confirmar
-            </button>
-          )}
-          {onPartialFixedTransaction && fixoId && (
-            <button onClick={(e) => { e.stopPropagation(); onPartialFixedTransaction(fixoId, transaction.data); }} className={cn(btnClass, "text-blue-600 bg-blue-50")}>
-              <DollarSign className="w-3.5 h-3.5" /> Parcial
-            </button>
-          )}
-          {onEditFixedTransaction && fixoId && (
-            <button onClick={(e) => { e.stopPropagation(); onEditFixedTransaction(fixoId); }} className={cn(btnClass, "text-slate-600 bg-slate-100")}>
-              <Edit3 className="w-3.5 h-3.5" /> Editar
-            </button>
-          )}
-        </>
-      );
-    }
-
-    if (canUndo) {
-      const fixoId = transaction.fixed_transaction_id || transaction.fixo_id;
-      return (
-        <>
-          {onUndoFixedTransaction && (
+    // Transacoes normais/fixas/virtuais: mesma logica do desktop
+    return (
+      <>
+        {/* 1. Efetivar / Desfazer */}
+        {canUndo ? (
+          onUndoFixedTransaction && (
             <button onClick={(e) => { e.stopPropagation(); onUndoFixedTransaction(transaction.id); }} className={cn(btnClass, "text-blue-600 bg-blue-50")}>
               <RotateCcw className="w-3.5 h-3.5" /> Desfazer
             </button>
-          )}
-          {onEditFixedTransaction && fixoId && (
-            <button onClick={(e) => { e.stopPropagation(); onEditFixedTransaction(fixoId); }} className={cn(btnClass, "text-slate-600 bg-slate-100")}>
-              <Edit3 className="w-3.5 h-3.5" /> Editar
-            </button>
-          )}
-        </>
-      );
-    }
-
-    return (
-      <>
-        {transaction.status === 'pendente' && onActivateTransaction && (
-          <button onClick={(e) => { e.stopPropagation(); onActivateTransaction(transaction.id); }} className={cn(btnClass, "text-emerald-600 bg-emerald-50")}>
+          )
+        ) : !alreadyEffectuated && onEfetivar ? (
+          <button onClick={(e) => { e.stopPropagation(); onEfetivar(transaction); }} className={cn(btnClass, "text-emerald-600 bg-emerald-50")}>
             <CheckCircle className="w-3.5 h-3.5" /> Efetivar
           </button>
-        )}
+        ) : null}
+
+        {/* 2. Editar */}
         {onEditTransaction && (
           <button onClick={(e) => { e.stopPropagation(); onEditTransaction(transaction); }} className={cn(btnClass, "text-slate-600 bg-slate-100")}>
             <Edit3 className="w-3.5 h-3.5" /> Editar
           </button>
         )}
-        {onDeleteTransaction && (
+
+        {/* 3. Excluir - virtual fixa: 2 opcoes de escopo; normal: botao simples */}
+        {isVirtual && isFixedOrigin && onDeleteFixedVirtual ? (
+          <>
+            <button onClick={(e) => { e.stopPropagation(); onDeleteFixedVirtual(transaction, 'this_month'); }} className={cn(btnClass, "text-red-500 bg-red-50")}>
+              <XCircle className="w-3.5 h-3.5" /> Cancelar mes
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); onDeleteFixedVirtual(transaction, 'all'); }} className={cn(btnClass, "text-red-600 bg-red-50")}>
+              <Power className="w-3.5 h-3.5" /> Desativar
+            </button>
+          </>
+        ) : !isVirtual && onDeleteTransaction ? (
           <button onClick={(e) => { e.stopPropagation(); onDeleteTransaction(transaction.id); }} className={cn(btnClass, "text-red-500 bg-red-50")}>
             <Trash2 className="w-3.5 h-3.5" /> Excluir
           </button>
-        )}
+        ) : null}
       </>
     );
   };

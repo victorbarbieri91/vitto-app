@@ -1087,6 +1087,8 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
                             onDeleteInvoice={onDeleteInvoice}
                             onActivateTransaction={onActivateTransaction}
                             onInvoiceClick={onInvoiceClick}
+                            onEfetivar={onEfetivar}
+                            onDeleteFixedVirtual={onDeleteFixedVirtual}
                           />
                         );
                       })}
