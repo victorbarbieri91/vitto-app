@@ -14,21 +14,32 @@ import { useAuth } from '../../store/AuthContext';
 interface ChatContainerProps {
   messages: ChatMessage[];
   isLoading: boolean;
+  isStreaming?: boolean;
+  streamingContent?: string;
   onSendMessage: (message: string) => void;
   onAddMessage?: (message: ChatMessage) => Promise<void> | void;
   disabled?: boolean;
   isCentered?: boolean;
   onImportComplete?: (result: ImportResult) => void;
+  onFeedback?: (params: {
+    userMessage: string;
+    assistantMessage: string;
+    isPositive: boolean;
+    comment?: string;
+  }) => void;
 }
 
 export function ChatContainer({
   messages,
   isLoading,
+  isStreaming = false,
+  streamingContent = '',
   onSendMessage,
   onAddMessage,
   disabled = false,
   isCentered = false,
   onImportComplete,
+  onFeedback,
 }: ChatContainerProps) {
   const { user } = useAuth();
   const [isDragging, setIsDragging] = useState(false);
@@ -485,7 +496,10 @@ export function ChatContainer({
         <MessageList
           messages={messages}
           isLoading={isLoading || isProcessingFile}
+          isStreaming={isStreaming}
+          streamingContent={streamingContent}
           onInteractiveAction={handleInteractiveAction}
+          onFeedback={onFeedback}
         />
       </div>
 
@@ -497,8 +511,8 @@ export function ChatContainer({
         <div className="max-w-3xl mx-auto">
           <MessageInput
             onSend={onSendMessage}
-            isLoading={isLoading || isProcessingFile}
-            disabled={disabled || !!currentQuestion || !!previewData}
+            isLoading={isLoading || isProcessingFile || isStreaming}
+            disabled={disabled || isStreaming || !!currentQuestion || !!previewData}
             showSuggestions={!currentQuestion && !previewData}
             showFileUpload
             onFileSelect={handleFileSelect}

@@ -1,6 +1,6 @@
-import { forwardRef } from 'react';
-import { motion } from 'framer-motion';
-import { User, Wrench } from 'lucide-react';
+import { forwardRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { User, Wrench, ThumbsUp, ThumbsDown, Send, X } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { InteractiveMessage } from './interactive';
@@ -10,16 +10,57 @@ import type { ChatMessage } from '../../types/central-ia';
 interface MessageBubbleProps {
   message: ChatMessage;
   isLast?: boolean;
+  previousUserMessage?: string;
   onInteractiveAction?: (action: string, value?: string) => void;
+  onFeedback?: (params: {
+    userMessage: string;
+    assistantMessage: string;
+    isPositive: boolean;
+    comment?: string;
+  }) => void;
 }
 
 export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
-  function MessageBubble({ message, isLast, onInteractiveAction }, ref) {
+  function MessageBubble({ message, isLast, previousUserMessage, onInteractiveAction, onFeedback }, ref) {
     const isUser = message.role === 'user';
     const isTool = message.role === 'tool';
+    const isAssistant = message.role === 'assistant';
     const hasInteractive = message.interactive && message.interactive.elements.length > 0;
     const { size } = useScreenDetection();
     const isMobile = size === 'mobile';
+
+    // Estado de feedback
+    const [feedbackState, setFeedbackState] = useState<'none' | 'positive' | 'negative' | 'commenting'>('none');
+    const [feedbackComment, setFeedbackComment] = useState('');
+
+    const handleFeedback = (isPositive: boolean) => {
+      if (isPositive) {
+        setFeedbackState('positive');
+        onFeedback?.({
+          userMessage: previousUserMessage || '',
+          assistantMessage: message.content,
+          isPositive: true,
+        });
+      } else {
+        setFeedbackState('commenting');
+      }
+    };
+
+    const submitNegativeFeedback = () => {
+      setFeedbackState('negative');
+      onFeedback?.({
+        userMessage: previousUserMessage || '',
+        assistantMessage: message.content,
+        isPositive: false,
+        comment: feedbackComment || undefined,
+      });
+      setFeedbackComment('');
+    };
+
+    const cancelComment = () => {
+      setFeedbackState('none');
+      setFeedbackComment('');
+    };
 
     // Não renderiza mensagens de sistema ou tool (mas pode mostrar indicador de tool)
     if (message.role === 'system') return null;
@@ -69,7 +110,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className="py-2"
+          className="py-2 group"
         >
           {message.content && (
             <div className="text-[13px] leading-relaxed text-slate-700">
@@ -97,6 +138,18 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
               disabled={!isLast}
             />
           )}
+
+          {/* Feedback - mobile */}
+          {isAssistant && message.content && onFeedback && (
+            <FeedbackButtons
+              feedbackState={feedbackState}
+              feedbackComment={feedbackComment}
+              onFeedbackComment={setFeedbackComment}
+              onFeedback={handleFeedback}
+              onSubmitNegative={submitNegativeFeedback}
+              onCancelComment={cancelComment}
+            />
+          )}
         </motion.div>
       );
     }
@@ -110,7 +163,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
         transition={{ duration: 0.2 }}
         className={cn(
           'flex gap-3 py-3',
-          isUser ? 'flex-row-reverse' : 'flex-row'
+          isUser ? 'flex-row-reverse' : 'flex-row group'
         )}
       >
         {/* Avatar */}
@@ -167,8 +220,109 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
               disabled={!isLast}
             />
           )}
+
+          {/* Feedback - desktop */}
+          {isAssistant && message.content && onFeedback && (
+            <FeedbackButtons
+              feedbackState={feedbackState}
+              feedbackComment={feedbackComment}
+              onFeedbackComment={setFeedbackComment}
+              onFeedback={handleFeedback}
+              onSubmitNegative={submitNegativeFeedback}
+              onCancelComment={cancelComment}
+            />
+          )}
         </div>
       </motion.div>
     );
   }
 );
+
+/** Botões de feedback (thumbs up/down) */
+function FeedbackButtons({
+  feedbackState,
+  feedbackComment,
+  onFeedbackComment,
+  onFeedback,
+  onSubmitNegative,
+  onCancelComment,
+}: {
+  feedbackState: 'none' | 'positive' | 'negative' | 'commenting';
+  feedbackComment: string;
+  onFeedbackComment: (v: string) => void;
+  onFeedback: (isPositive: boolean) => void;
+  onSubmitNegative: () => void;
+  onCancelComment: () => void;
+}) {
+  // Já deu feedback
+  if (feedbackState === 'positive' || feedbackState === 'negative') {
+    return (
+      <div className="mt-2 pt-1.5 flex items-center gap-1.5 text-xs text-slate-400">
+        {feedbackState === 'positive' ? (
+          <ThumbsUp className="w-3 h-3 text-green-500" />
+        ) : (
+          <ThumbsDown className="w-3 h-3 text-red-400" />
+        )}
+        <span>Obrigado pelo feedback!</span>
+      </div>
+    );
+  }
+
+  // Escrevendo comentário
+  if (feedbackState === 'commenting') {
+    return (
+      <motion.div
+        initial={{ opacity: 0, height: 0 }}
+        animate={{ opacity: 1, height: 'auto' }}
+        className="mt-2 pt-2 border-t border-slate-100"
+      >
+        <p className="text-xs text-slate-500 mb-1.5">O que poderia melhorar?</p>
+        <div className="flex gap-1.5">
+          <input
+            type="text"
+            value={feedbackComment}
+            onChange={(e) => onFeedbackComment(e.target.value)}
+            placeholder="Opcional..."
+            className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-coral-300 focus:ring-1 focus:ring-coral-200"
+            onKeyDown={(e) => e.key === 'Enter' && onSubmitNegative()}
+            autoFocus
+          />
+          <button
+            onClick={onSubmitNegative}
+            className="p-1.5 rounded-lg bg-coral-500 text-white hover:bg-coral-600 transition-colors"
+            title="Enviar feedback"
+          >
+            <Send className="w-3 h-3" />
+          </button>
+          <button
+            onClick={onCancelComment}
+            className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 transition-colors"
+            title="Cancelar"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Estado inicial - botões de feedback
+  return (
+    <div className="mt-1.5 pt-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 hover:!opacity-100 transition-opacity [div:hover>&]:opacity-100">
+      <button
+        onClick={() => onFeedback(true)}
+        className="p-1 rounded text-slate-300 hover:text-green-500 hover:bg-green-50 transition-colors"
+        title="Boa resposta"
+      >
+        <ThumbsUp className="w-3.5 h-3.5" />
+      </button>
+      <button
+        onClick={() => onFeedback(false)}
+        className="p-1 rounded text-slate-300 hover:text-red-400 hover:bg-red-50 transition-colors"
+        title="Resposta pode melhorar"
+      >
+        <ThumbsDown className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+}

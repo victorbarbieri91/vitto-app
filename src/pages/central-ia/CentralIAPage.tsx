@@ -4,6 +4,7 @@ import { X, Plus } from 'lucide-react';
 import { useCentralIA } from '../../hooks/useCentralIA';
 import { useChatSession } from '../../hooks/useChatSession';
 import { useScreenDetection } from '../../hooks/useScreenDetection';
+import { centralIAService } from '../../services/central-ia';
 import {
   ChatContainer,
   ActionConfirmModal,
@@ -16,6 +17,8 @@ export function CentralIAPage() {
   const {
     messages,
     isLoading,
+    isStreaming,
+    streamingContent,
     error,
     currentSession,
     pendingAction,
@@ -78,6 +81,19 @@ export function CentralIAPage() {
     [deleteSession, currentSession?.id, startNewSession]
   );
 
+  const handleFeedback = useCallback(async (params: {
+    userMessage: string;
+    assistantMessage: string;
+    isPositive: boolean;
+    comment?: string;
+  }) => {
+    try {
+      await centralIAService.submitFeedback(params);
+    } catch (error) {
+      console.error('Erro ao salvar feedback:', error);
+    }
+  }, []);
+
   const hasMessages = messages.length > 0;
 
   return (
@@ -124,10 +140,13 @@ export function CentralIAPage() {
         <ChatContainer
           messages={messages}
           isLoading={isLoading}
+          isStreaming={isStreaming}
+          streamingContent={streamingContent}
           onSendMessage={sendMessage}
           onAddMessage={addMessage}
           disabled={!!pendingAction || !!dataRequest}
           isCentered={!hasMessages}
+          onFeedback={handleFeedback}
         />
 
         {/* Mensagem de erro */}

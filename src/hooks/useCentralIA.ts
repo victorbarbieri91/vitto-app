@@ -4,7 +4,6 @@ import { chatSessionService } from '../services/central-ia';
 import type {
   ChatMessage,
   ChatSession,
-  AgentResponse,
   PendingAction,
   DataRequest,
   ChatState,
@@ -14,6 +13,8 @@ interface UseCentralIAReturn {
   // Estado
   messages: ChatMessage[];
   isLoading: boolean;
+  isStreaming: boolean;
+  streamingContent: string;
   error: string | null;
   currentSession: ChatSession | null;
   pendingAction: PendingAction | null;
@@ -36,19 +37,20 @@ export function useCentralIA(): UseCentralIAReturn {
   const [state, setState] = useState<ChatState>({
     messages: [],
     isLoading: false,
+    isStreaming: false,
+    streamingContent: '',
     error: null,
     currentSession: null,
     pendingAction: null,
     dataRequest: null,
   });
 
-  // Ref para manter mensagens atualizadas em callbacks
-  const messagesRef = useRef<ChatMessage[]>([]);
-  messagesRef.current = state.messages;
-
   // Ref para sessão atual (para evitar problemas de closure)
   const currentSessionRef = useRef<ChatSession | null>(null);
   currentSessionRef.current = state.currentSession;
+
+  // Ref para streaming content (para acesso em callbacks)
+  const streamingRef = useRef('');
 
   // Flag para evitar carregamento duplo
   const hasLoadedLastSession = useRef(false);
@@ -65,7 +67,6 @@ export function useCentralIA(): UseCentralIAReturn {
           const lastSession = sessions[0];
           const messages = await chatSessionService.getSessionMessages(lastSession.id);
 
-          // Só carregar se tiver mensagens
           if (messages.length > 0) {
             setState({
               messages: messages.map(m => ({
@@ -74,6 +75,8 @@ export function useCentralIA(): UseCentralIAReturn {
                 tool_calls: m.tool_calls,
               })),
               isLoading: false,
+              isStreaming: false,
+              streamingContent: '',
               error: null,
               currentSession: lastSession,
               pendingAction: null,
@@ -89,79 +92,7 @@ export function useCentralIA(): UseCentralIAReturn {
     loadLastSession();
   }, []);
 
-  // Processa a resposta do agente
-  const processResponse = useCallback((response: AgentResponse) => {
-    // Atualiza sessionId se retornado
-    if (response.sessionId && !state.currentSession) {
-      chatSessionService.getSession(response.sessionId).then(session => {
-        if (session) {
-          setState(prev => ({ ...prev, currentSession: session }));
-        }
-      });
-    }
-
-    switch (response.type) {
-      case 'complete':
-        if (response.message) {
-          setState(prev => ({
-            ...prev,
-            messages: [
-              ...prev.messages,
-              { role: 'assistant', content: response.message! },
-            ],
-            isLoading: false,
-            pendingAction: null,
-            dataRequest: null,
-          }));
-        }
-        break;
-
-      case 'needs_confirmation':
-        setState(prev => ({
-          ...prev,
-          pendingAction: response.pendingAction || null,
-          isLoading: false,
-        }));
-        // Adiciona mensagem de preview
-        if (response.message) {
-          setState(prev => ({
-            ...prev,
-            messages: [
-              ...prev.messages,
-              { role: 'assistant', content: response.message! },
-            ],
-          }));
-        }
-        break;
-
-      case 'needs_data':
-        setState(prev => ({
-          ...prev,
-          dataRequest: response.dataRequest || null,
-          isLoading: false,
-        }));
-        if (response.message) {
-          setState(prev => ({
-            ...prev,
-            messages: [
-              ...prev.messages,
-              { role: 'assistant', content: response.message! },
-            ],
-          }));
-        }
-        break;
-
-      case 'error':
-        setState(prev => ({
-          ...prev,
-          error: response.error || 'Erro desconhecido',
-          isLoading: false,
-        }));
-        break;
-    }
-  }, [state.currentSession]);
-
-  // Envia mensagem para o agente
+  // Envia mensagem para o agente com streaming
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim()) return;
 
@@ -171,15 +102,18 @@ export function useCentralIA(): UseCentralIAReturn {
       ...prev,
       messages: [...prev.messages, userMessage],
       isLoading: true,
+      isStreaming: false,
+      streamingContent: '',
       error: null,
     }));
+
+    streamingRef.current = '';
 
     try {
       // Garantir que existe uma sessão
       let sessionId = currentSessionRef.current?.id;
 
       if (!sessionId) {
-        // Criar nova sessão com título baseado na primeira mensagem
         const titulo = chatSessionService.generateAutoTitle(content);
         const newSession = await chatSessionService.createSession(titulo);
         sessionId = newSession.id;
@@ -187,36 +121,94 @@ export function useCentralIA(): UseCentralIAReturn {
         currentSessionRef.current = newSession;
       }
 
-      // Salvar mensagem do usuário no banco
-      await chatSessionService.addMessage(sessionId, {
-        role: 'user',
-        content,
-      });
+      // Usar streaming SSE
+      await centralIAService.sendMessageStream(
+        [userMessage],
+        sessionId,
+        {
+          onToken: (token) => {
+            streamingRef.current += token;
+            setState(prev => ({
+              ...prev,
+              isLoading: false,
+              isStreaming: true,
+              streamingContent: streamingRef.current,
+            }));
+          },
+          onToolStart: (toolName) => {
+            console.log(`Tool executando: ${toolName}`);
+          },
+          onNeedsConfirmation: ({ message, pendingAction }) => {
+            setState(prev => ({
+              ...prev,
+              isLoading: false,
+              isStreaming: false,
+              streamingContent: '',
+              messages: [
+                ...prev.messages,
+                { role: 'assistant', content: message },
+              ],
+              pendingAction,
+            }));
+          },
+          onNeedsData: ({ message, dataRequest }) => {
+            setState(prev => ({
+              ...prev,
+              isLoading: false,
+              isStreaming: false,
+              streamingContent: '',
+              messages: [
+                ...prev.messages,
+                { role: 'assistant', content: message },
+              ],
+              dataRequest,
+            }));
+          },
+          onDone: (returnedSessionId) => {
+            const finalContent = streamingRef.current;
+            setState(prev => ({
+              ...prev,
+              isLoading: false,
+              isStreaming: false,
+              streamingContent: '',
+              messages: finalContent
+                ? [...prev.messages, { role: 'assistant', content: finalContent }]
+                : prev.messages,
+            }));
 
-      const response = await centralIAService.sendMessage(
-        [...messagesRef.current, userMessage],
-        sessionId
+            // Atualizar sessão se retornada
+            if (returnedSessionId && !currentSessionRef.current) {
+              chatSessionService.getSession(returnedSessionId).then(session => {
+                if (session) {
+                  setState(prev => ({ ...prev, currentSession: session }));
+                  currentSessionRef.current = session;
+                }
+              });
+            }
+          },
+          onError: (errorMsg) => {
+            setState(prev => ({
+              ...prev,
+              isLoading: false,
+              isStreaming: false,
+              streamingContent: '',
+              error: errorMsg,
+            }));
+          },
+        },
       );
-
-      // Salvar mensagem do assistente no banco
-      if (response.message) {
-        await chatSessionService.addMessage(sessionId, {
-          role: 'assistant',
-          content: response.message,
-        });
-      }
-
-      processResponse(response);
     } catch (error) {
       setState(prev => ({
         ...prev,
         isLoading: false,
+        isStreaming: false,
+        streamingContent: '',
         error: error instanceof Error ? error.message : 'Erro ao enviar mensagem',
       }));
     }
-  }, [processResponse]);
+  }, []);
 
-  // Confirma ação pendente
+  // Confirma ação pendente (JSON, sem streaming)
   const confirmAction = useCallback(async () => {
     if (!state.pendingAction) return;
 
@@ -227,7 +219,24 @@ export function useCentralIA(): UseCentralIAReturn {
         state.pendingAction.id,
         true
       );
-      processResponse(response);
+
+      if (response.message) {
+        setState(prev => ({
+          ...prev,
+          messages: [
+            ...prev.messages,
+            { role: 'assistant', content: response.message! },
+          ],
+          isLoading: false,
+          pendingAction: null,
+        }));
+      } else {
+        setState(prev => ({
+          ...prev,
+          isLoading: false,
+          pendingAction: null,
+        }));
+      }
     } catch (error) {
       setState(prev => ({
         ...prev,
@@ -235,7 +244,7 @@ export function useCentralIA(): UseCentralIAReturn {
         error: error instanceof Error ? error.message : 'Erro ao confirmar ação',
       }));
     }
-  }, [state.pendingAction, processResponse]);
+  }, [state.pendingAction]);
 
   // Rejeita ação pendente
   const rejectAction = useCallback(async () => {
@@ -248,7 +257,24 @@ export function useCentralIA(): UseCentralIAReturn {
         state.pendingAction.id,
         false
       );
-      processResponse(response);
+
+      if (response.message) {
+        setState(prev => ({
+          ...prev,
+          messages: [
+            ...prev.messages,
+            { role: 'assistant', content: response.message! },
+          ],
+          isLoading: false,
+          pendingAction: null,
+        }));
+      } else {
+        setState(prev => ({
+          ...prev,
+          isLoading: false,
+          pendingAction: null,
+        }));
+      }
     } catch (error) {
       setState(prev => ({
         ...prev,
@@ -257,27 +283,87 @@ export function useCentralIA(): UseCentralIAReturn {
         error: error instanceof Error ? error.message : 'Erro ao cancelar ação',
       }));
     }
-  }, [state.pendingAction, processResponse]);
+  }, [state.pendingAction]);
 
-  // Envia dados coletados via modal
+  // Envia dados coletados via modal (streaming)
   const submitUserData = useCallback(async (data: Record<string, unknown>) => {
-    setState(prev => ({ ...prev, isLoading: true, dataRequest: null }));
+    setState(prev => ({ ...prev, isLoading: true, dataRequest: null, streamingContent: '' }));
+    streamingRef.current = '';
 
     try {
-      const response = await centralIAService.sendUserData(
-        messagesRef.current,
+      const sessionId = currentSessionRef.current?.id;
+      const userDataMessage: ChatMessage = {
+        role: 'user',
+        content: `Dados fornecidos: ${JSON.stringify(data)}`,
+      };
+
+      await centralIAService.sendMessageStream(
+        [userDataMessage],
+        sessionId,
+        {
+          onToken: (token) => {
+            streamingRef.current += token;
+            setState(prev => ({
+              ...prev,
+              isLoading: false,
+              isStreaming: true,
+              streamingContent: streamingRef.current,
+            }));
+          },
+          onNeedsConfirmation: ({ message, pendingAction }) => {
+            setState(prev => ({
+              ...prev,
+              isLoading: false,
+              isStreaming: false,
+              streamingContent: '',
+              messages: [...prev.messages, { role: 'assistant', content: message }],
+              pendingAction,
+            }));
+          },
+          onNeedsData: ({ message, dataRequest: newRequest }) => {
+            setState(prev => ({
+              ...prev,
+              isLoading: false,
+              isStreaming: false,
+              streamingContent: '',
+              messages: [...prev.messages, { role: 'assistant', content: message }],
+              dataRequest: newRequest,
+            }));
+          },
+          onDone: () => {
+            const finalContent = streamingRef.current;
+            setState(prev => ({
+              ...prev,
+              isLoading: false,
+              isStreaming: false,
+              streamingContent: '',
+              messages: finalContent
+                ? [...prev.messages, { role: 'assistant', content: finalContent }]
+                : prev.messages,
+            }));
+          },
+          onError: (errorMsg) => {
+            setState(prev => ({
+              ...prev,
+              isLoading: false,
+              isStreaming: false,
+              streamingContent: '',
+              error: errorMsg,
+            }));
+          },
+        },
         data,
-        state.currentSession?.id
       );
-      processResponse(response);
     } catch (error) {
       setState(prev => ({
         ...prev,
         isLoading: false,
+        isStreaming: false,
+        streamingContent: '',
         error: error instanceof Error ? error.message : 'Erro ao enviar dados',
       }));
     }
-  }, [state.currentSession?.id, processResponse]);
+  }, []);
 
   // Cancela solicitação de dados
   const cancelDataRequest = useCallback(() => {
@@ -296,11 +382,14 @@ export function useCentralIA(): UseCentralIAReturn {
     setState({
       messages: [],
       isLoading: false,
+      isStreaming: false,
+      streamingContent: '',
       error: null,
       currentSession: null,
       pendingAction: null,
       dataRequest: null,
     });
+    currentSessionRef.current = null;
   }, []);
 
   // Carrega uma sessão existente
@@ -320,11 +409,14 @@ export function useCentralIA(): UseCentralIAReturn {
           tool_calls: m.tool_calls,
         })),
         isLoading: false,
+        isStreaming: false,
+        streamingContent: '',
         error: null,
         currentSession: session,
         pendingAction: null,
         dataRequest: null,
       });
+      currentSessionRef.current = session;
     } catch (error) {
       setState(prev => ({
         ...prev,
@@ -341,7 +433,14 @@ export function useCentralIA(): UseCentralIAReturn {
 
   // Limpa mensagens
   const clearMessages = useCallback(() => {
-    setState(prev => ({ ...prev, messages: [], currentSession: null }));
+    setState(prev => ({
+      ...prev,
+      messages: [],
+      currentSession: null,
+      streamingContent: '',
+      isStreaming: false,
+    }));
+    currentSessionRef.current = null;
   }, []);
 
   // Adiciona uma mensagem diretamente (para uso em fluxos externos como importação)
@@ -381,6 +480,8 @@ export function useCentralIA(): UseCentralIAReturn {
   return {
     messages: state.messages,
     isLoading: state.isLoading,
+    isStreaming: state.isStreaming,
+    streamingContent: state.streamingContent,
     error: state.error,
     currentSession: state.currentSession,
     pendingAction: state.pendingAction,

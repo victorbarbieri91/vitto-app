@@ -103,10 +103,22 @@ export interface QuickAction {
 export interface ChatState {
   messages: ChatMessage[];
   isLoading: boolean;
+  isStreaming: boolean;
+  streamingContent: string;
   error: string | null;
   currentSession: ChatSession | null;
   pendingAction: PendingAction | null;
   dataRequest: DataRequest | null;
+}
+
+// Callbacks para streaming SSE
+export interface StreamCallbacks {
+  onToken: (token: string) => void;
+  onToolStart?: (toolName: string) => void;
+  onNeedsConfirmation: (data: { message: string; pendingAction: PendingAction }) => void;
+  onNeedsData: (data: { message: string; dataRequest: DataRequest }) => void;
+  onDone: (sessionId: string) => void;
+  onError: (error: string) => void;
 }
 
 // Request para API
