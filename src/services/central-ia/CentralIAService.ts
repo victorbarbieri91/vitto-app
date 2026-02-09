@@ -60,13 +60,35 @@ export class CentralIAService {
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Erro ${response.status}`);
+      let errorMsg = `Erro ${response.status}`;
+      try {
+        const text = await response.text();
+        const parsed = JSON.parse(text);
+        if (parsed.error) errorMsg = parsed.error;
+      } catch {
+        // Body não é JSON (pode ser SSE ou HTML) - usa mensagem padrão
+      }
+      throw new Error(errorMsg);
+    }
+
+    // Verificar se resposta é SSE ou JSON (fallback)
+    const contentType = response.headers.get('content-type') || '';
+
+    if (!contentType.includes('text/event-stream')) {
+      // Fallback: resposta veio como texto/JSON em vez de stream
+      const text = await response.text();
+      this.parseSSEText(text, callbacks);
+      return;
     }
 
     // Processar SSE stream
     const reader = response.body?.getReader();
-    if (!reader) throw new Error('Stream não disponível');
+    if (!reader) {
+      // Fallback: body não disponível, ler como texto
+      const text = await response.text();
+      this.parseSSEText(text, callbacks);
+      return;
+    }
 
     const decoder = new TextDecoder();
     let buffer = '';
@@ -80,40 +102,64 @@ export class CentralIAService {
       buffer = lines.pop() || '';
 
       for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed.startsWith('data: ')) continue;
-
-        try {
-          const event = JSON.parse(trimmed.slice(6));
-
-          switch (event.type) {
-            case 'token':
-              callbacks.onToken(event.content);
-              break;
-            case 'tool_start':
-              callbacks.onToolStart?.(event.tool);
-              break;
-            case 'needs_confirmation':
-              callbacks.onNeedsConfirmation({
-                message: event.message,
-                pendingAction: event.pendingAction,
-              });
-              break;
-            case 'needs_data':
-              callbacks.onNeedsData({
-                message: event.message,
-                dataRequest: event.dataRequest,
-              });
-              break;
-            case 'done':
-              callbacks.onDone(event.sessionId);
-              break;
-            case 'error':
-              callbacks.onError(event.error);
-              break;
-          }
-        } catch { /* skip malformed events */ }
+        this.handleSSELine(line, callbacks);
       }
+    }
+
+    // Processar dados restantes no buffer
+    if (buffer.trim()) {
+      this.handleSSELine(buffer, callbacks);
+    }
+  }
+
+  /**
+   * Processa uma linha SSE individual
+   */
+  private handleSSELine(line: string, callbacks: StreamCallbacks): void {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('data: ')) return;
+
+    try {
+      const event = JSON.parse(trimmed.slice(6));
+
+      switch (event.type) {
+        case 'token':
+          callbacks.onToken(event.content);
+          break;
+        case 'tool_start':
+          callbacks.onToolStart?.(event.tool);
+          break;
+        case 'needs_confirmation':
+          callbacks.onNeedsConfirmation({
+            message: event.message,
+            pendingAction: event.pendingAction,
+          });
+          break;
+        case 'needs_data':
+          callbacks.onNeedsData({
+            message: event.message,
+            dataRequest: event.dataRequest,
+          });
+          break;
+        case 'done':
+          callbacks.onDone(event.sessionId);
+          break;
+        case 'error':
+          callbacks.onError(event.error);
+          break;
+      }
+    } catch {
+      // Skip malformed SSE events
+    }
+  }
+
+  /**
+   * Fallback: parsear texto SSE quando streaming não está disponível
+   */
+  private parseSSEText(text: string, callbacks: StreamCallbacks): void {
+    const lines = text.split('\n');
+    for (const line of lines) {
+      this.handleSSELine(line, callbacks);
     }
   }
 
@@ -241,7 +287,7 @@ export class CentralIAService {
       ? 'Usuário aprovou esta resposta'
       : `Usuário reprovou: ${params.comment || 'sem comentário'}`;
 
-    const { error } = await supabase.from('app_memoria_ia').insert({
+    const { data: inserted, error } = await supabase.from('app_memoria_ia').insert({
       usuario_id: user.id,
       tipo_conteudo: tipo,
       conteudo,
@@ -252,9 +298,30 @@ export class CentralIAService {
         comment: params.comment || null,
       },
       relevancia_score: params.isPositive ? 0.7 : 0.9,
-    });
+    }).select('id').single();
 
     if (error) throw error;
+
+    // Gerar embedding para que o feedback apareca em buscas RAG
+    if (inserted?.id) {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      if (supabaseUrl && token) {
+        fetch(`${supabaseUrl}/functions/v1/embed-and-save`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            text: `[${tipo}] ${conteudo}`,
+            table: 'app_memoria_ia',
+            id: inserted.id,
+            column: 'embedding',
+          }),
+        }).catch(() => { /* fire-and-forget */ });
+      }
+    }
   }
 
   /**

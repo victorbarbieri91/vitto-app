@@ -652,13 +652,21 @@ async function executeTool(
         const now = new Date();
         const mes = args.mes || now.getMonth() + 1; const ano = args.ano || now.getFullYear();
         const { data: fatura } = await supabase.from('app_fatura').select('id, cartao_id, mes, ano, valor_total, status, data_vencimento, data_pagamento').eq('cartao_id', args.cartao_id).eq('mes', mes).eq('ano', ano).single();
-        const startDate = `${ano}-${String(mes).padStart(2, '0')}-01`;
-        const endDate = new Date(Number(ano), Number(mes), 0).toISOString().split('T')[0];
+        // Buscar dia de fechamento do cartao para calcular ciclo correto
+        const { data: cartao } = await supabase.from('app_cartao_credito').select('nome, dia_fechamento').eq('id', args.cartao_id).single();
+        const diaFechamento = cartao?.dia_fechamento || 1;
+        // Ciclo da fatura: do dia_fechamento do mes anterior ate dia_fechamento-1 do mes atual
+        // Ex: fecha dia 3 -> fatura de marco = transacoes de 04/fev ate 03/mar
+        const mesNum = Number(mes); const anoNum = Number(ano);
+        const fimCiclo = new Date(anoNum, mesNum - 1, diaFechamento); // dia_fechamento do mes da fatura
+        const inicioCiclo = new Date(anoNum, mesNum - 2, diaFechamento + 1); // dia_fechamento+1 do mes anterior
+        const startDate = inicioCiclo.toISOString().split('T')[0];
+        const endDate = fimCiclo.toISOString().split('T')[0];
+        console.log(`query_fatura: ciclo ${startDate} a ${endDate} (fecha dia ${diaFechamento})`);
         const { data: transacoes, error } = await supabase.from('app_transacoes').select('id, descricao, valor, data, status, parcela_atual, total_parcelas, categoria:app_categoria(id, nome, cor)').eq('user_id', userId).eq('cartao_id', args.cartao_id).gte('data', startDate).lte('data', endDate).order('data', { ascending: false });
         if (error) throw error;
         const total = (transacoes || []).reduce((sum, t) => sum + Number(t.valor), 0);
-        const { data: cartao } = await supabase.from('app_cartao_credito').select('nome').eq('id', args.cartao_id).single();
-        return { success: true, data: { cartao: cartao?.nome, fatura: fatura || { mes, ano, status: 'aberta', valor_total: total }, transacoes, total, quantidade: transacoes?.length || 0 } };
+        return { success: true, data: { cartao: cartao?.nome, fatura: fatura || { mes, ano, status: 'aberta', valor_total: total }, transacoes, total, quantidade: transacoes?.length || 0, ciclo: { inicio: startDate, fim: endDate, dia_fechamento: diaFechamento } } };
       }
 
       case 'query_indicadores': {
@@ -937,6 +945,33 @@ async function saveMessage(
   return data?.id || null;
 }
 
+async function loadSessionHistory(
+  supabase: SupabaseClient,
+  sessionId: string,
+  limit: number = 10,
+): Promise<ChatMessage[]> {
+  try {
+    const { data, error } = await supabase
+      .from('app_chat_mensagens')
+      .select('role, content')
+      .eq('sessao_id', sessionId)
+      .in('role', ['user', 'assistant'])
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error || !data || data.length === 0) return [];
+
+    // Reverter para ordem cronológica e converter para ChatMessage
+    return data.reverse().map(m => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.content,
+    }));
+  } catch (e) {
+    console.error('Erro ao carregar historico:', e);
+    return [];
+  }
+}
+
 function embedMessageAsync(
   messageId: string,
   content: string,
@@ -981,15 +1016,18 @@ async function streamingAgentLoop(
   sessionId: string,
   tools: Tool[],
   systemPrompt: string,
+  history: ChatMessage[] = [],
   maxIterations: number = 8,
 ): Promise<string> {
   const apiKey = Deno.env.get('OPENAI_API_KEY');
   if (!apiKey) throw new Error('OPENAI_API_KEY nao configurada');
 
-  // Mensagens de trabalho internas do agent loop
+  // Mensagens de trabalho: historico da sessao + mensagem atual
   const workingMessages: ChatMessage[] = [
+    ...history,
     { role: 'user', content: userMessage },
   ];
+  console.log(`Agent loop: ${history.length} mensagens de historico + mensagem atual`);
 
   let fullResponse = '';
   let iteration = 0;
@@ -1018,8 +1056,7 @@ async function streamingAgentLoop(
         tools: tools.map(t => ({ type: t.type, function: t.function })),
         tool_choice: 'auto',
         stream: true,
-        temperature: 0.3,
-        max_tokens: 4000,
+        max_completion_tokens: 4000,
       }),
     });
 
@@ -1262,6 +1299,16 @@ Deno.serve(async (req) => {
     const selectedTools = ALL_TOOLS;
     console.log(`Tools disponiveis: ${selectedTools.length} (ALL_TOOLS)`);
 
+    // Carregar historico da sessao (ultimas 10 mensagens para contexto)
+    const history = await loadSessionHistory(supabase, activeSessionId, 10);
+    console.log(`Historico carregado: ${history.length} mensagens`);
+
+    // Remover a ultima mensagem do historico se for a mensagem atual (evitar duplicata)
+    // A mensagem atual ja foi salva acima, entao pode aparecer no historico
+    const filteredHistory = history.filter(m =>
+      !(m.role === 'user' && m.content === userContent)
+    );
+
     // Embed mensagem do usuario async
     if (userMsgId) embedMessageAsync(userMsgId, userContent);
 
@@ -1280,6 +1327,7 @@ Deno.serve(async (req) => {
           activeSessionId,
           selectedTools,
           systemPrompt,
+          filteredHistory,
         );
 
         // Salvar resposta do assistente (UNICA fonte de verdade)
@@ -1309,6 +1357,8 @@ Deno.serve(async (req) => {
         ...corsHeaders,
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',
       },
     });
 
