@@ -8,7 +8,7 @@ import { useIsMobile } from '../../../hooks/useIsMobile';
 import { ModernInput, ModernButton, ModernSelect, ModernSwitch } from '../../ui/modern';
 import CurrencyInput from '../../ui/CurrencyInput';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CreditCard, DollarSign, Calendar, Info, Edit3 } from 'lucide-react';
+import { Info } from 'lucide-react';
 import { determinarFaturaInteligente, NOMES_MESES } from '../../../utils/smartInvoicePeriod';
 
 const creditCardExpenseSchema = z.object({
@@ -167,8 +167,6 @@ const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ onSave, o
     return `${mesAtual}-${anoAtual}`;
   }, [faturaCalculada]);
 
-  const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-
   return (
     <form onSubmit={handleSubmit(onSave)} className="space-y-4">
       {/* Seleção de cartão */}
@@ -191,29 +189,6 @@ const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ onSave, o
         )}
       </div>
 
-      {/* Informações do cartão compactas */}
-      {selectedCard && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className={`grid gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl ${
-            isMobile ? 'grid-cols-1 text-sm' : 'grid-cols-3 text-xs'
-          }`}
-        >
-          <div className="text-center">
-            <p className="text-slate-600 font-medium">Limite Disponível</p>
-            <p className="text-slate-800 font-bold">{formatCurrency(selectedCard.limite - selectedCard.limite_usado)}</p>
-          </div>
-          <div className="text-center">
-            <p className="text-slate-600 font-medium">Fatura Atual</p>
-            <p className="text-slate-800 font-bold">{formatCurrency(selectedCard.fatura_atual)}</p>
-          </div>
-          <div className="text-center">
-            <p className="text-slate-600 font-medium">Fecha</p>
-            <p className="text-slate-800 font-bold">Dia {selectedCard.dia_fechamento}</p>
-          </div>
-        </motion.div>
-      )}
 
 
       {/* Descrição - Full width em mobile */}

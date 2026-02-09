@@ -807,7 +807,7 @@ async function executeCreateCreditCardTransaction(userId: string, args: any, sup
   if (insertError) throw insertError
 
   // Determine which fatura the expense was assigned to (mirrors calcular_periodo_fatura DB logic)
-  const mesesNomes = ['Janeiro','Fevereiro','Marco','Abril','Maio','Junho',
+  const mesesNomes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
                       'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
   const dataRef = new Date(transactionDate + 'T12:00:00')
   const diaTransacao = dataRef.getDate()

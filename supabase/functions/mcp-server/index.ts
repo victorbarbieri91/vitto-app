@@ -786,7 +786,7 @@ async function criarDespesaCartao(params: any, supabase: SupabaseClient) {
   if (error) throw new Error(`Erro ao registrar despesa: ${error.message}`)
 
   // Determinar fatura (espelha calcular_periodo_fatura do banco)
-  const mesesNomes = ['Janeiro','Fevereiro','Marco','Abril','Maio','Junho',
+  const mesesNomes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
                       'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
   let faturaLabel = ''
   if (cartaoInfo?.dia_fechamento) {
