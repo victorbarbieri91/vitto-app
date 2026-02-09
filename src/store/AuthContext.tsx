@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import type { ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase/client';
@@ -21,57 +21,16 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Tempo de inatividade em milissegundos (30 minutos)
-const INACTIVITY_TIMEOUT = 30 * 60 * 1000;
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  
+
   // Hook para gerenciar perfil do usuário
   const { userProfile, loading: profileLoading, refreshProfile } = useUserProfile(user?.id || null);
-  
-  // Timer para inatividade (log out automático)
-  const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // Ref para controlar se já tentou verificar/criar perfil
   const profileChecked = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    let INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutos em ms
-
-    const resetTimerOnActivity = () => {
-      if (inactivityTimerRef.current) {
-        window.clearTimeout(inactivityTimerRef.current);
-      }
-
-      // Só configura timer se usuário está logado
-      if (session?.user) {
-        inactivityTimerRef.current = window.setTimeout(async () => {
-          console.log('[AuthContext] Fazendo logout por inatividade');
-          await supabase.auth.signOut();
-        }, INACTIVITY_TIMEOUT);
-      }
-    };
-
-    // Events que indicam atividade do usuário
-    const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
-    
-    activityEvents.forEach(event => {
-      document.addEventListener(event, resetTimerOnActivity, { passive: true });
-    });
-
-    // Cleanup dos listeners
-    return () => {
-      activityEvents.forEach(event => {
-        document.removeEventListener(event, resetTimerOnActivity);
-      });
-      if (inactivityTimerRef.current) {
-        window.clearTimeout(inactivityTimerRef.current);
-      }
-    };
-  }, [session]);
 
   useEffect(() => {
     const getInitialSession = async () => {
@@ -122,7 +81,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    return () => subscription.unsubscribe();
+    // Refresh proativo: verifica a cada 10 min se o token está perto de expirar.
+    // Supabase autoRefreshToken faz isso, mas browsers suspendem timers em abas de fundo.
+    const refreshInterval = setInterval(async () => {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (currentSession?.expires_at) {
+        const now = Math.floor(Date.now() / 1000);
+        const timeUntilExpiry = currentSession.expires_at - now;
+        if (timeUntilExpiry < 300) {
+          console.log('[AuthContext] Token expiring soon, proactively refreshing');
+          const { error } = await supabase.auth.refreshSession();
+          if (error) {
+            console.error('[AuthContext] Failed to refresh session:', error.message);
+          }
+        }
+      }
+    }, 10 * 60 * 1000);
+
+    // Ao voltar para aba suspensa, verifica se token precisa de refresh
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+          if (currentSession?.expires_at) {
+            const now = Math.floor(Date.now() / 1000);
+            if (currentSession.expires_at - now < 300) {
+              console.log('[AuthContext] Tab regained focus with expiring token, refreshing');
+              supabase.auth.refreshSession();
+            }
+          }
+        });
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      subscription.unsubscribe();
+      clearInterval(refreshInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   // Função auxiliar para verificar/criar perfil (evita duplicação)
@@ -215,10 +211,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    if (inactivityTimerRef.current) {
-      window.clearTimeout(inactivityTimerRef.current);
-      inactivityTimerRef.current = null;
-    }
     await supabase.auth.signOut();
   };
 

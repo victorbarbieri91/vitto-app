@@ -66,7 +66,7 @@ const MODEL = 'gpt-5-mini';
 const EMBEDDING_MODEL = 'text-embedding-3-small';
 
 // =====================================================
-// TOOL DEFINITIONS (20 tools - preservadas do v7)
+// TOOL DEFINITIONS (21 tools - v18 com update_user_profile)
 // =====================================================
 
 const ALL_TOOLS: Tool[] = [
@@ -368,6 +368,22 @@ const ALL_TOOLS: Tool[] = [
         required: ['context', 'fields']
       }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'update_user_profile',
+      description: 'Atualiza informacoes permanentes do usuario (preferencias, objetivos, perfil financeiro). Use para dados que devem persistir entre conversas. Diferente de save_memory (temporario), este eh o perfil permanente.',
+      parameters: {
+        type: 'object',
+        properties: {
+          field: { type: 'string', description: 'Campo a atualizar (ex: objetivo_principal, perfil_investidor, preferencia_notificacao, salario_liquido, dia_pagamento, etc)' },
+          value: { description: 'Valor do campo (string, numero ou objeto)' },
+          action: { type: 'string', enum: ['set', 'delete'], description: 'set para definir/atualizar, delete para remover (default: set)' }
+        },
+        required: ['field', 'value']
+      }
+    }
   }
 ];
 
@@ -383,116 +399,184 @@ const CONFIRMATION_REQUIRED_TOOLS = [
 // EMBEDDING (direto via OpenAI - sem hop extra)
 // =====================================================
 
-async function generateEmbedding(text: string): Promise<number[] | null> {
-  try {
-    const apiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!apiKey) return null;
+async function generateEmbedding(text: string, retries = 2): Promise<number[] | null> {
+  const apiKey = Deno.env.get('OPENAI_API_KEY');
+  if (!apiKey) { console.warn('generateEmbedding: OPENAI_API_KEY nao encontrada'); return null; }
 
-    const resp = await fetch(OPENAI_EMBEDDING_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ model: EMBEDDING_MODEL, input: text }),
-    });
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const resp = await fetch(OPENAI_EMBEDDING_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ model: EMBEDDING_MODEL, input: text }),
+      });
 
-    if (!resp.ok) return null;
-    const data = await resp.json();
-    return data.data?.[0]?.embedding || null;
-  } catch {
-    return null;
+      if (!resp.ok) {
+        const errText = await resp.text().catch(() => '');
+        console.warn(`generateEmbedding: tentativa ${attempt}/${retries} falhou (${resp.status}): ${errText.substring(0, 200)}`);
+        if (attempt < retries) { await new Promise(r => setTimeout(r, 500 * attempt)); continue; }
+        return null;
+      }
+      const data = await resp.json();
+      const embedding = data.data?.[0]?.embedding || null;
+      if (embedding) console.log(`generateEmbedding: sucesso na tentativa ${attempt}`);
+      return embedding;
+    } catch (e) {
+      console.warn(`generateEmbedding: tentativa ${attempt}/${retries} excecao:`, e.message || e);
+      if (attempt < retries) { await new Promise(r => setTimeout(r, 500 * attempt)); continue; }
+      return null;
+    }
   }
+  return null;
 }
 
 // =====================================================
-// RAG SEARCH (via unified_rag_search RPC)
+// RAG SEARCH (apenas memorias do usuario - Layer 3)
+// Knowledge Base agora eh carregado via SQL direto (Layer 1)
+// Historico de sessao eh carregado via loadSessionHistory (Layer 2)
 // =====================================================
 
-async function ragSearch(
+async function ragSearchMemories(
   supabase: SupabaseClient,
   embedding: number[],
   userId: string,
-  sessionId?: string,
 ): Promise<RAGResult[]> {
   try {
-    // 3 buscas em PARALELO, cada fonte com seu limite garantido
-    const [knowledgeRes, memoryRes, sessionRes] = await Promise.all([
-      supabase.rpc('rag_search_by_source', {
-        query_embedding: embedding,
-        p_source: 'knowledge',
-        p_user_id: userId,
-        p_match_threshold: 0.4,
-        p_max_results: 5,
-      }),
-      supabase.rpc('rag_search_by_source', {
-        query_embedding: embedding,
-        p_source: 'memory',
-        p_user_id: userId,
-        p_match_threshold: 0.5,
-        p_max_results: 3,
-      }),
-      sessionId
-        ? supabase.rpc('rag_search_by_source', {
-            query_embedding: embedding,
-            p_source: 'session',
-            p_user_id: userId,
-            p_sessao_id: sessionId,
-            p_match_threshold: 0.5,
-            p_max_results: 3,
-          })
-        : Promise.resolve({ data: [], error: null }),
-    ]);
+    const { data, error } = await supabase.rpc('rag_search_by_source', {
+      query_embedding: embedding,
+      p_source: 'memory',
+      p_user_id: userId,
+      p_match_threshold: 0.5,
+      p_max_results: 5,
+    });
 
-    const results: RAGResult[] = [];
-    if (knowledgeRes.data) results.push(...knowledgeRes.data);
-    if (memoryRes.data) results.push(...memoryRes.data);
-    if (sessionRes.data) results.push(...sessionRes.data);
+    if (error) {
+      console.error('RAG memory error:', error);
+      return [];
+    }
 
-    if (knowledgeRes.error) console.error('RAG knowledge error:', knowledgeRes.error);
-    if (memoryRes.error) console.error('RAG memory error:', memoryRes.error);
-    if (sessionRes.error) console.error('RAG session error:', sessionRes.error);
-
-    return results;
+    return data || [];
   } catch (e) {
-    console.error('RAG search exception:', e);
+    console.error('RAG memory exception:', e);
     return [];
   }
 }
 
 // =====================================================
-// SYSTEM PROMPT (minimo ~500 tokens + RAG context)
+// LAYER 1: KNOWLEDGE BASE (SQL direto, 100% confiavel)
 // =====================================================
 
-function buildSystemPrompt(userName: string, ragResults: RAGResult[]): string {
+async function loadKnowledgeBase(supabase: SupabaseClient): Promise<string> {
+  try {
+    const { data, error } = await supabase
+      .from('app_knowledge_base')
+      .select('titulo, conteudo, categoria')
+      .eq('ativo', true)
+      .order('categoria');
+
+    if (error || !data || data.length === 0) {
+      console.warn('loadKnowledgeBase: nenhuma regra encontrada');
+      return '';
+    }
+
+    console.log(`loadKnowledgeBase: ${data.length} regras carregadas`);
+
+    // Agrupar por categoria para melhor organizacao
+    const byCategory: Record<string, string[]> = {};
+    for (const rule of data) {
+      const cat = rule.categoria || 'geral';
+      if (!byCategory[cat]) byCategory[cat] = [];
+      byCategory[cat].push(`- **${rule.titulo}**: ${rule.conteudo}`);
+    }
+
+    let block = '';
+    for (const [cat, rules] of Object.entries(byCategory)) {
+      block += `\n[${cat}]\n${rules.join('\n')}`;
+    }
+
+    return block;
+  } catch (e) {
+    console.error('loadKnowledgeBase error:', e);
+    return '';
+  }
+}
+
+// =====================================================
+// LAYER 4: USER PROFILE (SQL direto, 100% confiavel)
+// =====================================================
+
+interface UserProfile {
+  nome: string;
+  receita_mensal: number | null;
+  meta_despesa: number | null;
+  ai_context: Record<string, unknown>;
+}
+
+async function loadUserProfile(supabase: SupabaseClient, userId: string): Promise<UserProfile> {
+  try {
+    const { data, error } = await supabase
+      .from('app_perfil')
+      .select('nome, receita_mensal_estimada, meta_despesa_percentual, ai_context')
+      .eq('id', userId)
+      .single();
+
+    if (error || !data) {
+      console.warn('loadUserProfile: perfil nao encontrado');
+      return { nome: 'Usuario', receita_mensal: null, meta_despesa: null, ai_context: {} };
+    }
+
+    return {
+      nome: data.nome || 'Usuario',
+      receita_mensal: data.receita_mensal_estimada,
+      meta_despesa: data.meta_despesa_percentual,
+      ai_context: data.ai_context || {},
+    };
+  } catch (e) {
+    console.error('loadUserProfile error:', e);
+    return { nome: 'Usuario', receita_mensal: null, meta_despesa: null, ai_context: {} };
+  }
+}
+
+// =====================================================
+// SYSTEM PROMPT (4 camadas: knowledge + profile + memories + instrucoes)
+// =====================================================
+
+function buildSystemPrompt(
+  userProfile: UserProfile,
+  knowledgeBlock: string,
+  memoryResults: RAGResult[],
+): string {
   const now = new Date();
   const dataAtual = now.toLocaleDateString('pt-BR');
   const mesAtual = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
-  // Separar RAG por fonte
-  const knowledge = ragResults.filter(r => r.source === 'knowledge');
-  const memories = ragResults.filter(r => r.source === 'memory');
-  const sessionCtx = ragResults.filter(r => r.source === 'session');
-
-  let ragBlock = '';
-
-  if (knowledge.length > 0) {
-    ragBlock += '\n### Regras e conhecimento do sistema:\n';
-    ragBlock += knowledge.map(k => `- [${k.category}] ${k.title}: ${k.content}`).join('\n');
+  // === LAYER 4: User Profile ===
+  let profileBlock = '';
+  if (userProfile.receita_mensal) {
+    profileBlock += `\n- Receita mensal estimada: R$ ${userProfile.receita_mensal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+  }
+  if (userProfile.meta_despesa) {
+    profileBlock += `\n- Meta de despesas: ${userProfile.meta_despesa}% da receita`;
+  }
+  const ctx = userProfile.ai_context;
+  if (ctx && Object.keys(ctx).length > 0) {
+    for (const [key, value] of Object.entries(ctx)) {
+      profileBlock += `\n- ${key}: ${typeof value === 'object' ? JSON.stringify(value) : value}`;
+    }
   }
 
-  if (memories.length > 0) {
-    ragBlock += '\n### Memorias do usuario:\n';
-    ragBlock += memories.map(m => `- [${m.category}] ${m.content}`).join('\n');
-  }
-
-  if (sessionCtx.length > 0) {
-    ragBlock += '\n### Historico relevante da conversa:\n';
-    ragBlock += sessionCtx.map(s => `- ${s.content}`).join('\n');
+  // === LAYER 3: Memorias (RAG, bonus) ===
+  let memoryBlock = '';
+  if (memoryResults.length > 0) {
+    memoryBlock = '\n\n### Memorias do usuario:\n';
+    memoryBlock += memoryResults.map(m => `- [${m.category}] ${m.content}`).join('\n');
   }
 
   return `Voce eh o Vitto, assistente financeiro pessoal inteligente e amigavel.
-Data atual: ${dataAtual} (${mesAtual}). Usuario: ${userName || 'Usuario'}.
+Data atual: ${dataAtual} (${mesAtual}). Usuario: ${userProfile.nome}.
 
 INSTRUCOES:
 1. Use o CONTEXTO abaixo para responder com precisao
@@ -503,10 +587,13 @@ INSTRUCOES:
 6. Formate valores em R$ (ex: R$ 1.234,56) e datas em DD/MM/AAAA
 7. Use markdown para formatacao: **negrito** para valores, listas para multiplos itens
 8. Se o usuario quiser criar conta, orcamento, meta ou cartao, oriente a usar as abas do app
-9. Use save_memory para guardar preferencias, objetivos e insights do usuario
-10. Use request_user_data quando precisar de dados que o usuario nao forneceu
+9. Use save_memory para informacoes temporais/pontuais. Use update_user_profile para informacoes permanentes (preferencias, objetivos, perfil financeiro)
+10. IMPORTANTE - COLETA DE DADOS VIA MODAL: Quando precisar de QUALQUER informacao que o usuario nao forneceu (cartao, mes, conta, valor, tipo, etc), SEMPRE use a tool request_user_data para coletar via modal interativo. NUNCA faca perguntas no texto da conversa. O modal eh mais rapido e engajante para o usuario. Exemplos: se o usuario pedir despesas do cartao sem dizer qual, use request_user_data com um campo select listando os cartoes. Se pedir para criar transacao sem dados, use request_user_data com os campos necessarios.
+11. Para consultas de despesas de cartao de credito em um mes especifico, prefira query_fatura (que inclui transacoes fixas e parceladas) em vez de query_transacoes
 
-CONTEXTO RELEVANTE:${ragBlock || '\nNenhum contexto adicional encontrado.'}`;
+### Perfil do usuario:${profileBlock || '\nNenhum dado de perfil.'}
+
+### Regras e conhecimento do sistema:${knowledgeBlock || '\nNenhuma regra encontrada.'}${memoryBlock}`;
 }
 
 // =====================================================
@@ -651,22 +738,36 @@ async function executeTool(
       case 'query_fatura': {
         const now = new Date();
         const mes = args.mes || now.getMonth() + 1; const ano = args.ano || now.getFullYear();
-        const { data: fatura } = await supabase.from('app_fatura').select('id, cartao_id, mes, ano, valor_total, status, data_vencimento, data_pagamento').eq('cartao_id', args.cartao_id).eq('mes', mes).eq('ano', ano).single();
-        // Buscar dia de fechamento do cartao para calcular ciclo correto
         const { data: cartao } = await supabase.from('app_cartao_credito').select('nome, dia_fechamento').eq('id', args.cartao_id).single();
+        const { data: fatura } = await supabase.from('app_fatura').select('id, cartao_id, mes, ano, valor_total, status, data_vencimento, data_pagamento').eq('cartao_id', args.cartao_id).eq('mes', mes).eq('ano', ano).single();
+
+        if (fatura?.id) {
+          // Usar RPCs do banco que combinam transacoes reais + fixas (mesma logica do frontend)
+          const [transResult, totalResult] = await Promise.all([
+            supabase.rpc('obter_transacoes_fatura', { p_fatura_id: fatura.id }),
+            supabase.rpc('calcular_valor_total_fatura', { p_fatura_id: fatura.id }),
+          ]);
+          const transacoes = transResult.data || [];
+          const total = totalResult.data || 0;
+          const parceladas = transacoes.filter((t: any) => t.total_parcelas && t.total_parcelas > 1).length;
+          const fixas = transacoes.filter((t: any) => t.is_fixed).length;
+          const avista = transacoes.length - parceladas - fixas;
+          console.log(`query_fatura: RPC retornou ${transacoes.length} transacoes (${parceladas} parceladas, ${fixas} fixas, ${avista} avista), total R$ ${total}`);
+          return { success: true, data: { cartao: cartao?.nome, fatura: { ...fatura, valor_total: total }, transacoes, total, quantidade: transacoes.length, resumo: { parceladas, fixas, avista } } };
+        }
+
+        // Fallback: fatura nao existe no banco - query manual
         const diaFechamento = cartao?.dia_fechamento || 1;
-        // Ciclo da fatura: do dia_fechamento do mes anterior ate dia_fechamento-1 do mes atual
-        // Ex: fecha dia 3 -> fatura de marco = transacoes de 04/fev ate 03/mar
         const mesNum = Number(mes); const anoNum = Number(ano);
-        const fimCiclo = new Date(anoNum, mesNum - 1, diaFechamento); // dia_fechamento do mes da fatura
-        const inicioCiclo = new Date(anoNum, mesNum - 2, diaFechamento + 1); // dia_fechamento+1 do mes anterior
+        const fimCiclo = new Date(anoNum, mesNum - 1, diaFechamento);
+        const inicioCiclo = new Date(anoNum, mesNum - 2, diaFechamento + 1);
         const startDate = inicioCiclo.toISOString().split('T')[0];
         const endDate = fimCiclo.toISOString().split('T')[0];
-        console.log(`query_fatura: ciclo ${startDate} a ${endDate} (fecha dia ${diaFechamento})`);
+        console.log(`query_fatura: fallback manual ciclo ${startDate} a ${endDate}`);
         const { data: transacoes, error } = await supabase.from('app_transacoes').select('id, descricao, valor, data, status, parcela_atual, total_parcelas, categoria:app_categoria(id, nome, cor)').eq('user_id', userId).eq('cartao_id', args.cartao_id).gte('data', startDate).lte('data', endDate).order('data', { ascending: false });
         if (error) throw error;
         const total = (transacoes || []).reduce((sum, t) => sum + Number(t.valor), 0);
-        return { success: true, data: { cartao: cartao?.nome, fatura: fatura || { mes, ano, status: 'aberta', valor_total: total }, transacoes, total, quantidade: transacoes?.length || 0, ciclo: { inicio: startDate, fim: endDate, dia_fechamento: diaFechamento } } };
+        return { success: true, data: { cartao: cartao?.nome, fatura: { mes, ano, status: 'aberta', valor_total: total }, transacoes, total, quantidade: transacoes?.length || 0 } };
       }
 
       case 'query_indicadores': {
@@ -759,6 +860,37 @@ async function executeTool(
         const { error: transError } = await supabase.from('app_transacoes').insert({ user_id: userId, descricao: `Pagamento de fatura ${fatura.mes}/${fatura.ano}`, valor: fatura.valor_total, tipo: 'despesa', categoria_id: 22, conta_id: args.conta_id, data: dataPagamento, status: 'confirmado' });
         if (transError) throw transError;
         return { success: true, data: { pago: true, valor: fatura.valor_total } };
+      }
+
+      case 'update_user_profile': {
+        const field = args.field as string;
+        const value = args.value;
+        const action = (args.action as string) || 'set';
+
+        // Buscar ai_context atual
+        const { data: perfil, error: perfilError } = await supabase
+          .from('app_perfil')
+          .select('ai_context')
+          .eq('id', userId)
+          .single();
+        if (perfilError) throw perfilError;
+
+        const currentContext = perfil?.ai_context || {};
+
+        if (action === 'delete') {
+          delete currentContext[field];
+        } else {
+          currentContext[field] = value;
+        }
+
+        const { error: updateError } = await supabase
+          .from('app_perfil')
+          .update({ ai_context: currentContext })
+          .eq('id', userId);
+        if (updateError) throw updateError;
+
+        console.log(`update_user_profile: ${action} field "${field}"`);
+        return { success: true, data: { updated: true, field, action } };
       }
 
       case 'create_goal':
@@ -1276,35 +1408,40 @@ Deno.serve(async (req) => {
     // Salvar mensagem do usuario no banco (UNICA fonte de verdade)
     const userMsgId = await saveMessage(supabase, activeSessionId, 'user', userContent);
 
-    // === PIPELINE PARALELO: embedding + profile ===
-    const [queryEmbedding, profileRes] = await Promise.all([
+    // === PIPELINE PARALELO (4 camadas) ===
+    // Layer 1: Knowledge Base (SQL direto, 100% confiavel)
+    // Layer 2: Session History (SQL direto, 100% confiavel, 5 msgs)
+    // Layer 3: Long-term Memory (RAG, bonus - depende de embedding)
+    // Layer 4: User Profile (SQL direto, 100% confiavel)
+    const [knowledgeBlock, userProfile, history, queryEmbedding] = await Promise.all([
+      loadKnowledgeBase(supabase),
+      loadUserProfile(supabase, userId),
+      loadSessionHistory(supabase, activeSessionId, 5),
       generateEmbedding(userContent),
-      supabase.from('app_perfil').select('nome').eq('id', userId).single(),
     ]);
 
-    const userName = profileRes.data?.nome || 'Usuario';
+    console.log(`Layer 1 (Knowledge): ${knowledgeBlock.length} chars`);
+    console.log(`Layer 2 (History): ${history.length} mensagens`);
+    console.log(`Layer 4 (Profile): ${userProfile.nome}, ai_context keys: ${Object.keys(userProfile.ai_context).length}`);
 
-    // RAG search (depende do embedding)
-    let ragResults: RAGResult[] = [];
+    // Layer 3: RAG memory (bonus, depende do embedding)
+    let memoryResults: RAGResult[] = [];
     if (queryEmbedding) {
-      ragResults = await ragSearch(supabase, queryEmbedding, userId, activeSessionId);
-      console.log(`RAG: ${ragResults.length} resultados (${ragResults.filter(r=>r.source==='knowledge').length} knowledge, ${ragResults.filter(r=>r.source==='memory').length} memory, ${ragResults.filter(r=>r.source==='session').length} session)`);
+      memoryResults = await ragSearchMemories(supabase, queryEmbedding, userId);
+      console.log(`Layer 3 (Memory RAG): ${memoryResults.length} memorias encontradas`);
+    } else {
+      console.log('Layer 3 (Memory RAG): embedding falhou, pulando busca de memorias');
     }
 
-    // Construir prompt minimo com RAG
-    const systemPrompt = buildSystemPrompt(userName, ragResults);
-    console.log(`System prompt: ${systemPrompt.length} chars`);
+    // Construir system prompt com as 4 camadas
+    const systemPrompt = buildSystemPrompt(userProfile, knowledgeBlock, memoryResults);
+    console.log(`System prompt total: ${systemPrompt.length} chars`);
 
     // Enviar TODAS as tools - o agente escolhe sozinho
     const selectedTools = ALL_TOOLS;
     console.log(`Tools disponiveis: ${selectedTools.length} (ALL_TOOLS)`);
 
-    // Carregar historico da sessao (ultimas 10 mensagens para contexto)
-    const history = await loadSessionHistory(supabase, activeSessionId, 10);
-    console.log(`Historico carregado: ${history.length} mensagens`);
-
     // Remover a ultima mensagem do historico se for a mensagem atual (evitar duplicata)
-    // A mensagem atual ja foi salva acima, entao pode aparecer no historico
     const filteredHistory = history.filter(m =>
       !(m.role === 'user' && m.content === userContent)
     );

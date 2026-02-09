@@ -20,7 +20,7 @@ const CONFIRMATION_TEXT = 'quero excluir meus dados';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -159,7 +159,7 @@ export default function ProfilePage() {
   const handleSignOut = async () => {
     try {
       setLoading(true);
-      await supabase.auth.signOut();
+      await signOut();
     } catch (error: any) {
       console.error('Erro ao fazer logout:', error.message);
     } finally {
