@@ -806,6 +806,18 @@ async function executeCreateCreditCardTransaction(userId: string, args: any, sup
 
   if (insertError) throw insertError
 
+  // Determine which fatura the expense was assigned to (mirrors calcular_periodo_fatura DB logic)
+  const mesesNomes = ['Janeiro','Fevereiro','Marco','Abril','Maio','Junho',
+                      'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+  const dataRef = new Date(transactionDate + 'T12:00:00')
+  const diaTransacao = dataRef.getDate()
+  let mesFatura = dataRef.getMonth() + 1
+  let anoFatura = dataRef.getFullYear()
+  if (diaTransacao >= card.dia_fechamento) {
+    if (mesFatura === 12) { mesFatura = 1; anoFatura++ } else { mesFatura++ }
+  }
+  const faturaLabel = `Fatura de ${mesesNomes[mesFatura - 1]} ${anoFatura}`
+
   const parcelaInfo = totalParcelas > 1
     ? `\nParcelado em ${totalParcelas}x de R$ ${valorParcela.toFixed(2)}`
     : ''
@@ -813,7 +825,7 @@ async function executeCreateCreditCardTransaction(userId: string, args: any, sup
   return {
     success: true,
     transactions: created,
-    message: `✅ Compra registrada no cartão ${card.nome}!\n\nDescrição: ${description}\nValor: R$ ${amount.toFixed(2)}${parcelaInfo}\nData: ${transactionDate}\nCartão: ${card.nome} (fechamento dia ${card.dia_fechamento})\n\nA transação foi atribuída à fatura correta automaticamente.`
+    message: `✅ Compra registrada no cartão ${card.nome}!\n\nDescrição: ${description}\nValor: R$ ${amount.toFixed(2)}${parcelaInfo}\nData: ${transactionDate}\nCartão: ${card.nome} (fechamento dia ${card.dia_fechamento})\n📋 ${faturaLabel}`
   }
 }
 

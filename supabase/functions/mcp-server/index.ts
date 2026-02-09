@@ -748,6 +748,15 @@ async function criarDespesaCartao(params: any, supabase: SupabaseClient) {
   const dataCompra = data || new Date().toISOString().split('T')[0]
   const valorParcela = valor_total / parcelas
 
+  // Buscar dia_fechamento do cartao para informar fatura
+  const { data: cartaoInfo } = await supabase
+    .from('app_cartao_credito')
+    .select('nome, dia_fechamento')
+    .eq('id', cartao_id)
+    .single()
+
+  const grupoParcelamento = parcelas > 1 ? crypto.randomUUID() : null
+
   const transacoes = []
   for (let i = 1; i <= parcelas; i++) {
     const dataParcela = new Date(dataCompra)
@@ -763,8 +772,9 @@ async function criarDespesaCartao(params: any, supabase: SupabaseClient) {
       data: dataParcela.toISOString().split('T')[0],
       parcela_atual: i,
       total_parcelas: parcelas,
-      status: 'pendente',
-      origem: 'manual'
+      grupo_parcelamento: grupoParcelamento,
+      status: 'confirmado',
+      origem: 'whatsapp'
     })
   }
 
@@ -775,12 +785,27 @@ async function criarDespesaCartao(params: any, supabase: SupabaseClient) {
 
   if (error) throw new Error(`Erro ao registrar despesa: ${error.message}`)
 
+  // Determinar fatura (espelha calcular_periodo_fatura do banco)
+  const mesesNomes = ['Janeiro','Fevereiro','Marco','Abril','Maio','Junho',
+                      'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+  let faturaLabel = ''
+  if (cartaoInfo?.dia_fechamento) {
+    const dataRef = new Date(dataCompra + 'T12:00:00')
+    const diaTransacao = dataRef.getDate()
+    let mesFatura = dataRef.getMonth() + 1
+    let anoFatura = dataRef.getFullYear()
+    if (diaTransacao >= cartaoInfo.dia_fechamento) {
+      if (mesFatura === 12) { mesFatura = 1; anoFatura++ } else { mesFatura++ }
+    }
+    faturaLabel = `\nFatura de ${mesesNomes[mesFatura - 1]} ${anoFatura}`
+  }
+
   return {
     success: true,
     transacoes: resultado,
     mensagem: parcelas > 1
-      ? `Compra de R$ ${valor_total.toFixed(2)} em ${parcelas}x de R$ ${valorParcela.toFixed(2)} registrada!`
-      : `Despesa de R$ ${valor_total.toFixed(2)} no cartão registrada!`
+      ? `Compra de R$ ${valor_total.toFixed(2)} em ${parcelas}x de R$ ${valorParcela.toFixed(2)} registrada no ${cartaoInfo?.nome || 'cartao'}!${faturaLabel}`
+      : `Despesa de R$ ${valor_total.toFixed(2)} no ${cartaoInfo?.nome || 'cartao'} registrada!${faturaLabel}`
   }
 }
 

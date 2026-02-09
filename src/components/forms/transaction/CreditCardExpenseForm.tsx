@@ -9,6 +9,7 @@ import { ModernInput, ModernButton, ModernSelect, ModernSwitch } from '../../ui/
 import CurrencyInput from '../../ui/CurrencyInput';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CreditCard, DollarSign, Calendar, Info, Edit3 } from 'lucide-react';
+import { determinarFaturaInteligente, NOMES_MESES } from '../../../utils/smartInvoicePeriod';
 
 const creditCardExpenseSchema = z.object({
   descricao: z.string().min(3, 'Descrição deve ter pelo menos 3 caracteres.'),
@@ -61,34 +62,10 @@ const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ onSave, o
   } | null>(null);
 
   // Função para calcular período sugerido da fatura
+  // Usa determinarFaturaInteligente que espelha a lógica exata do banco (calcular_periodo_fatura)
   const calcularPeriodoSugerido = (dataCompra: string, diaFechamento: number) => {
-    const hoje = new Date();
-    const diaHoje = hoje.getDate();
-    const mesAtual = hoje.getMonth() + 1; // getMonth() é 0-indexed (setembro = 8, então +1 = 9)
-    const anoAtual = hoje.getFullYear();
-
-    console.log(`🔍 Debug período fatura:`, {
-      dataCompra,
-      diaFechamento,
-      hoje: hoje.toISOString().split('T')[0],
-      diaHoje,
-      mesAtual,
-      anoAtual
-    });
-
-    // LÓGICA SIMPLIFICADA: Se hoje já passou do fechamento, próxima compra vai para próximo mês
-    if (diaHoje > diaFechamento) {
-      // Já passou do fechamento, próxima compra vai para próximo mês
-      const proximoMes = mesAtual === 12 ? 1 : mesAtual + 1;
-      const proximoAno = mesAtual === 12 ? anoAtual + 1 : anoAtual;
-
-      console.log(`✅ Já passou do fechamento (hoje ${diaHoje} > ${diaFechamento}) → próximo mês: ${proximoMes}/${proximoAno}`);
-      return { mes: proximoMes, ano: proximoAno };
-    } else {
-      // Ainda não passou do fechamento, vai para mês atual
-      console.log(`✅ Ainda não passou do fechamento (hoje ${diaHoje} <= ${diaFechamento}) → mês atual: ${mesAtual}/${anoAtual}`);
-      return { mes: mesAtual, ano: anoAtual };
-    }
+    const resultado = determinarFaturaInteligente(dataCompra, diaFechamento);
+    return { mes: resultado.mes, ano: resultado.ano };
   };
 
   const { register, handleSubmit, control, watch, setValue, formState: { errors } } = useForm<CreditCardExpenseFormData>({
@@ -149,10 +126,7 @@ const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ onSave, o
   const expenseCategories = useMemo(() => categories.filter(c => c.tipo === 'despesa' || c.tipo === 'ambos'), [categories]);
 
   // Gerar opções de mês/ano combinadas
-  const nomesMeses = [
-    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-  ];
+  const nomesMeses = NOMES_MESES;
 
   const faturaOpcoes = useMemo(() => {
     const hoje = new Date();
