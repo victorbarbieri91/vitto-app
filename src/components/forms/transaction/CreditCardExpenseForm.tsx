@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -53,10 +53,9 @@ const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ onSave, o
   const { categories } = useCategories();
   const isMobile = useIsMobile();
   const formRef = useRef<HTMLFormElement>(null);
-  const [selectedCardId, setSelectedCardId] = useState<number | null>(null);
 
-  // Estados para controle de fatura (simplificado)
-  const [faturaCalculada, setFaturaCalculada] = useState<{
+  // Estado para controle de fatura
+  const [faturaCalculada, setFaturaCalculada] = React.useState<{
     mes: number;
     ano: number;
   } | null>(null);
@@ -84,12 +83,8 @@ const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ onSave, o
   const watchedCardId = watch('cartao_id');
   const watchedData = watch('data');
 
-  // IMPORTANTE: selectedCard deve ser definido ANTES dos useEffects que o usam
-  useEffect(() => {
-    setSelectedCardId(watchedCardId);
-  }, [watchedCardId]);
-
-  const selectedCard = useMemo(() => cards.find(c => c.id === selectedCardId), [cards, selectedCardId]);
+  // Derivar selectedCard diretamente do watchedCardId (sem estado intermediario)
+  const selectedCard = useMemo(() => cards.find(c => c.id === watchedCardId), [cards, watchedCardId]);
 
   useEffect(() => {
     if (isRecorrente) {
@@ -113,8 +108,8 @@ const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ onSave, o
       // Sempre atualizar os valores para manter sincronia
       setValue('mes_fatura', sugestao.mes);
       setValue('ano_fatura', sugestao.ano);
-    } else if (!selectedCard) {
-      // Se não tem cartão selecionado, usar mês atual
+    } else if (!watchedCardId) {
+      // Só cai aqui quando NENHUM cartão foi selecionado (não quando cards está carregando)
       const hoje = new Date();
       const mesAtual = hoje.getMonth() + 1;
       const anoAtual = hoje.getFullYear();
@@ -122,7 +117,7 @@ const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ onSave, o
       setValue('ano_fatura', anoAtual);
       setFaturaCalculada(null);
     }
-  }, [watchedData, selectedCard, setValue]);
+  }, [watchedData, selectedCard, watchedCardId, setValue]);
   const expenseCategories = useMemo(() => categories.filter(c => c.tipo === 'despesa' || c.tipo === 'ambos'), [categories]);
 
   // Gerar opções de mês/ano combinadas
