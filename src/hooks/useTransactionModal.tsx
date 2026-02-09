@@ -60,10 +60,6 @@ export function useTransactionModal(onTransactionSaved?: () => void) {
           categoria_id: data.categoria_id,
           conta_id: data.conta_id || undefined,
           cartao_id: data.cartao_id || undefined,
-          tipo_recorrencia: 'fixo',
-          intervalo: data.recorrencia?.frequencia === 'mensal' ? 'mensal' : 
-                    data.recorrencia?.frequencia === 'semanal' ? 'semanal' : 
-                    data.recorrencia?.frequencia === 'anual' ? 'anual' : 'mensal',
           dia_mes: data.recorrencia?.dia_vencimento || data.recorrencia?.dia_cobranca || 1,
           data_inicio: data.recorrencia?.data_inicio || data.data,
         };
@@ -98,11 +94,13 @@ export function useTransactionModal(onTransactionSaved?: () => void) {
         // TRANSAÇÃO PARCELADA → múltiplas entradas em app_transacoes
         console.log('[useTransactionModal] Criando transação parcelada...');
         
+        const parcelaAtual = data.parcelamento?.parcela_atual;
         const installmentData: CreateInstallmentTransactionRequest = {
           descricao: data.descricao,
           valor_total: data.valor,
           data_primeira_parcela: data.parcelamento?.data_primeira_parcela || data.data,
           total_parcelas: data.parcelamento?.total_parcelas,
+          parcela_inicial: parcelaAtual && parcelaAtual > 1 ? parcelaAtual : undefined,
           tipo: activeModal,
           categoria_id: data.categoria_id,
           conta_id: data.conta_id || undefined,

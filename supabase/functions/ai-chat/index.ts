@@ -209,7 +209,7 @@ serve(async (req) => {
 async function classifyQuery(message: string, apiKey: string): Promise<QueryClassification> {
   const patterns = {
     direct_query: /^(qual|quanto|listar|mostrar|ver|consultar).*(saldo|valor|transaç|conta|receita|despesa)/i,
-    financial_action: /^(gastei|paguei|recebi|criar|deletar|transferir|comprei|vendi)/i,
+    financial_action: /^(gastei|paguei|recebi|criar|deletar|transferir|comprei|vendi|coloquei|coloca|cartao|cartão|credito|crédito|parcela)/i,
     complex_analysis: /^(por que|como|analise|compare|padrão|tendência|insight|comportamento)/i,
     report_request: /^(resumo|relatório|situação|saúde financeira|balanço|análise geral)/i,
     document_processing: /(pdf|fatura|comprovante|anexo|documento|arquivo)/i
@@ -344,21 +344,53 @@ REGRAS IMPORTANTES:
 3. Seja específico e útil nas respostas
 4. Use emojis apropriados para tornar a conversa mais amigável`
 
+  // Add knowledge base rules
+  try {
+    const { data: knowledgeRules } = await supabase
+      .from('app_knowledge_base')
+      .select('titulo, conteudo, categoria')
+      .eq('ativo', true)
+      .order('created_at', { ascending: false })
+      .limit(15)
+
+    if (knowledgeRules?.length) {
+      basePrompt += '\n\nREGRAS DO SISTEMA (base de conhecimento):\n'
+      knowledgeRules.forEach((rule: any) => {
+        basePrompt += `\n### ${rule.titulo}\n${rule.conteudo}\n`
+      })
+    }
+  } catch (error) {
+    console.warn('Error fetching knowledge base:', error)
+  }
+
   // Add specific context based on classification
   try {
-    if (classification.type === 'direct_query' || classification.type === 'report_request') {
-      // Get basic user financial summary
-      const { data: accounts } = await supabase
-        .from('app_conta')
-        .select('saldo_atual')
-        .eq('user_id', userId)
+    // Get basic user financial summary
+    const { data: accounts } = await supabase
+      .from('app_conta')
+      .select('id, nome, saldo_atual')
+      .eq('user_id', userId)
+      .eq('status', 'ativa')
 
-      const totalBalance = accounts?.reduce((sum: number, acc: any) =>
-        sum + parseFloat(acc.saldo_atual || 0), 0) || 0
+    const totalBalance = accounts?.reduce((sum: number, acc: any) =>
+      sum + parseFloat(acc.saldo_atual || 0), 0) || 0
 
-      basePrompt += `\n\nCONTEXTO FINANCEIRO ATUAL:
+    basePrompt += `\n\nCONTEXTO FINANCEIRO ATUAL:
 - Saldo total das contas: R$ ${totalBalance.toFixed(2)}
+- Contas: ${accounts?.map((a: any) => `${a.nome} (R$ ${parseFloat(a.saldo_atual || 0).toFixed(2)})`).join(', ') || 'nenhuma'}
 - Dados atualizados em tempo real`
+
+    // Get user's credit cards
+    const { data: cards } = await supabase
+      .from('app_cartao_credito')
+      .select('id, nome, limite, dia_fechamento')
+      .eq('user_id', userId)
+
+    if (cards?.length) {
+      basePrompt += `\n\nCARTÕES DE CRÉDITO DO USUÁRIO:\n${cards.map((c: any) =>
+        `- ${c.nome} (ID: ${c.id}, limite: R$ ${parseFloat(c.limite || 0).toFixed(2)}, fechamento dia ${c.dia_fechamento})`
+      ).join('\n')}`
+      basePrompt += `\n\nIMPORTANTE CARTÃO: Quando o usuário mencionar "cartão", "crédito", "cartao" ou o nome de um cartão, use a tool createCreditCardTransaction. O tipo deve ser 'despesa_cartao'. Use o nome do cartão para buscar o correto.`
     }
   } catch (error) {
     console.warn('Error building user context:', error)
@@ -419,7 +451,7 @@ function getToolsForQueryType(queryType: QueryClassification['type']): any[] {
       type: 'function',
       function: {
         name: 'createTransaction',
-        description: 'Criar uma nova transação financeira',
+        description: 'Criar uma nova transação financeira (receita ou despesa em conta bancária). NÃO use para cartão de crédito.',
         parameters: {
           type: 'object',
           properties: {
@@ -448,6 +480,43 @@ function getToolsForQueryType(queryType: QueryClassification['type']): any[] {
           required: ['description', 'amount', 'type', 'category']
         }
       }
+    },
+    createCreditCardTransaction: {
+      type: 'function',
+      function: {
+        name: 'createCreditCardTransaction',
+        description: 'Criar uma despesa no cartão de crédito. Use quando o usuário mencionar cartão, crédito, ou nome de um cartão. A transação será atribuída à fatura correta automaticamente.',
+        parameters: {
+          type: 'object',
+          properties: {
+            description: {
+              type: 'string',
+              description: 'Descrição da compra'
+            },
+            amount: {
+              type: 'number',
+              description: 'Valor da compra (sempre positivo)'
+            },
+            card_name: {
+              type: 'string',
+              description: 'Nome do cartão de crédito (ex: C6, Nubank, Inter). Se não informado, usa o primeiro cartão.'
+            },
+            category: {
+              type: 'string',
+              description: 'Nome da categoria (ex: Alimentação, Transporte, Lazer)'
+            },
+            date: {
+              type: 'string',
+              description: 'Data da compra (YYYY-MM-DD). Se não informada, usa hoje.'
+            },
+            installments: {
+              type: 'number',
+              description: 'Número de parcelas. Se não informado, é compra à vista (1x).'
+            }
+          },
+          required: ['description', 'amount']
+        }
+      }
     }
   }
 
@@ -456,7 +525,7 @@ function getToolsForQueryType(queryType: QueryClassification['type']): any[] {
       return [allTools.getCurrentBalance, allTools.getRecentTransactions]
 
     case 'financial_action':
-      return [allTools.createTransaction, allTools.getCurrentBalance]
+      return [allTools.createTransaction, allTools.createCreditCardTransaction, allTools.getCurrentBalance]
 
     case 'report_request':
       return [allTools.getCurrentBalance, allTools.getRecentTransactions]
@@ -489,6 +558,9 @@ async function executeTool(functionCall: any, userId: string, supabase: any): Pr
 
       case 'createTransaction':
         return await executeCreateTransaction(userId, parsedArgs, supabase)
+
+      case 'createCreditCardTransaction':
+        return await executeCreateCreditCardTransaction(userId, parsedArgs, supabase)
 
       default:
         throw new Error(`Unknown tool: ${name}`)
@@ -639,6 +711,109 @@ async function executeCreateTransaction(userId: string, args: any, supabase: any
     success: true,
     transaction,
     message: `✅ Transação criada com sucesso!\n\n${type === 'receita' ? 'Receita' : 'Despesa'} de R$ ${amount.toFixed(2)}\nDescrição: ${description}\nCategoria: ${category}\nData: ${transactionDate}\n\n⚠️ Status: Pendente (confirme no dashboard para finalizar)`
+  }
+}
+
+async function executeCreateCreditCardTransaction(userId: string, args: any, supabase: any) {
+  const { description, amount, card_name, category, date, installments } = args
+
+  // Find credit card by name or get first one
+  let cardQuery = supabase
+    .from('app_cartao_credito')
+    .select('id, nome, dia_fechamento')
+    .eq('user_id', userId)
+
+  if (card_name) {
+    cardQuery = cardQuery.ilike('nome', `%${card_name}%`)
+  }
+
+  const { data: cards, error: cardError } = await cardQuery.limit(1)
+
+  if (cardError) throw cardError
+  if (!cards?.length) {
+    throw new Error('Nenhum cartão de crédito encontrado. Cadastre um cartão primeiro.')
+  }
+
+  const card = cards[0]
+
+  // Find or create category
+  let categoryId: number | null = null
+  const categoryName = category || 'Outros'
+
+  const { data: categoryData } = await supabase
+    .from('app_categoria')
+    .select('id')
+    .ilike('nome', `%${categoryName}%`)
+    .limit(1)
+
+  if (categoryData?.[0]) {
+    categoryId = categoryData[0].id
+  } else {
+    const { data: newCategory, error: createCatError } = await supabase
+      .from('app_categoria')
+      .insert({
+        nome: categoryName,
+        tipo: 'ambos',
+        cor: '#6B7280',
+        icone: 'tag',
+        is_default: false
+      })
+      .select('id')
+      .single()
+
+    if (createCatError) throw createCatError
+    categoryId = newCategory.id
+  }
+
+  const transactionDate = date || new Date().toISOString().split('T')[0]
+  const totalParcelas = installments || 1
+  const valorParcela = totalParcelas > 1 ? Math.round((amount / totalParcelas) * 100) / 100 : amount
+
+  const grupoParcelamento = totalParcelas > 1 ? crypto.randomUUID() : null
+
+  const transacoes = []
+
+  for (let parcela = 1; parcela <= totalParcelas; parcela++) {
+    const dataParcela = new Date(transactionDate)
+    dataParcela.setMonth(dataParcela.getMonth() + (parcela - 1))
+    const dataStr = dataParcela.toISOString().split('T')[0]
+
+    const descParcela = totalParcelas > 1
+      ? `${description} (${parcela}/${totalParcelas})`
+      : description
+
+    transacoes.push({
+      user_id: userId,
+      descricao: descParcela,
+      valor: valorParcela,
+      data: dataStr,
+      tipo: 'despesa_cartao',
+      categoria_id: categoryId,
+      cartao_id: card.id,
+      conta_id: null,
+      status: 'confirmado',
+      origem: 'ai_chat',
+      parcela_atual: totalParcelas > 1 ? parcela : null,
+      total_parcelas: totalParcelas > 1 ? totalParcelas : null,
+      grupo_parcelamento: grupoParcelamento,
+    })
+  }
+
+  const { data: created, error: insertError } = await supabase
+    .from('app_transacoes')
+    .insert(transacoes)
+    .select()
+
+  if (insertError) throw insertError
+
+  const parcelaInfo = totalParcelas > 1
+    ? `\nParcelado em ${totalParcelas}x de R$ ${valorParcela.toFixed(2)}`
+    : ''
+
+  return {
+    success: true,
+    transactions: created,
+    message: `✅ Compra registrada no cartão ${card.nome}!\n\nDescrição: ${description}\nValor: R$ ${amount.toFixed(2)}${parcelaInfo}\nData: ${transactionDate}\nCartão: ${card.nome} (fechamento dia ${card.dia_fechamento})\n\nA transação foi atribuída à fatura correta automaticamente.`
   }
 }
 

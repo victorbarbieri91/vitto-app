@@ -30,6 +30,8 @@ export interface CreateTransactionRequest {
   data_vencimento?: string;
   observacoes?: string;
   status?: 'confirmado' | 'pendente';
+  fixo_id?: number;
+  origem?: string;
 }
 
 export interface CreateInstallmentTransactionRequest {
@@ -37,6 +39,7 @@ export interface CreateInstallmentTransactionRequest {
   valor_total: number;
   data_primeira_parcela: string;
   total_parcelas: number;
+  parcela_inicial?: number; // Default 1. Se 3, cria parcelas 3,4,5...N
   tipo: 'receita' | 'despesa' | 'despesa_cartao';
   categoria_id: number;
   conta_id?: number;
@@ -44,6 +47,9 @@ export interface CreateInstallmentTransactionRequest {
   observacoes?: string;
   status?: 'confirmado' | 'pendente';
 }
+
+// Alias for backward compatibility
+export type InstallmentTransactionRequest = CreateInstallmentTransactionRequest;
 
 export class TransactionService extends BaseApi {
   private generationInProgress = new Set<string>();
@@ -418,7 +424,8 @@ export class TransactionService extends BaseApi {
       parcela_atual: request.parcela_atual || null,
       total_parcelas: request.total_parcelas || null,
       grupo_parcelamento: request.total_parcelas ? crypto.randomUUID() : null,
-      origem: 'manual',
+      origem: request.origem || 'manual',
+      fixo_id: request.fixo_id || null,
       status: status,
       tipo_especial: request.total_parcelas ? 'parcelamento' : 'normal',
       data_vencimento: request.data_vencimento || null,
@@ -519,15 +526,16 @@ export class TransactionService extends BaseApi {
     const valorParcela = request.valor_total / request.total_parcelas;
     const grupoParcelamento = crypto.randomUUID();
     const dataBase = new Date(request.data_primeira_parcela);
+    const parcelaInicial = request.parcela_inicial || 1;
 
     const transacoes: NewTransaction[] = [];
 
     // Para transações de cartão, sempre usar status confirmado
     const status = request.tipo === 'despesa_cartao' ? 'confirmado' : (request.status || 'pendente');
 
-    for (let parcela = 1; parcela <= request.total_parcelas; parcela++) {
+    for (let parcela = parcelaInicial; parcela <= request.total_parcelas; parcela++) {
       const dataParcela = new Date(dataBase);
-      dataParcela.setMonth(dataParcela.getMonth() + (parcela - 1));
+      dataParcela.setMonth(dataParcela.getMonth() + (parcela - parcelaInicial));
 
       transacoes.push({
         user_id: user.id,

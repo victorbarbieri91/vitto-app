@@ -34,12 +34,13 @@ export { default as resetService } from './ResetService';
 // Export types
 export type { Account, NewAccount } from './AccountService';
 export type { Category, NewCategory } from './CategoryService';
-export type { 
-  Transaction, 
-  NewTransaction, 
+export type {
+  Transaction,
+  NewTransaction,
   TransactionFilters,
   TransactionListResponse,
   InstallmentTransactionRequest,
+  CreateInstallmentTransactionRequest,
   TransferTransactionRequest,
   CreateTransactionRequest,
   RevenueData,
@@ -59,7 +60,8 @@ export type {
   RecurrentTransactionSummary,
   RecurrentTransactionCreate,
   RecurrentTransactionUpdate,
-  ProcessRecurrentRequest
+  ProcessRecurrentRequest,
+  CreateRecurrentTransactionRequest
 } from './RecurrentTransactionService';
 export type {
   CreditCard,

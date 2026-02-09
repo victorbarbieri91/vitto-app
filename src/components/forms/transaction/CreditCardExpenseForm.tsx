@@ -26,6 +26,7 @@ const creditCardExpenseSchema = z.object({
   }).optional(),
   parcelamento: z.object({
     total_parcelas: z.number().int().min(2, 'Mínimo de 2 parcelas.').max(60, 'Máximo de 60 parcelas.'),
+    parcela_atual: z.number().int().min(1).max(60).default(1),
   }).optional(),
 }).refine(data => {
   if (data.is_recorrente && data.is_parcelado) return false;
@@ -425,18 +426,33 @@ const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ onSave, o
             exit={{ opacity: 0, height: 0 }}
             className="p-3 bg-blue-50 rounded-lg border border-blue-100"
           >
-            <label className="block text-xs font-medium text-blue-700 mb-1.5">Número de Parcelas</label>
-            <input
-              type="number"
-              min="2"
-              max="60"
-              {...register('parcelamento.total_parcelas', { valueAsNumber: true })}
-              placeholder="12"
-              className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-            />
-            {errors.parcelamento?.total_parcelas && (
-              <p className="text-xs text-red-500 mt-1">{errors.parcelamento.total_parcelas.message}</p>
-            )}
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-blue-700 mb-1.5">Total de Parcelas</label>
+                <input
+                  type="number"
+                  min="2"
+                  max="60"
+                  {...register('parcelamento.total_parcelas', { valueAsNumber: true })}
+                  placeholder="12"
+                  className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+                {errors.parcelamento?.total_parcelas && (
+                  <p className="text-xs text-red-500 mt-1">{errors.parcelamento.total_parcelas.message}</p>
+                )}
+              </div>
+              <div className="w-24">
+                <label className="block text-xs font-medium text-blue-700 mb-1.5">Qual parcela?</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="60"
+                  {...register('parcelamento.parcela_atual', { valueAsNumber: true })}
+                  placeholder="1"
+                  className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

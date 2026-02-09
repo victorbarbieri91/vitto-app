@@ -232,7 +232,7 @@ function DashboardContent() {
         <div className="flex flex-col gap-4">
           {/* LINHA 1: 5 KPIs em linha */}
           <motion.div variants={itemVariants}>
-            <div className="grid grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
               <SaldoScore
                 saldo={consolidatedData.saldoPrevisto || 0}
                 isLoading={loading}
@@ -277,7 +277,7 @@ function DashboardContent() {
           </motion.div>
 
           {/* LINHA 2: FluxoMensal | Divisao por Categoria */}
-          <motion.div variants={itemVariants} className="grid grid-cols-2 gap-4">
+          <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="h-72">
               <FluxoMensalChart months={4} />
             </div>
@@ -287,7 +287,7 @@ function DashboardContent() {
           </motion.div>
 
           {/* LINHA 3: ProximasTransacoes | AlertaInteligente */}
-          <motion.div variants={itemVariants} className="grid grid-cols-2 gap-4">
+          <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <ProximasTransacoesCard limit={5} />
             <AlertaInteligenteCard />
           </motion.div>

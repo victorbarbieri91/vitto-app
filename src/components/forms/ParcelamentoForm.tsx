@@ -5,7 +5,7 @@ import { ModernInput } from '../ui/modern';
 import { useAccounts } from '../../hooks/useAccounts';
 import { useCategories } from '../../hooks/useCategories';
 import { useCreditCards } from '../../hooks/useCreditCards';
-import { TransactionService, InstallmentTransactionRequest } from '../../services/api/TransactionService';
+import { TransactionService, CreateInstallmentTransactionRequest } from '../../services/api/TransactionService';
 import { CreditCard, Wallet, Calendar, Calculator, FileText, AlertCircle } from 'lucide-react';
 
 interface ParcelamentoFormProps {
@@ -22,6 +22,7 @@ interface FormData {
   conta_id: string;
   cartao_id: string;
   total_parcelas: string;
+  parcela_atual: string;
   data_primeira_parcela: string;
   observacoes: string;
 }
@@ -40,6 +41,7 @@ export function ParcelamentoForm({ onSuccess, onCancel, className }: Parcelament
     conta_id: '',
     cartao_id: '',
     total_parcelas: '2',
+    parcela_atual: '1',
     data_primeira_parcela: new Date().toISOString().split('T')[0],
     observacoes: '',
   });
@@ -98,7 +100,8 @@ export function ParcelamentoForm({ onSuccess, onCancel, className }: Parcelament
     setIsSubmitting(true);
 
     try {
-      const request: InstallmentTransactionRequest = {
+      const parcelaAtual = parseInt(formData.parcela_atual) || 1;
+      const request: CreateInstallmentTransactionRequest = {
         descricao: formData.descricao.trim(),
         valor_total: parseFloat(formData.valor_total),
         tipo: formData.tipo,
@@ -106,11 +109,13 @@ export function ParcelamentoForm({ onSuccess, onCancel, className }: Parcelament
         conta_id: formData.conta_id ? parseInt(formData.conta_id) : undefined,
         cartao_id: formData.cartao_id ? parseInt(formData.cartao_id) : undefined,
         total_parcelas: parseInt(formData.total_parcelas),
+        parcela_inicial: parcelaAtual > 1 ? parcelaAtual : undefined,
         data_primeira_parcela: formData.data_primeira_parcela,
         observacoes: formData.observacoes.trim() || undefined,
       };
 
-      const transactions = await transactionService.createInstallmentTransaction(request);
+      const response = await transactionService.createInstallments(request);
+      const transactions = response.data || [];
       
       if (onSuccess) {
         onSuccess(transactions);
@@ -125,6 +130,7 @@ export function ParcelamentoForm({ onSuccess, onCancel, className }: Parcelament
         conta_id: '',
         cartao_id: '',
         total_parcelas: '2',
+        parcela_atual: '1',
         data_primeira_parcela: new Date().toISOString().split('T')[0],
         observacoes: '',
       });
@@ -136,7 +142,7 @@ export function ParcelamentoForm({ onSuccess, onCancel, className }: Parcelament
     }
   };
 
-  const contasDisponiveis = accounts.filter(account => account.ativo);
+  const contasDisponiveis = accounts.filter(account => account.status === 'ativa');
   const categoriasDisponiveis = categories.filter(cat => 
     cat.tipo === 'ambos' || cat.tipo === formData.tipo
   );
@@ -225,7 +231,7 @@ export function ParcelamentoForm({ onSuccess, onCancel, className }: Parcelament
           />
 
           <ModernInput
-            label="Número de Parcelas"
+            label="Total de Parcelas"
             type="number"
             min="2"
             max="60"
@@ -234,6 +240,16 @@ export function ParcelamentoForm({ onSuccess, onCancel, className }: Parcelament
             placeholder="2"
             leftIcon={<Calculator className="w-5 h-5" />}
             error={errors.total_parcelas}
+          />
+          <ModernInput
+            label="Qual parcela?"
+            type="number"
+            min="1"
+            max="60"
+            value={formData.parcela_atual}
+            onChange={(e) => handleInputChange('parcela_atual', e.target.value)}
+            placeholder="1"
+            leftIcon={<span className="text-slate-500 text-xs font-medium">N°</span>}
           />
         </div>
 

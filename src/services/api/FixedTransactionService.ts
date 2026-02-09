@@ -320,6 +320,125 @@ export class FixedTransactionService extends BaseApi {
   }
 
   /**
+   * Cria uma regra fixa a partir de uma transação existente
+   * A transação original é linkada via fixo_id
+   */
+  async createFromTransaction(transactionId: number): Promise<FixedTransaction> {
+    const user = await this.getCurrentUser();
+    if (!user) throw new Error('Usuário não autenticado');
+
+    const { data: tx, error: txError } = await this.supabase
+      .from('app_transacoes')
+      .select('*')
+      .eq('id', transactionId)
+      .eq('user_id', user.id)
+      .single();
+
+    if (txError || !tx) throw new Error('Transação não encontrada');
+
+    // --- Idempotency: se já tem fixo_id, retorna a regra existente ---
+    if (tx.fixo_id) {
+      const { data: existing } = await this.supabase
+        .from('app_transacoes_fixas')
+        .select('*')
+        .eq('id', tx.fixo_id)
+        .single();
+      if (existing) return existing;
+    }
+
+    // --- Idempotency: verificar duplicata por descricao+valor+cartao ---
+    const duplicateQuery = this.supabase
+      .from('app_transacoes_fixas')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('descricao', tx.descricao)
+      .eq('valor', tx.valor)
+      .eq('ativo', true)
+      .limit(1);
+
+    if (tx.cartao_id) {
+      duplicateQuery.eq('cartao_id', tx.cartao_id);
+    }
+
+    const { data: duplicates } = await duplicateQuery;
+    if (duplicates?.length) {
+      // Linkar transação à regra existente e retornar
+      await this.supabase
+        .from('app_transacoes')
+        .update({ fixo_id: duplicates[0].id })
+        .eq('id', transactionId);
+      return duplicates[0];
+    }
+
+    // --- Calcular data_inicio para o PRÓXIMO período de fatura ---
+    const transDate = new Date(tx.data);
+    const diaMes = transDate.getDate();
+    let dataInicio = tx.data;
+
+    if (tx.cartao_id) {
+      // Buscar dia_fechamento do cartão
+      const { data: card } = await this.supabase
+        .from('app_cartao_credito')
+        .select('dia_fechamento')
+        .eq('id', tx.cartao_id)
+        .single();
+
+      const diaFechamento = card?.dia_fechamento || 1;
+      const txDay = transDate.getDate();
+
+      // Calcular mês da fatura atual (mesma lógica de calcular_periodo_fatura)
+      let faturaMes = transDate.getMonth() + 1; // 1-indexed
+      let faturaAno = transDate.getFullYear();
+      if (txDay >= diaFechamento) {
+        faturaMes += 1;
+        if (faturaMes > 12) { faturaMes = 1; faturaAno += 1; }
+      }
+
+      // Próximo período: mês da fatura + 1
+      let nextFaturaMes = faturaMes + 1;
+      let nextFaturaAno = faturaAno;
+      if (nextFaturaMes > 12) { nextFaturaMes = 1; nextFaturaAno += 1; }
+
+      dataInicio = `${nextFaturaAno}-${String(nextFaturaMes).padStart(2, '0')}-01`;
+    } else {
+      // Para transações sem cartão: próximo mês simples
+      let nextMonth = transDate.getMonth() + 2; // +1 current, +1 next
+      let nextYear = transDate.getFullYear();
+      if (nextMonth > 12) { nextMonth = 1; nextYear += 1; }
+      dataInicio = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+    }
+
+    const { data, error } = await this.supabase
+      .from('app_transacoes_fixas')
+      .insert({
+        user_id: user.id,
+        descricao: tx.descricao,
+        valor: tx.valor,
+        tipo: tx.tipo,
+        categoria_id: tx.categoria_id,
+        conta_id: tx.conta_id || null,
+        cartao_id: tx.cartao_id || null,
+        dia_mes: diaMes,
+        data_inicio: dataInicio,
+        data_fim: null,
+        ativo: true,
+        observacoes: 'Criado a partir de transação existente',
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Linkar a transação original à regra fixa
+    await this.supabase
+      .from('app_transacoes')
+      .update({ fixo_id: data.id })
+      .eq('id', transactionId);
+
+    return data;
+  }
+
+  /**
    * Remove uma transação fixa
    */
   async delete(id: number): Promise<void> {

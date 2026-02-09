@@ -1,22 +1,23 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { TransactionList, TransactionListRef } from '../../components/transactions/TransactionList';
-import TransactionForm from '../../components/forms/TransactionForm';
 import type { Transaction } from '../../services/api/AccountService';
-import { MonthNavigator, ModernButton } from '../../components/ui/modern';
+import { MonthNavigator } from '../../components/ui/modern';
 import FilterChip from '../../components/ui/FilterChip';
 import { fixedTransactionService, FixedTransactionWithDetails } from '../../services/api/FixedTransactionService';
 import transactionService from '../../services/api/TransactionService';
-import { Tag, XCircle, X } from 'lucide-react';
-import { cn } from '../../utils/cn';
+import { Tag, XCircle } from 'lucide-react';
 import { supabase } from '../../services/supabase/client';
 import { useAuth } from '../../store/AuthContext';
 import { useTransactionContext } from '../../store/TransactionContext';
 import InvoicePaymentModal from '../../components/cards/InvoicePaymentModal';
 import ConfirmDeleteInvoiceModal from '../../components/modals/ConfirmDeleteInvoiceModal';
+import ConfirmDeleteModal from '../../components/modals/ConfirmDeleteModal';
+import EfetivarModal from '../../components/transactions/EfetivarModal';
+import type { EfetivarData } from '../../components/transactions/EfetivarModal';
+import TransactionEditModal from '../../components/transactions/TransactionEditModal';
+import type { EditTransactionData } from '../../components/transactions/TransactionEditModal';
 import { toast } from 'react-hot-toast';
-import { useCategories } from '../../hooks/useCategories';
-import CurrencyInput from '../../components/ui/CurrencyInput';
 
 export type RecurrenceFilter = 'all' | 'fixa' | 'parcelada' | 'unica';
 
@@ -27,9 +28,20 @@ export default function TransactionsPageModern() {
   const [searchParams] = useSearchParams();
 
   const transactionListRef = useRef<TransactionListRef>(null);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Efetivar modal state
+  const [efetivarTransaction, setEfetivarTransaction] = useState<any>(null);
+  const [isEfetivarModalOpen, setIsEfetivarModalOpen] = useState(false);
+
+  // Edit modal state
+  const [editModalTransaction, setEditModalTransaction] = useState<any>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  // Delete confirmation modal state
+  const [deleteTransactionId, setDeleteTransactionId] = useState<number | null>(null);
+  const [deleteTransactionDesc, setDeleteTransactionDesc] = useState('');
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   // Invoice payment/delete modals
   const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState<any>(null);
@@ -44,17 +56,6 @@ export default function TransactionsPageModern() {
   // Fixed transactions state (for edit/adjustment modals)
   const [fixedTransactions, setFixedTransactions] = useState<FixedTransactionWithDetails[]>([]);
 
-  // Point adjustment modal state
-  const [adjustmentTransaction, setAdjustmentTransaction] = useState<FixedTransactionWithDetails | null>(null);
-  const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
-  const [adjustmentValue, setAdjustmentValue] = useState<number | undefined>(undefined);
-
-  // Edit fixed transaction modal state
-  const [editingFixedTransaction, setEditingFixedTransaction] = useState<FixedTransactionWithDetails | null>(null);
-  const [isEditFixedModalOpen, setIsEditFixedModalOpen] = useState(false);
-
-  // Categories hook
-  const { categories } = useCategories();
 
   // Month navigation state
   const currentDate = new Date();
@@ -172,17 +173,28 @@ export default function TransactionsPageModern() {
 
   // === TRANSACTION HANDLERS ===
 
-  const handleEditTransaction = (transaction: Transaction) => {
-    setEditingTransaction(transaction);
-    setIsAddModalOpen(true);
+  const handleEditTransaction = (transaction: any) => {
+    setEditModalTransaction(transaction);
+    setIsEditModalOpen(true);
   };
 
-  const handleDeleteTransaction = async (transactionId: number) => {
+  const handleDeleteTransaction = (transactionId: number) => {
+    const tx = monthlyTransactions.find((t: any) => t.id === transactionId);
+    setDeleteTransactionId(transactionId);
+    setDeleteTransactionDesc(tx?.descricao || '');
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDeleteTransaction = async () => {
+    if (!deleteTransactionId) return;
     try {
       setIsSubmitting(true);
-      const { error } = await transactionService.delete(transactionId.toString());
-      if (error) throw new Error(error.message || 'Erro ao excluir transacao');
-      transactionListRef.current?.fetchTransactions();
+      const { error } = await transactionService.delete(deleteTransactionId.toString());
+      if (error) throw new Error(error.message || 'Erro ao excluir');
+      toast.success('Lancamento excluido');
+      setIsDeleteModalOpen(false);
+      setDeleteTransactionId(null);
+      loadData();
     } catch (error: any) {
       console.error('Erro ao excluir transacao:', error);
       toast.error(error.message || 'Erro ao excluir transacao');
@@ -191,149 +203,192 @@ export default function TransactionsPageModern() {
     }
   };
 
-  const handleActivateTransaction = async (transactionId: number) => {
+  // Opens EfetivarModal for any transaction type
+  const handleOpenEfetivar = (transaction: any) => {
+    setEfetivarTransaction(transaction);
+    setIsEfetivarModalOpen(true);
+  };
+
+  // Process effectuation (full or partial) from EfetivarModal
+  const handleEfetivarConfirm = async (transaction: any, data: EfetivarData) => {
     try {
       setIsSubmitting(true);
-      const { error } = await transactionService.updateStatus(transactionId.toString(), 'confirmado');
-      if (error) throw new Error(error.message || 'Erro ao efetivar transacao');
-      toast.success('Transacao efetivada com sucesso!');
-      transactionListRef.current?.fetchTransactions();
-    } catch (error: any) {
-      console.error('Erro ao efetivar transacao:', error);
-      toast.error(error.message || 'Erro ao efetivar transacao');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+      const isVirtual = transaction.is_virtual_fixed || transaction.is_virtual || transaction.fatura_details?.is_virtual;
+      const fixoId = transaction.fixed_transaction_id || transaction.fixo_id || transaction.fatura_details?.fixo_id;
+      const valorOriginal = Number(transaction.valor);
+      const valorChanged = data.valorRecebido !== valorOriginal;
 
-  // === FIXED TRANSACTION HANDLERS ===
+      if (isVirtual && fixoId) {
+        // Virtual fixed transaction: create real transaction linked to the fixed rule
+        const createData: any = {
+          descricao: transaction.descricao,
+          valor: data.valorRecebido,
+          data: data.dataRecebimento,
+          tipo: transaction.tipo,
+          categoria_id: transaction.categoria_id || transaction.categoria?.id,
+          conta_id: transaction.conta_id || undefined,
+          cartao_id: transaction.cartao_id || undefined,
+          status: 'confirmado' as const,
+          fixo_id: fixoId,
+          origem: 'fixo',
+        };
+        await transactionService.create(createData);
+      } else {
+        // Regular transaction: update status + value if changed
+        if (valorChanged) {
+          await transactionService.update(String(transaction.id), { valor: data.valorRecebido, data: data.dataRecebimento });
+        }
+        await transactionService.updateStatus(String(transaction.id), 'confirmado');
+      }
 
-  const handleConfirmFixedTransaction = async (fixedTransactionId: number, targetDate: string) => {
-    setIsSubmitting(true);
-    try {
-      const result = await transactionService.confirmVirtualFixedTransaction(fixedTransactionId, targetDate);
-      if (result.error) throw new Error(result.error.message || 'Erro ao confirmar transacao fixa');
-      toast.success('Lancamento confirmado com sucesso!');
+      // Create remainder transaction if partial AND user opted in
+      if (data.isParcial && data.criarRestante && data.valorRestante && data.valorRestante > 0) {
+        const remainderData: any = {
+          descricao: transaction.descricao,
+          valor: data.valorRestante,
+          data: data.dataVencimentoRestante || data.dataRecebimento,
+          tipo: transaction.tipo,
+          categoria_id: transaction.categoria_id || transaction.categoria?.id,
+          conta_id: transaction.conta_id || undefined,
+          cartao_id: transaction.cartao_id || undefined,
+          status: 'pendente' as const,
+        };
+        await transactionService.create(remainderData);
+      }
+
+      toast.success(data.isParcial ? 'Efetivacao parcial realizada!' : 'Lancamento efetivado!');
       loadData();
     } catch (error: any) {
-      console.error('Erro ao confirmar transacao fixa:', error);
-      toast.error(error.message || 'Erro ao confirmar transacao fixa');
+      console.error('Erro ao efetivar:', error);
+      toast.error(error.message || 'Erro ao efetivar lancamento');
+      throw error;
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handlePartialFixedTransaction = async (_fixedTransactionId: number, _targetDate: string) => {
-    toast('Funcionalidade de recebimento parcial em desenvolvimento', { icon: 'ℹ️' });
-  };
+  // === UNDO HANDLER (fixed + regular) ===
 
-  const handleUndoFixedTransaction = async (transactionId: number) => {
+  const handleUndoTransaction = async (transactionId: number) => {
     if (!user) return;
     try {
-      const { data, error } = await supabase.rpc('desfazer_confirmacao_lancamento_fixo', {
-        p_transacao_id: transactionId,
-        p_user_id: user.id
-      });
-      if (error) throw error;
-      const result = data as any;
-      if (result?.success) {
-        toast.success(`Confirmacao de "${result.details?.fixo_descricao}" desfeita com sucesso!`);
-        loadData();
+      // Check if this is a fixed transaction by looking at monthlyTransactions
+      const tx = monthlyTransactions.find((t: any) => t.id === transactionId);
+      const isFixed = tx && (tx.origem === 'fixo' && tx.fixo_id);
+
+      if (isFixed) {
+        // Fixed transaction: delete the real record so the virtual reappears
+        const { error } = await transactionService.delete(String(transactionId));
+        if (error) throw new Error(error.message || 'Erro ao desfazer');
+        toast.success('Efetivação desfeita!');
       } else {
-        toast.error(result?.error || 'Erro ao desfazer confirmacao');
+        // Regular transaction: change status back to pendente
+        await transactionService.updateStatus(String(transactionId), 'pendente');
+        toast.success('Lançamento voltou para pendente');
       }
-    } catch (error) {
-      console.error('Erro ao desfazer confirmacao:', error);
-      toast.error('Erro ao desfazer confirmacao');
-    }
-  };
-
-  const handleEditFixedTransaction = async (fixedTransactionId: number) => {
-    try {
-      const fixedTransaction = fixedTransactions.find(t => t.id === fixedTransactionId);
-      if (fixedTransaction) {
-        setEditingFixedTransaction(fixedTransaction);
-        setIsEditFixedModalOpen(true);
-      } else {
-        const transaction = await fixedTransactionService.getById(fixedTransactionId) as FixedTransactionWithDetails | null;
-        if (transaction) {
-          setEditingFixedTransaction(transaction);
-          setIsEditFixedModalOpen(true);
-        } else {
-          toast.error('Lancamento fixo nao encontrado');
-        }
-      }
-    } catch (error) {
-      console.error('Erro ao editar lancamento fixo:', error);
-      toast.error('Erro ao abrir editor do lancamento fixo');
-    }
-  };
-
-  const handleCloseEditFixedModal = () => {
-    setIsEditFixedModalOpen(false);
-    setEditingFixedTransaction(null);
-  };
-
-  const handleSaveEditedFixedTransaction = async (data: any) => {
-    if (!editingFixedTransaction) return;
-    try {
-      await fixedTransactionService.update(editingFixedTransaction.id, data);
-      toast.success('Lancamento fixo atualizado com sucesso!');
-      await loadFixedTransactions();
-      handleCloseEditFixedModal();
       loadData();
     } catch (error) {
-      console.error('Erro ao atualizar lancamento fixo:', error);
-      toast.error('Erro ao atualizar lancamento fixo');
+      console.error('Erro ao desfazer:', error);
+      toast.error('Erro ao desfazer efetivacao');
     }
   };
 
-  // === POINT ADJUSTMENT HANDLERS ===
+  // === DELETE FIXED VIRTUAL HANDLER ===
 
-  const handlePointAdjustment = (transaction: FixedTransactionWithDetails) => {
-    setAdjustmentTransaction(transaction);
-    setAdjustmentValue(Number(transaction.valor));
-    setIsAdjustmentModalOpen(true);
-  };
-
-  const handleCloseAdjustmentModal = () => {
-    setIsAdjustmentModalOpen(false);
-    setAdjustmentTransaction(null);
-    setAdjustmentValue(undefined);
-  };
-
-  const handleSaveAdjustment = async () => {
-    if (!adjustmentTransaction || adjustmentValue === undefined) return;
+  const handleDeleteFixedVirtual = async (transaction: any, scope: 'this_month' | 'all') => {
     try {
-      const now = new Date();
-      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-      const dia = adjustmentTransaction.dia_mes > lastDayOfMonth ? lastDayOfMonth : adjustmentTransaction.dia_mes;
-      const dataTransacao = new Date(now.getFullYear(), now.getMonth(), dia);
+      const fixoId = transaction.fixed_transaction_id || transaction.fixo_id || transaction.fatura_details?.fixo_id;
+      if (!fixoId) {
+        toast.error('Lancamento fixo nao identificado');
+        return;
+      }
 
-      const { error } = await supabase
-        .from('app_transacoes')
-        .insert({
-          user_id: user?.id,
-          descricao: `${adjustmentTransaction.descricao} (ajuste pontual)`,
-          valor: adjustmentValue,
-          data: dataTransacao.toISOString().split('T')[0],
-          tipo: adjustmentTransaction.tipo,
-          categoria_id: adjustmentTransaction.categoria_id,
-          conta_id: adjustmentTransaction.conta_id,
-          cartao_id: adjustmentTransaction.cartao_id,
-          fixo_id: adjustmentTransaction.id,
-          origem: 'fixo',
-          status: 'confirmado',
-          observacoes: `Ajuste pontual: valor original R$ ${Number(adjustmentTransaction.valor).toFixed(2)} -> R$ ${adjustmentValue.toFixed(2)}`
+      if (scope === 'all') {
+        // Deactivate the fixed rule directly via supabase
+        const { error } = await supabase
+          .from('app_transacoes_fixas')
+          .update({ ativo: false })
+          .eq('id', fixoId)
+          .eq('user_id', user!.id);
+        if (error) throw error;
+        toast.success('Lancamento fixo desativado');
+      } else {
+        // Create a confirmed+cancelled real transaction to block the virtual for this month
+        const { error } = await supabase
+          .from('app_transacoes')
+          .insert({
+            user_id: user!.id,
+            descricao: transaction.descricao,
+            valor: transaction.valor,
+            data: transaction.data,
+            tipo: transaction.tipo,
+            categoria_id: transaction.categoria_id,
+            conta_id: transaction.conta_id || null,
+            cartao_id: transaction.cartao_id || null,
+            status: 'cancelado',
+            fixo_id: fixoId,
+            origem: 'fixo',
+          });
+        if (error) throw error;
+        toast.success('Lancamento cancelado para este mes');
+      }
+      loadData();
+    } catch (error: any) {
+      console.error('Erro ao excluir lancamento fixo:', error);
+      toast.error(error.message || 'Erro ao excluir');
+    }
+  };
+
+  // Handle save from TransactionEditModal (unified edit for all types)
+  const handleEditModalSave = async (transaction: any, data: EditTransactionData) => {
+    try {
+      setIsSubmitting(true);
+      const isVirtual = transaction.is_virtual_fixed || transaction.is_virtual || transaction.fatura_details?.is_virtual;
+      const fixoId = transaction.fixed_transaction_id || transaction.fixo_id || transaction.fatura_details?.fixo_id;
+
+      if (data.scope === 'from_now' && fixoId) {
+        // Update the fixed rule (affects all future months)
+        await fixedTransactionService.update(fixoId, {
+          descricao: data.descricao,
+          valor: data.valor,
+          categoria_id: data.categoria_id,
+          conta_id: data.conta_id,
         });
+        toast.success('Lancamento fixo atualizado para este mes em diante');
+      } else if (data.scope === 'this_month' && isVirtual && fixoId) {
+        // Virtual fixed: create a real transaction for this month only
+        const createData: any = {
+          descricao: data.descricao,
+          valor: data.valor,
+          data: data.data,
+          tipo: transaction.tipo,
+          categoria_id: data.categoria_id,
+          conta_id: data.conta_id || undefined,
+          cartao_id: transaction.cartao_id || undefined,
+          status: 'pendente' as const,
+        };
+        await transactionService.create(createData);
+        toast.success('Lancamento ajustado para este mes');
+      } else {
+        // Regular transaction or confirmed fixed: update directly
+        await transactionService.update(String(transaction.id), {
+          descricao: data.descricao,
+          valor: data.valor,
+          data: data.data,
+          categoria_id: data.categoria_id,
+          conta_id: data.conta_id,
+        });
+        toast.success('Lancamento atualizado');
+      }
 
-      if (error) throw error;
-      toast.success('Ajuste pontual criado com sucesso!');
-      handleCloseAdjustmentModal();
+      await loadFixedTransactions();
       loadData();
-    } catch (error) {
-      console.error('Erro ao criar ajuste pontual:', error);
-      toast.error('Erro ao criar ajuste pontual');
+    } catch (error: any) {
+      console.error('Erro ao salvar edicao:', error);
+      toast.error(error.message || 'Erro ao salvar alteracoes');
+      throw error;
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -401,30 +456,20 @@ export default function TransactionsPageModern() {
     }
   };
 
-  // === FORM HANDLERS ===
-
-  const handleCloseModal = () => {
-    setIsAddModalOpen(false);
-    setEditingTransaction(null);
-  };
-
-  const handleTransactionSaved = async (_data: Record<string, any>) => {
-    setIsSubmitting(true);
+  const handleQuickAccountChange = async (transactionId: number | string, newAccountId: number, isFixed: boolean, fixedId?: number) => {
     try {
-      handleCloseModal();
-      transactionListRef.current?.fetchTransactions();
-    } finally {
-      setIsSubmitting(false);
+      if (isFixed && fixedId) {
+        await fixedTransactionService.update(fixedId, { conta_id: newAccountId });
+        toast.success('Conta atualizada para todos os meses');
+      } else {
+        await transactionService.update(String(transactionId), { conta_id: newAccountId });
+        toast.success('Conta atualizada');
+      }
+      loadData();
+    } catch (error) {
+      console.error('Erro ao alterar conta:', error);
+      toast.error('Erro ao alterar conta');
     }
-  };
-
-  // Format currency
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-      minimumFractionDigits: 2
-    }).format(value);
   };
 
   return (
@@ -484,13 +529,13 @@ export default function TransactionsPageModern() {
           ref={transactionListRef}
           onEditTransaction={handleEditTransaction}
           onDeleteTransaction={handleDeleteTransaction}
-          onConfirmFixedTransaction={handleConfirmFixedTransaction}
-          onPartialFixedTransaction={handlePartialFixedTransaction}
-          onUndoFixedTransaction={handleUndoFixedTransaction}
-          onEditFixedTransaction={handleEditFixedTransaction}
+          onUndoFixedTransaction={handleUndoTransaction}
           onDeleteInvoice={handleDeleteInvoice}
-          onActivateTransaction={handleActivateTransaction}
           onInvoiceClick={handleInvoiceClick}
+          onEfetivar={handleOpenEfetivar}
+          onPayInvoice={handlePayInvoice}
+          onDeleteFixedVirtual={handleDeleteFixedVirtual}
+          onQuickAccountChange={handleQuickAccountChange}
           showFilters={true}
           defaultFilters={getDateFilters()}
           includeVirtualFixed={true}
@@ -500,29 +545,30 @@ export default function TransactionsPageModern() {
         />
       </div>
 
-      {/* Edit Transaction Modal */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">
-                {editingTransaction ? 'Editar Lancamento' : 'Novo Lancamento'}
-              </h2>
-              <button onClick={handleCloseModal} className="text-gray-400 hover:text-gray-600">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <TransactionForm
-              transaction={editingTransaction as any}
-              onSave={handleTransactionSaved}
-              onCancel={handleCloseModal}
-              isSubmitting={isSubmitting}
-            />
-          </div>
-        </div>
-      )}
+      {/* Edit Transaction Modal (unified) */}
+      <TransactionEditModal
+        isOpen={isEditModalOpen}
+        onClose={() => { setIsEditModalOpen(false); setEditModalTransaction(null); }}
+        transaction={editModalTransaction}
+        onSave={handleEditModalSave}
+      />
+
+      {/* Confirm Delete Transaction Modal */}
+      <ConfirmDeleteModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => { setIsDeleteModalOpen(false); setDeleteTransactionId(null); }}
+        onConfirm={confirmDeleteTransaction}
+        description={`Deseja excluir "${deleteTransactionDesc}"? Esta acao nao pode ser desfeita.`}
+        isLoading={isSubmitting}
+      />
+
+      {/* Efetivar Modal */}
+      <EfetivarModal
+        isOpen={isEfetivarModalOpen}
+        onClose={() => { setIsEfetivarModalOpen(false); setEfetivarTransaction(null); }}
+        transaction={efetivarTransaction}
+        onConfirm={handleEfetivarConfirm}
+      />
 
       {/* Invoice Payment Modal */}
       {selectedInvoiceForPayment && (
@@ -552,113 +598,6 @@ export default function TransactionsPageModern() {
         invoiceDetails={selectedInvoiceForDelete}
       />
 
-      {/* Point Adjustment Modal */}
-      {isAdjustmentModalOpen && adjustmentTransaction && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-deep-blue">Ajuste Pontual</h2>
-              <button onClick={handleCloseAdjustmentModal} className="p-1 hover:bg-slate-100 rounded">
-                <X className="w-5 h-5 text-slate-500" />
-              </button>
-            </div>
-
-            <p className="text-sm text-slate-500 mb-4">
-              {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-            </p>
-
-            <div className="mb-4 p-3 bg-slate-50 rounded-lg">
-              <h3 className="font-medium text-slate-700">{adjustmentTransaction.descricao}</h3>
-              <p className="text-sm text-slate-500 mt-1">
-                Valor original: <span className="font-semibold">{formatCurrency(Number(adjustmentTransaction.valor))}</span>
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <CurrencyInput
-                label="Novo Valor para este Mes"
-                value={adjustmentValue}
-                onChange={setAdjustmentValue}
-                required
-              />
-              <div className="flex gap-3 pt-2">
-                <ModernButton onClick={handleSaveAdjustment} className="flex-1" disabled={adjustmentValue === undefined || adjustmentValue <= 0}>
-                  Criar Ajuste
-                </ModernButton>
-                <ModernButton variant="outline" onClick={handleCloseAdjustmentModal} className="flex-1">
-                  Cancelar
-                </ModernButton>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Fixed Transaction Modal */}
-      {isEditFixedModalOpen && editingFixedTransaction && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-deep-blue">Editar Lancamento Fixo</h2>
-              <button onClick={handleCloseEditFixedModal} className="p-1 hover:bg-slate-100 rounded">
-                <X className="w-5 h-5 text-slate-500" />
-              </button>
-            </div>
-
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              const formData = new FormData(e.target as HTMLFormElement);
-              const data = {
-                descricao: formData.get('descricao') as string,
-                valor: parseFloat((formData.get('valor') as string).replace(/[^\d,]/g, '').replace(',', '.')),
-                tipo: formData.get('tipo') as string,
-                dia_mes: parseInt(formData.get('dia_mes') as string),
-                categoria_id: parseInt(formData.get('categoria_id') as string) || null,
-                ativo: formData.get('ativo') === 'on',
-              };
-              handleSaveEditedFixedTransaction(data);
-            }} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Descricao</label>
-                <input type="text" name="descricao" defaultValue={editingFixedTransaction.descricao} required className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coral-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Valor</label>
-                <input type="text" name="valor" defaultValue={formatCurrency(Number(editingFixedTransaction.valor))} required className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coral-500" placeholder="R$ 0,00" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
-                <select name="tipo" defaultValue={editingFixedTransaction.tipo} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coral-500">
-                  <option value="receita">Receita</option>
-                  <option value="despesa">Despesa</option>
-                  <option value="despesa_cartao">Despesa Cartao</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Dia do Mes</label>
-                <input type="number" name="dia_mes" min="1" max="31" defaultValue={editingFixedTransaction.dia_mes} required className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coral-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
-                <select name="categoria_id" defaultValue={editingFixedTransaction.categoria_id || ''} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coral-500">
-                  <option value="">Selecione uma categoria</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>{category.nome}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex items-center">
-                <input type="checkbox" name="ativo" id="ativo" defaultChecked={editingFixedTransaction.ativo} className="h-4 w-4 text-coral-600 focus:ring-coral-500 border-gray-300 rounded" />
-                <label htmlFor="ativo" className="ml-2 block text-sm text-gray-900">Transacao ativa</label>
-              </div>
-              <div className="flex gap-3 pt-4">
-                <ModernButton type="submit" className="flex-1">Salvar</ModernButton>
-                <ModernButton type="button" variant="outline" onClick={handleCloseEditFixedModal} className="flex-1">Cancelar</ModernButton>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

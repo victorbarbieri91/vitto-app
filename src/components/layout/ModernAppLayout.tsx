@@ -19,6 +19,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { useState } from 'react';
+import * as Tooltip from '@radix-ui/react-tooltip';
 import { useScreenDetection } from '../../hooks/useScreenDetection';
 import { cn } from '../../utils/cn';
 import ChatBar from '../chat/ChatBar';
@@ -40,7 +41,7 @@ const navigation = [
   { name: 'Cartões', path: '/cartoes', icon: CreditCard },
   { name: 'Lançamentos', path: '/lancamentos', icon: Receipt },
   // { name: 'Categorias', path: '/categorias', icon: Tags }, // MOVIDO PARA MENU DO USUÁRIO
-  { name: 'Orçamentos', path: '/orcamentos', icon: PiggyBank },
+  // { name: 'Orçamentos', path: '/orcamentos', icon: PiggyBank }, // MOVIDO PARA MENU DO USUÁRIO
   { name: 'Patrimônio', path: '/patrimonio', icon: Landmark },
   { name: 'Juntos', path: '/juntos', icon: Users },
   // { name: 'Sua História', path: '/sua-historia', icon: BookOpen }, // TEMPORARIAMENTE OCULTO
@@ -118,33 +119,50 @@ export default function ModernAppLayout({ children, requireAuth = true }: Modern
                     />
                   </div>
 
-                  {/* Desktop Navigation */}
-                  <nav className="hidden md:flex items-center space-x-1">
-                    {navigation.map((item) => {
-                      const isActive = location.pathname === item.path;
-                      const Icon = item.icon;
-                      const showBadge = item.name === 'Juntos' && solicitacoesPendentes > 0;
-                      return (
-                        <Link
-                          key={item.name}
-                          to={item.path}
-                          className={`relative flex items-center px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-                            isActive
-                              ? 'bg-coral-500 text-white shadow-lg shadow-coral-500/25'
-                              : 'text-slate-600 hover:text-coral-600 hover:bg-white/60'
-                          }`}
-                        >
-                          <Icon className="w-4 h-4 mr-2" />
-                          <span>{item.name}</span>
-                          {showBadge && (
-                            <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-coral-600 rounded-full shadow-sm">
-                              {solicitacoesPendentes > 9 ? '9+' : solicitacoesPendentes}
-                            </span>
-                          )}
-                        </Link>
-                      );
-                    })}
-                  </nav>
+                  {/* Desktop Navigation - icon-only (md-xl), icon+text (xl+) */}
+                  <Tooltip.Provider delayDuration={200}>
+                    <nav className="hidden md:flex items-center space-x-0.5 xl:space-x-1">
+                      {navigation.map((item) => {
+                        const isActive = location.pathname === item.path;
+                        const Icon = item.icon;
+                        const showBadge = item.name === 'Juntos' && solicitacoesPendentes > 0;
+                        return (
+                          <Tooltip.Root key={item.name}>
+                            <Tooltip.Trigger asChild>
+                              <Link
+                                to={item.path}
+                                className={cn(
+                                  "relative flex items-center rounded-xl text-sm font-medium transition-all duration-200",
+                                  "px-2.5 py-2 xl:px-3.5",
+                                  isActive
+                                    ? 'bg-coral-500 text-white shadow-lg shadow-coral-500/25'
+                                    : 'text-slate-600 hover:text-coral-600 hover:bg-white/60'
+                                )}
+                              >
+                                <Icon className="w-4 h-4 xl:mr-2 flex-shrink-0" />
+                                <span className="hidden xl:inline">{item.name}</span>
+                                {showBadge && (
+                                  <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-coral-600 rounded-full shadow-sm">
+                                    {solicitacoesPendentes > 9 ? '9+' : solicitacoesPendentes}
+                                  </span>
+                                )}
+                              </Link>
+                            </Tooltip.Trigger>
+                            <Tooltip.Portal>
+                              <Tooltip.Content
+                                className="xl:hidden bg-slate-800 text-white text-xs font-medium px-2.5 py-1.5 rounded-lg shadow-lg z-[100]"
+                                sideOffset={8}
+                                side="bottom"
+                              >
+                                {item.name}
+                                <Tooltip.Arrow className="fill-slate-800" />
+                              </Tooltip.Content>
+                            </Tooltip.Portal>
+                          </Tooltip.Root>
+                        );
+                      })}
+                    </nav>
+                  </Tooltip.Provider>
 
                   {/* User Menu */}
                   <div className="flex items-center space-x-4">
@@ -181,6 +199,19 @@ export default function ModernAppLayout({ children, requireAuth = true }: Modern
                           >
                             <Tags className="w-4 h-4 mr-3" />
                             Categorias
+                          </Link>
+
+                          <Link
+                            to="/orcamentos"
+                            className={cn(
+                              "flex items-center px-3 py-2 text-sm rounded-xl transition-all duration-200",
+                              location.pathname === '/orcamentos'
+                                ? 'text-coral-600 bg-coral-50 font-medium'
+                                : 'text-slate-600 hover:text-coral-600 hover:bg-coral-50'
+                            )}
+                          >
+                            <PiggyBank className="w-4 h-4 mr-3" />
+                            Orçamentos
                           </Link>
 
                           <Link
@@ -263,6 +294,20 @@ export default function ModernAppLayout({ children, requireAuth = true }: Modern
                         >
                           <Tags className="w-5 h-5 mr-3 flex-shrink-0" />
                           <span>Categorias</span>
+                        </Link>
+
+                        <Link
+                          to="/orcamentos"
+                          onClick={() => setMobileMenuOpen(false)}
+                          className={cn(
+                            "flex items-center px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 w-full",
+                            location.pathname === '/orcamentos'
+                              ? 'bg-coral-500 text-white shadow-lg shadow-coral-500/25'
+                              : 'text-slate-600 hover:text-coral-600 hover:bg-white/80'
+                          )}
+                        >
+                          <PiggyBank className="w-5 h-5 mr-3 flex-shrink-0" />
+                          <span>Orçamentos</span>
                         </Link>
 
                         <button
