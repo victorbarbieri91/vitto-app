@@ -124,6 +124,9 @@ function ImpactText({ level }: { level: 'high' | 'medium' | 'low' }) {
   );
 }
 
+/**
+ *
+ */
 export function RisksPDFSection({ content }: RisksPDFSectionProps) {
   // Prepare risks data for the matrix
   const risksForMatrix = (content.mappedRisks || []).map((r) => ({

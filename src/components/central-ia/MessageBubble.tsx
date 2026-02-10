@@ -1,5 +1,5 @@
 import { forwardRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { User, Wrench, ThumbsUp, ThumbsDown, Send, X } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { MarkdownRenderer } from './MarkdownRenderer';

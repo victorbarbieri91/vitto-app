@@ -57,6 +57,9 @@ const styles = StyleSheet.create({
   },
 });
 
+/**
+ *
+ */
 export function GoToMarketPDFSection({ content }: GoToMarketPDFSectionProps) {
   // Prepare channels data for table
   const channelsData = (content.channels || []).map((channel) => ({

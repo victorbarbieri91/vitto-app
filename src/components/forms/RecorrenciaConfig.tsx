@@ -45,6 +45,9 @@ interface FormData {
   data_fim: string;
 }
 
+/**
+ *
+ */
 export function RecorrenciaConfig({ onSuccess, onCancel, className }: RecorrenciaConfigProps) {
   const { accounts, loading: accountsLoading } = useAccounts();
   const { categories, loading: categoriesLoading } = useCategories();

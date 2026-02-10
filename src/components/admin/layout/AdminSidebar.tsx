@@ -26,6 +26,9 @@ const navItems: NavItem[] = [
   { to: '/admin/base-conhecimento', icon: <BookOpen size={20} />, label: 'Conhecimento' },
 ];
 
+/**
+ *
+ */
 export default function AdminSidebar() {
   const { signOut, userProfile } = useAuth();
   const [collapsed, setCollapsed] = useState(false);

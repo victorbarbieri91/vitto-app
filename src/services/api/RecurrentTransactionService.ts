@@ -1,8 +1,6 @@
 import { BaseApi } from './BaseApi';
 import type { Database } from '../supabase/types';
 
-type RecurrentTransaction = Database['public']['Tables']['app_transacoes_fixas']['Row'];
-type RecurrentTransactionInsert = Database['public']['Tables']['app_transacoes_fixas']['Insert'];
 type RecurrentTransactionUpdate = Database['public']['Tables']['app_transacoes_fixas']['Update'];
 
 export interface RecurrentTransactionData {
@@ -45,6 +43,9 @@ export interface ProcessRecurrentResult {
   }>;
 }
 
+/**
+ *
+ */
 export class RecurrentTransactionService extends BaseApi {
   /**
    * Lista todos os lançamentos recorrentes do usuário
@@ -217,7 +218,7 @@ export class RecurrentTransactionService extends BaseApi {
     // Se atualizou dados que afetam o cálculo da próxima execução, recalcular
     const needsRecalculation = updates.data_inicio || updates.intervalo || updates.dia_mes;
     
-    let updateData: RecurrentTransactionUpdate = { ...updates };
+    const updateData: RecurrentTransactionUpdate = { ...updates };
     
     if (needsRecalculation && updates.data_inicio && updates.tipo_recorrencia && updates.tipo_recorrencia === 'fixo') {
       updateData.proxima_execucao = this.calculateNextExecution(
@@ -338,7 +339,7 @@ export class RecurrentTransactionService extends BaseApi {
     dataInicio: string,
     tipoRecorrencia?: 'fixo' | 'parcelado',
     intervalo?: string,
-    diaMes?: number
+    _diaMes?: number
   ): string {
     const startDate = new Date(dataInicio);
     const today = new Date();

@@ -1,5 +1,3 @@
-import React from 'react';
-import { motion } from 'framer-motion';
 import { 
   Calendar, 
   DollarSign, 
@@ -27,6 +25,9 @@ interface InvoiceItemProps {
   className?: string;
 }
 
+/**
+ *
+ */
 export default function InvoiceItem({
   invoice,
   onView,

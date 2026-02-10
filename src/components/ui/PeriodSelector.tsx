@@ -13,6 +13,9 @@ interface PeriodSelectorProps {
   className?: string;
 }
 
+/**
+ *
+ */
 export default function PeriodSelector({ selectedPeriod, onPeriodChange, className = '' }: PeriodSelectorProps) {
   const [showCustom, setShowCustom] = useState(false);
   const [customRange, setCustomRange] = useState<DateRange>({

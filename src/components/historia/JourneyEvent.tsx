@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 import { Badge, CheckCircle, Target } from 'lucide-react';
 import { cn } from '../../utils/cn';

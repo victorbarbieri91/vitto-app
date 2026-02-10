@@ -3,6 +3,9 @@ import { useAuth } from '../../store/AuthContext';
 import { useIsAdmin } from '../../hooks/useAdminPermissions';
 import AdminLayout from '../admin/layout/AdminLayout';
 
+/**
+ *
+ */
 export default function AdminRoute() {
   const { user, loading, profileLoading, userProfile } = useAuth();
   const isAdmin = useIsAdmin();

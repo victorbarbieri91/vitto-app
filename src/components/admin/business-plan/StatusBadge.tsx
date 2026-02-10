@@ -6,6 +6,9 @@ interface StatusBadgeProps {
   size?: 'sm' | 'md';
 }
 
+/**
+ *
+ */
 export default function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
   const info = STATUS_INFO[status];
 

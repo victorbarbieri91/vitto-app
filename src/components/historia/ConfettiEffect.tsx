@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface ConfettiEffectProps {
@@ -31,6 +31,9 @@ const defaultColors = [
   '#f97316'  // Laranja
 ];
 
+/**
+ *
+ */
 export default function ConfettiEffect({
   trigger = false,
   duration = 3000,
@@ -137,6 +140,9 @@ export default function ConfettiEffect({
 }
 
 // Hook para usar confetes facilmente
+/**
+ *
+ */
 export function useConfetti() {
   const [trigger, setTrigger] = useState(false);
 
@@ -161,6 +167,9 @@ export function useConfetti() {
 }
 
 // Componente de confetes específico para marcos
+/**
+ *
+ */
 export function MilestoneConfetti({
   isVisible,
   onComplete
@@ -188,6 +197,9 @@ export function MilestoneConfetti({
 }
 
 // Componente de confetes específico para badges
+/**
+ *
+ */
 export function BadgeConfetti({
   isVisible,
   badgeColor,

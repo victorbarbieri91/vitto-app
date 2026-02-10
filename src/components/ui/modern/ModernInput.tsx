@@ -1,4 +1,4 @@
-import { InputHTMLAttributes, ReactNode, forwardRef, useState, useEffect } from 'react';
+import { InputHTMLAttributes, ReactNode, forwardRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '../../../utils/cn';
 import { inputVariants, type InputVariants } from '../../../utils/variants';

@@ -30,6 +30,9 @@ const STATUS_CONFIG = {
   }
 };
 
+/**
+ *
+ */
 export default function OKRsCard() {
   const [okrs, setOkrs] = useState<OKR[]>([]);
   const [loading, setLoading] = useState(true);

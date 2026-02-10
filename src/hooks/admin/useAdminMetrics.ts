@@ -9,6 +9,9 @@ interface UseAdminMetricsReturn {
   refetch: () => Promise<void>;
 }
 
+/**
+ *
+ */
 export function useAdminMetrics(): UseAdminMetricsReturn {
   const [metrics, setMetrics] = useState<AdminMetrics | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,6 +43,9 @@ interface UseUserGrowthReturn {
   error: Error | null;
 }
 
+/**
+ *
+ */
 export function useUserGrowth(months: number = 6): UseUserGrowthReturn {
   const [data, setData] = useState<Array<{ month: string; users: number }>>([]);
   const [loading, setLoading] = useState(true);

@@ -75,6 +75,9 @@ const renderActiveShape = (props: any) => {
   );
 };
 
+/**
+ *
+ */
 export default function DivisaoCategoriaCard({ className }: DivisaoCategoriaCardProps) {
   const { size } = useResponsiveClasses();
   const navigate = useNavigate();
@@ -116,7 +119,7 @@ export default function DivisaoCategoriaCard({ className }: DivisaoCategoriaCard
 
 
   // Handle click on pie segment
-  const handlePieClick = (data: any, index: number) => {
+  const handlePieClick = (_data: any, index: number) => {
     const categoryId = chartData[index]?.id;
     if (categoryId) {
       // Navigate to transactions page with category filter

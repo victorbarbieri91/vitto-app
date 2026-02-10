@@ -21,6 +21,9 @@ interface Step3DestinationProps {
   onChange: (config: Step3Config) => void;
 }
 
+/**
+ *
+ */
 export function Step3Destination({
   importType,
   config,

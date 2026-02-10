@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Calendar, TrendingUp, TrendingDown, DollarSign, Edit2, Trash2, Power, PowerOff, Settings, X, AlertCircle, SkipForward, ArrowRight, CreditCard, Wallet, Banknote } from 'lucide-react';
-import { ModernCard, ModernButton, ModernBadge } from '../../components/ui/modern';
+import { ModernCard, ModernButton } from '../../components/ui/modern';
 import { fixedTransactionService, FixedTransactionWithDetails } from '../../services/api/FixedTransactionService';
 import { transactionService } from '../../services/api/TransactionService';
 import { useTransactionModal } from '../../hooks/useTransactionModal';
@@ -19,6 +19,9 @@ interface FixedTransactionStats {
   fluxo_mensal_fixo: number;
 }
 
+/**
+ *
+ */
 export default function FixedTransactionsPage() {
   const [searchParams] = useSearchParams();
   const { onTransactionChange } = useTransactionContext();
@@ -270,18 +273,6 @@ export default function FixedTransactionsPage() {
     }).format(value);
   };
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'receita':
-        return <TrendingUp className="w-4 h-4 text-emerald-500" />;
-      case 'despesa':
-      case 'despesa_cartao':
-        return <TrendingDown className="w-4 h-4 text-red-500" />;
-      default:
-        return <DollarSign className="w-4 h-4 text-slate-500" />;
-    }
-  };
-
   const getTypeColor = (type: string) => {
     switch (type) {
       case 'receita':
@@ -294,18 +285,6 @@ export default function FixedTransactionsPage() {
     }
   };
 
-  const getTypeLabel = (type: string) => {
-    switch (type) {
-      case 'receita':
-        return 'Receita';
-      case 'despesa':
-        return 'Despesa';
-      case 'despesa_cartao':
-        return 'Cartão';
-      default:
-        return type;
-    }
-  };
 
   if (isLoading) {
     return (

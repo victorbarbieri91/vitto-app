@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Target, Calendar, DollarSign, Tag, Palette, Save } from 'lucide-react';
+import { X, Save } from 'lucide-react';
 import ModernCard from '../ui/modern/ModernCard';
 import ModernButton from '../ui/modern/ModernButton';
-import ModernInput from '../ui/modern/ModernInput';
 import { useHistoriaService } from '../../hooks/useHistoriaService';
-import type { NovoMarco, Marco } from '../../types/historia';
+import type { Marco } from '../../types/historia';
 import { useForm, SubmitHandler } from 'react-hook-form';
 
 type CreateMilestoneModalProps = {
@@ -23,28 +22,9 @@ type FormValues = {
   cor: string;
 };
 
-const coresDisponiveis = [
-  { valor: '#F87060', nome: 'Coral', classe: 'bg-coral-500' },
-  { valor: '#10b981', nome: 'Verde', classe: 'bg-green-500' },
-  { valor: '#3b82f6', nome: 'Azul', classe: 'bg-blue-500' },
-  { valor: '#9333ea', nome: 'Roxo', classe: 'bg-purple-500' },
-  { valor: '#f59e0b', nome: 'Amarelo', classe: 'bg-yellow-500' },
-  { valor: '#ef4444', nome: 'Vermelho', classe: 'bg-red-500' }
-];
-
-const iconesDisponiveis = [
-  { valor: 'target', nome: 'Alvo', emoji: '🎯' },
-  { valor: 'piggy-bank', nome: 'Poupança', emoji: '🐷' },
-  { valor: 'home', nome: 'Casa', emoji: '🏠' },
-  { valor: 'car', nome: 'Carro', emoji: '🚗' },
-  { valor: 'plane', nome: 'Viagem', emoji: '✈️' },
-  { valor: 'graduation-cap', nome: 'Educação', emoji: '🎓' },
-  { valor: 'heart', nome: 'Saúde', emoji: '❤️' },
-  { valor: 'trophy', nome: 'Conquista', emoji: '🏆' },
-  { valor: 'star', nome: 'Estrela', emoji: '⭐' },
-  { valor: 'gift', nome: 'Presente', emoji: '🎁' }
-];
-
+/**
+ *
+ */
 export default function CreateMilestoneModal({
   isOpen,
   onClose,

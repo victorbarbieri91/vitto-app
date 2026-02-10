@@ -1,4 +1,3 @@
-import React from 'react';
 import { CreditCard as CreditCardIcon, Edit, Trash2 } from 'lucide-react';
 import { ModernButton } from '../ui/modern';
 import { CreditCardWithUsage } from '../../services/api';
@@ -14,6 +13,9 @@ interface CreditCardItemProps {
   className?: string;
 }
 
+/**
+ *
+ */
 export default function CreditCardItem({
   card,
   onEdit,
@@ -23,13 +25,7 @@ export default function CreditCardItem({
 }: CreditCardItemProps) {
   const navigate = useNavigate();
 
-  const getUsagePercentage = () => {
-    if (card.limite <= 0) return 0;
-    return Math.min((card.limite_usado / card.limite) * 100, 100);
-  };
-
-  const limiteDisponivel = Math.max(0, card.limite - card.limite_usado);
-  const percentualUsado = getUsagePercentage();
+  // Usage percentage calculated inline where needed
 
   const getMonthName = (month?: number) => {
     const currentMonth = month || new Date().getMonth();

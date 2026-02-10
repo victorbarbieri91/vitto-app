@@ -15,7 +15,7 @@ export const ConviteAceitarPage: React.FC = () => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { buscarConvite, aceitarConvite, loading: serviceLoading } = useJuntosService();
+  const { buscarConvite, aceitarConvite } = useJuntosService();
 
   const [conviteInfo, setConviteInfo] = useState<ConviteInfo | null>(null);
   const [carregando, setCarregando] = useState(true);

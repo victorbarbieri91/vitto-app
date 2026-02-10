@@ -7,6 +7,9 @@ import AgendaPreview from '../../components/admin/dashboard/AgendaPreview';
 import FinanceSummaryCard from '../../components/admin/dashboard/FinanceSummaryCard';
 import { useAdminMetrics } from '../../hooks/admin/useAdminMetrics';
 
+/**
+ *
+ */
 export default function AdminDashboardPage() {
   const { metrics, loading, refetch } = useAdminMetrics();
 

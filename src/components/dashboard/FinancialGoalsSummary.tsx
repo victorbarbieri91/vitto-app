@@ -12,6 +12,9 @@ interface FinancialGoalsSummaryProps {
   className?: string;
 }
 
+/**
+ *
+ */
 export default function FinancialGoalsSummary({ onAddGoal, onEditGoal, className }: FinancialGoalsSummaryProps) {
   const { goals, loading } = useGoalsService();
   const [isExpanded, setIsExpanded] = useState(true);

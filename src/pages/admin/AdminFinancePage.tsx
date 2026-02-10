@@ -364,6 +364,9 @@ function EntryFormModal({
 }
 
 // Main Page Component
+/**
+ *
+ */
 export default function AdminFinancePage() {
   const { user } = useAuth();
   const [entries, setEntries] = useState<AdminFinanceEntry[]>([]);

@@ -8,7 +8,6 @@ import {
   Edit2,
   Check,
   X,
-  Clock,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import type { ChatSession } from '../../types/central-ia';
@@ -24,6 +23,9 @@ interface ConversationSidebarProps {
   isLoading?: boolean;
 }
 
+/**
+ *
+ */
 export function ConversationSidebar({
   sessions,
   currentSessionId,

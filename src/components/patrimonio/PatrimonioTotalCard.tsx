@@ -15,6 +15,9 @@ interface PatrimonioTotalCardProps {
   onClick?: () => void;
 }
 
+/**
+ *
+ */
 export default function PatrimonioTotalCard({
   patrimonioTotal,
   patrimonioLiquido,

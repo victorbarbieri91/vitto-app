@@ -73,6 +73,9 @@ interface AccountBankCardProps {
   onBalanceAdjusted?: () => void;
 }
 
+/**
+ *
+ */
 export default function AccountBankCard({
   account,
   onEdit,

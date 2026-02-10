@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Calendar,
-  DollarSign,
   Tag,
   ChevronLeft,
   ChevronRight,
@@ -15,7 +14,7 @@ import {
   CheckSquare,
   Square,
 } from 'lucide-react';
-import type { PreparedImportData, PreparedImportItem } from '../../../types/smart-import';
+import type { PreparedImportData } from '../../../types/smart-import';
 
 interface Step4PreviewProps {
   preparedData: PreparedImportData | null;
@@ -26,6 +25,9 @@ interface Step4PreviewProps {
 
 const ITEMS_PER_PAGE = 10;
 
+/**
+ *
+ */
 export function Step4Preview({
   preparedData,
   selectedIds,

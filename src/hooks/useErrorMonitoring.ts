@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import * as Sentry from '@sentry/react';
 
 interface ErrorLog {
   timestamp: string;
@@ -21,6 +22,11 @@ export const useErrorMonitoring = () => {
         url: window.location.href
       };
 
+      // Enviar para Sentry
+      if (event.error) {
+        Sentry.captureException(event.error);
+      }
+
       // Log no console para debug
       console.group('🚨 Unhandled Error');
       console.error('Message:', event.message);
@@ -37,7 +43,7 @@ export const useErrorMonitoring = () => {
         // Manter apenas os últimos 50 erros
         if (errors.length > 50) errors.shift();
         localStorage.setItem('vitto_errors', JSON.stringify(errors));
-      } catch (e) {
+      } catch (_e) {
         console.warn('Não foi possível salvar erro no localStorage');
       }
     };
@@ -51,6 +57,12 @@ export const useErrorMonitoring = () => {
         url: window.location.href
       };
 
+      // Enviar para Sentry
+      Sentry.captureException(event.reason instanceof Error
+        ? event.reason
+        : new Error(`Unhandled Promise Rejection: ${event.reason}`)
+      );
+
       console.group('🚨 Unhandled Promise Rejection');
       console.error('Reason:', event.reason);
       console.groupEnd();
@@ -60,7 +72,7 @@ export const useErrorMonitoring = () => {
         errors.push(errorLog);
         if (errors.length > 50) errors.shift();
         localStorage.setItem('vitto_errors', JSON.stringify(errors));
-      } catch (e) {
+      } catch (_e) {
         console.warn('Não foi possível salvar erro no localStorage');
       }
     };
@@ -74,7 +86,7 @@ export const useErrorMonitoring = () => {
     };
   }, []);
 
-  // Função para log manual de erros
+  // Função para log manual de erros (componentes, serviços, etc.)
   const logError = (error: Error, component?: string) => {
     const errorLog: ErrorLog = {
       timestamp: new Date().toISOString(),
@@ -84,6 +96,11 @@ export const useErrorMonitoring = () => {
       url: window.location.href,
       component
     };
+
+    // Enviar para Sentry com contexto do componente
+    Sentry.captureException(error, {
+      tags: { component: component || 'unknown' },
+    });
 
     console.group('🚨 Component Error');
     console.error('Component:', component || 'Unknown');
@@ -96,7 +113,7 @@ export const useErrorMonitoring = () => {
       errors.push(errorLog);
       if (errors.length > 50) errors.shift();
       localStorage.setItem('vitto_errors', JSON.stringify(errors));
-    } catch (e) {
+    } catch (_e) {
       console.warn('Não foi possível salvar erro no localStorage');
     }
   };

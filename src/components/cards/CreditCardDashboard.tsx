@@ -38,13 +38,13 @@ export const CreditCardDashboard: React.FC<CreditCardDashboardProps> = ({
     loadCards();
   }, []);
 
-  const handleCreateSuccess = (card: CreditCard) => {
+  const handleCreateSuccess = (_card: CreditCard) => {
     setViewMode('list');
     setSelectedCard(null);
     loadCards();
   };
 
-  const handleEditSuccess = (card: CreditCard) => {
+  const handleEditSuccess = (_card: CreditCard) => {
     setViewMode('list');
     setSelectedCard(null);
     loadCards();

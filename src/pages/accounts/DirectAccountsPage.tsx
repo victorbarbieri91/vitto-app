@@ -19,6 +19,9 @@ const getBalanceColor = (balance: number): string => {
   return 'text-gray-600';
 };
 
+/**
+ *
+ */
 export default function DirectAccountsPage() {
   const {
     accounts,

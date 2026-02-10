@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle, useRef } from 'react';
-import { ModernCard, ModernButton, ModernInput } from '../ui/modern';
+import { ModernCard, ModernButton } from '../ui/modern';
 import { useAccounts } from '../../hooks/useAccounts';
 import { useCategories } from '../../hooks/useCategories';
 import { useAuth } from '../../store/AuthContext';
 import { useIsMobile } from '../../hooks/useIsMobile';
-import { TransactionCard } from './TransactionCard';
 import { TransactionCompactItem } from './TransactionCompactItem';
 import { cn } from '../../utils/cn';
-import { formatLocalDate } from '../../utils/format';
 import { DayPicker } from 'react-day-picker';
 import { ptBR } from 'date-fns/locale';
 import { format as fnsFormat } from 'date-fns';
@@ -21,7 +19,6 @@ import {
   Search,
   Filter,
   Calendar,
-  Tag,
   Edit3,
   Trash2,
   ArrowUpRight,
@@ -29,15 +26,11 @@ import {
   ArrowLeftRight,
   ChevronLeft,
   ChevronRight,
-  Clock,
   CheckCircle,
   XCircle,
   RefreshCw,
   ChevronsLeft,
   ChevronsRight,
-  MoreHorizontal,
-  Download,
-  Settings,
   CreditCard,
   RotateCcw,
   X
@@ -212,7 +205,7 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
         }
 
         // Aplicar filtros do usuário aos dados pré-carregados (client-side filtering)
-        const { searchText, ...apiFilters } = filters;
+        const { searchText: _searchText, ...apiFilters } = filters;
 
         // Filtro por tipo
         if (apiFilters.tipo) {
@@ -255,7 +248,7 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
         return;
       }
 
-      const { searchText, ...apiFilters } = filters;
+      const { searchText: _searchText, ...apiFilters } = filters;
 
       let data;
       if (includeVirtualFixed) {
@@ -269,7 +262,7 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
 
           // Buscar dados híbridos para cada mês no período
           const allTransactions = [];
-          let currentDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+          const currentDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
 
           while (currentDate <= endDate) {
             const month = currentDate.getMonth() + 1;
@@ -477,74 +470,6 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
     }
   }, []);
 
-  // Labels para tipos de transação
-  const getTransactionTypeLabel = useCallback((tipo: string) => {
-    switch (tipo) {
-      case 'receita':
-        return 'Receita';
-      case 'despesa':
-        return 'Despesa';
-      case 'despesa_cartao':
-        return 'Cartão';
-      case 'transferencia':
-        return 'Transferência';
-      default:
-        return 'Outros';
-    }
-  }, []);
-
-  // Badge para tipo de transação
-  const getTransactionTypeBadge = useCallback((tipo: string) => {
-    const baseClass = "px-2 py-0.5 rounded-full text-xs font-medium";
-    switch (tipo) {
-      case 'receita':
-        return <span className={`${baseClass} bg-emerald-100 text-emerald-700`}>Receita</span>;
-      case 'despesa':
-        return <span className={`${baseClass} bg-red-100 text-red-700`}>Despesa</span>;
-      case 'despesa_cartao':
-        return <span className={`${baseClass} bg-purple-100 text-purple-700`}>Cartão</span>;
-      case 'transferencia':
-        return <span className={`${baseClass} bg-blue-100 text-blue-700`}>Transferência</span>;
-      default:
-        return <span className={`${baseClass} bg-slate-100 text-slate-600`}>Outros</span>;
-    }
-  }, []);
-
-  const getStatusBadge = useCallback((status: string, transaction?: Transaction) => {
-    const baseClass = "px-2 py-0.5 rounded-full text-xs font-medium";
-
-    // Verificar se é fatura
-    if (transaction?.is_fatura || transaction?.tipo_registro === 'fatura') {
-      switch (status) {
-        case 'aberta':
-          return <span className={`${baseClass} bg-red-100 text-red-700`}>Aberta</span>;
-        case 'fechada':
-          return <span className={`${baseClass} bg-yellow-100 text-yellow-700`}>Fechada</span>;
-        case 'paga':
-          return <span className={`${baseClass} bg-emerald-100 text-emerald-700`}>Paga</span>;
-        default:
-          return <span className={`${baseClass} bg-red-100 text-red-700`}>Aberta</span>;
-      }
-    }
-
-    // Para transações normais e fixas
-    switch (status) {
-      case 'efetivado':
-      case 'concluido':
-      case 'confirmado':
-        return <span className={`${baseClass} bg-emerald-100 text-emerald-700`}>Efetivada</span>;
-      case 'pendente':
-        return <span className={`${baseClass} bg-yellow-100 text-yellow-700`}>Pendente</span>;
-      case 'cancelado':
-        return <span className={`${baseClass} bg-red-100 text-red-700`}>Cancelado</span>;
-      case 'ativo':
-        return <span className={`${baseClass} bg-blue-100 text-blue-700`}>Ativo</span>;
-      case 'inativo':
-        return <span className={`${baseClass} bg-gray-100 text-gray-700`}>Inativo</span>;
-      default:
-        return <span className={`${baseClass} bg-slate-100 text-slate-600`}>-</span>;
-    }
-  }, []);
 
   const getRecurrenceBadge = useCallback((tipoRecorrencia: 'unica' | 'fixa' | 'parcelada') => {
     const baseClass = "px-1.5 py-px rounded text-[10px] font-medium";
@@ -566,10 +491,6 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
       currency: 'BRL',
       minimumFractionDigits: 2
     }).format(value);
-  }, []);
-
-  const formatDate = useCallback((dateString: string) => {
-    return formatLocalDate(dateString);
   }, []);
 
   const getAccountName = useCallback((transaction: Transaction) => {
@@ -1118,7 +1039,6 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
                 const key = transaction.is_virtual_fixed ? `virtual-${transaction.fixed_transaction_id}-${transaction.data}` : `real-${transaction.id}`;
                 const isVirtual = transaction.is_virtual || transaction.is_virtual_fixed || (transaction.fatura_details && transaction.fatura_details.is_virtual);
                 const isFixedOrigin = transaction.origem === 'fixo' || isVirtual;
-                const fixoId = transaction.fixed_transaction_id || transaction.fixo_id || transaction.fatura_details?.fixo_id;
                 const alreadyEffectuated = isEffectuated(transaction);
 
                 return (

@@ -1,21 +1,18 @@
-import React from 'react';
 import { motion } from 'framer-motion';
-import { 
-  CheckCircle, 
-  Circle, 
-  Target, 
-  Calendar, 
-  TrendingUp, 
+import {
+  CheckCircle,
+  Circle,
+  Target,
+  Calendar,
+  TrendingUp,
   Clock,
   MapPin,
   Award,
   Star,
-  Zap,
   Heart,
   Gift,
   Shield
 } from 'lucide-react';
-import ModernCard from '../ui/modern/ModernCard';
 import { formatCurrency } from '../../utils/format';
 import type { Marco, EventoTimeline } from '../../types/historia';
 
@@ -47,6 +44,9 @@ const iconesPorSlug: Record<string, any> = {
   'default': MapPin
 };
 
+/**
+ *
+ */
 export default function MilestoneCard({ 
   marco, 
   onComplete, 

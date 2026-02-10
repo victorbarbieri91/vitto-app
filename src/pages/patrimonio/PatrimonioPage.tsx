@@ -34,9 +34,9 @@ const itemVariants = {
 
 // Componente interno que usa o contexto
 function PatrimonioContent() {
-  const { size, classes } = useResponsiveClasses();
+  const { size } = useResponsiveClasses();
   const isMobile = size === 'mobile';
-  const { perfil } = useAuth();
+  useAuth();
 
   // Estados do contexto
   const {
@@ -104,7 +104,7 @@ function PatrimonioContent() {
           toast.error('Erro ao adicionar ativo');
         }
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Erro ao salvar ativo');
     }
   }, [ativoParaEditar, createAtivo, updateAtivo]);
@@ -252,6 +252,9 @@ function PatrimonioContent() {
 }
 
 // Componente principal com Provider
+/**
+ *
+ */
 export default function PatrimonioPage() {
   return (
     <PatrimonioProvider>

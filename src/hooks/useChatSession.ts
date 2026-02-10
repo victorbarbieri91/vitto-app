@@ -16,6 +16,9 @@ interface UseChatSessionReturn {
   refreshSessions: () => Promise<void>;
 }
 
+/**
+ *
+ */
 export function useChatSession(): UseChatSessionReturn {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [allSessions, setAllSessions] = useState<ChatSession[]>([]);

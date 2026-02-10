@@ -24,6 +24,9 @@ const ACCEPTED_FILE_TYPES = [
 
 const ACCEPTED_EXTENSIONS = '.pdf,.xlsx,.xls,.csv,.png,.jpg,.jpeg,.webp';
 
+/**
+ *
+ */
 export function FileUploadButton({
   onFileSelect,
   disabled = false,

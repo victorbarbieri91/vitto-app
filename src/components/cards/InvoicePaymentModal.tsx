@@ -20,6 +20,9 @@ interface InvoicePaymentModalProps {
   onSuccess: () => void;
 }
 
+/**
+ *
+ */
 export default function InvoicePaymentModal({
   invoice,
   isOpen,

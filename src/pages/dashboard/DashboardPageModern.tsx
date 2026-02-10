@@ -54,8 +54,7 @@ function DashboardContent() {
     error,
     currentMonth,
     currentYear,
-    fetchMonthData,
-    refreshData
+    fetchMonthData
   } = useMonthlyDashboard();
 
   // Hook para modal de detalhes dos KPIs
@@ -307,6 +306,9 @@ function DashboardContent() {
 }
 
 // Componente principal que envolve com o Provider
+/**
+ *
+ */
 export default function DashboardPageModern() {
   const { user } = useAuth();
 

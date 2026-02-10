@@ -9,7 +9,6 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
-import { useResponsiveClasses } from '../../hooks/useScreenDetection';
 import type { PatrimonioAtivo } from '../../types/patrimonio';
 import { CATEGORIAS_METADATA, calcularRentabilidade, ativoTemFinanciamento, getSaldoDevedor } from '../../types/patrimonio';
 import { useState } from 'react';
@@ -22,6 +21,9 @@ interface PatrimonioAtivoCardProps {
   showActions?: boolean;
 }
 
+/**
+ *
+ */
 export default function PatrimonioAtivoCard({
   ativo,
   onEdit,
@@ -29,8 +31,6 @@ export default function PatrimonioAtivoCard({
   onUpdateValor,
   showActions = true
 }: PatrimonioAtivoCardProps) {
-  const { size } = useResponsiveClasses();
-  const isMobile = size === 'mobile';
   const [showMenu, setShowMenu] = useState(false);
 
   const categoriaInfo = CATEGORIAS_METADATA[ativo.categoria];

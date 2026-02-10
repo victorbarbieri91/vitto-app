@@ -52,6 +52,9 @@ const featureStatusDotColors: Record<FeatureStatus, string> = {
   planned: PDF_COLORS.draft,
 };
 
+/**
+ *
+ */
 export function PDFStatusBadge({ status }: PDFStatusBadgeProps) {
   return (
     <View style={styles.badge}>
@@ -61,6 +64,9 @@ export function PDFStatusBadge({ status }: PDFStatusBadgeProps) {
   );
 }
 
+/**
+ *
+ */
 export function PDFPriorityBadge({ priority }: PDFPriorityBadgeProps) {
   return (
     <View style={styles.badge}>
@@ -70,6 +76,9 @@ export function PDFPriorityBadge({ priority }: PDFPriorityBadgeProps) {
   );
 }
 
+/**
+ *
+ */
 export function PDFFeatureStatusBadge({ status }: PDFFeatureStatusBadgeProps) {
   return (
     <View style={styles.badge}>

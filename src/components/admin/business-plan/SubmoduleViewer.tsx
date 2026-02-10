@@ -470,6 +470,9 @@ function DecisionsField({ title, decisions, dateLabel = 'Data' }: DecisionsField
 }
 
 // Main viewer component
+/**
+ *
+ */
 export default function SubmoduleViewer({ submodule, content }: SubmoduleViewerProps) {
   switch (submodule) {
     case 'thesis':

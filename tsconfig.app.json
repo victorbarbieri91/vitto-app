@@ -16,8 +16,8 @@
 
     /* Linting - Configuração para produção balanceada */
     "strict": false,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitAny": false,
     "strictNullChecks": false,

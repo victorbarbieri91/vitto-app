@@ -10,7 +10,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import StatusBadge from './StatusBadge';
-import type { BusinessPlan, BusinessPlanSubmodule } from '../../../types/admin';
+import type { BusinessPlan } from '../../../types/admin';
 import { SUBMODULE_INFO } from '../../../types/admin';
 
 const iconMap: Record<string, React.ReactNode> = {
@@ -27,6 +27,9 @@ interface SubmoduleCardProps {
   plan: BusinessPlan;
 }
 
+/**
+ *
+ */
 export default function SubmoduleCard({ plan }: SubmoduleCardProps) {
   const navigate = useNavigate();
   const info = SUBMODULE_INFO[plan.submodule];

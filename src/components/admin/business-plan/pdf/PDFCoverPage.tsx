@@ -159,7 +159,10 @@ const styles = StyleSheet.create({
   },
 });
 
-export function PDFCoverPage({ plans, companyName = 'Vitto', version }: PDFCoverPageProps) {
+/**
+ *
+ */
+export function PDFCoverPage({ plans, companyName = 'Vitto', version: _version }: PDFCoverPageProps) {
   const currentYear = new Date().getFullYear();
   const generationDate = new Date().toLocaleDateString('pt-BR', {
     day: '2-digit',

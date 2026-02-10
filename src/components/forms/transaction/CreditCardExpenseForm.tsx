@@ -1,11 +1,10 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useCreditCards } from '../../../hooks/useCreditCards';
 import { useCategories } from '../../../hooks/useCategories';
 import { useIsMobile } from '../../../hooks/useIsMobile';
-import { ModernInput, ModernButton, ModernSelect, ModernSwitch } from '../../ui/modern';
 import CurrencyInput from '../../ui/CurrencyInput';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Info } from 'lucide-react';
@@ -52,7 +51,6 @@ const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ onSave, o
   const { cards, loading: loadingCards } = useCreditCards();
   const { categories } = useCategories();
   const isMobile = useIsMobile();
-  const formRef = useRef<HTMLFormElement>(null);
 
   // Estado para controle de fatura
   const [faturaCalculada, setFaturaCalculada] = React.useState<{

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -46,6 +46,9 @@ interface InvoiceDrawerProps {
 type SortOption = 'date' | 'value_asc' | 'value_desc';
 type FilterType = 'all' | 'parceladas' | 'fixas';
 
+/**
+ *
+ */
 export default function InvoiceDrawer({ card, isOpen, onClose }: InvoiceDrawerProps) {
   const { user } = useAuth();
   const { categories } = useCategories();
@@ -58,7 +61,7 @@ export default function InvoiceDrawer({ card, isOpen, onClose }: InvoiceDrawerPr
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [sortBy, setSortBy] = useState<SortOption>('date');
+  const [sortBy, _setSortBy] = useState<SortOption>('date');
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isPaymentModalOpen, setPaymentModalOpen] = useState(false);

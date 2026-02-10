@@ -50,6 +50,9 @@ const STATUS_LABELS = {
   validated: 'Validado',
 };
 
+/**
+ *
+ */
 export function PrintableBusinessPlan({
   plans,
   companyName = 'Vitto',

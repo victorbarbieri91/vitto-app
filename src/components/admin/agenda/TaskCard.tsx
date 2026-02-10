@@ -1,4 +1,4 @@
-import { Calendar, User, Tag, Link2, MoreVertical, Trash2, Edit } from 'lucide-react';
+import { Calendar, Tag, Link2, MoreVertical, Trash2, Edit } from 'lucide-react';
 import { useState } from 'react';
 import type { AgendaTask } from '../../../types/admin';
 import { PRIORITY_INFO, TASK_STATUS_INFO, SUBMODULE_INFO } from '../../../types/admin';
@@ -10,6 +10,9 @@ interface TaskCardProps {
   onStatusChange: (id: number, status: AgendaTask['status']) => void;
 }
 
+/**
+ *
+ */
 export default function TaskCard({ task, onEdit, onDelete, onStatusChange }: TaskCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
 

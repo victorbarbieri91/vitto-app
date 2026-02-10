@@ -97,12 +97,10 @@ const STATUS_LABELS = {
   achieved: 'Alcancado',
 };
 
-const STATUS_BORDER_COLORS = {
-  pending: PDF_COLORS.draft,
-  in_progress: PDF_COLORS.validating,
-  achieved: PDF_COLORS.validated,
-};
 
+/**
+ *
+ */
 export function MetricsPDFSection({ content }: MetricsPDFSectionProps) {
   // Prepare tracking data for table
   const trackingData = (content.resultsTracking || []).map((item) => ({

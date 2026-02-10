@@ -6,7 +6,6 @@ import {
   CreditCard,
   Plus,
 } from 'lucide-react';
-import { ModernButton } from '../../ui/modern';
 
 type TransactionType = 'receita' | 'despesa' | 'despesa_cartao';
 

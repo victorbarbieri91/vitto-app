@@ -28,6 +28,9 @@ export interface FinanceSummary {
   despesasPorCategoria: Record<string, number>;
 }
 
+/**
+ *
+ */
 export class AdminFinanceService {
   /**
    * Get all finance entries with optional filters

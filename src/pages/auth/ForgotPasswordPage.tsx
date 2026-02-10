@@ -4,6 +4,9 @@ import { supabase } from '../../services/supabase/client';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 
+/**
+ *
+ */
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);

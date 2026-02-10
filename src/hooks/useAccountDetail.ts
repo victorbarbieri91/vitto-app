@@ -3,6 +3,9 @@ import { AccountService } from '../services/api/AccountService';
 import type { Account, Transaction } from '../services/api/AccountService';
 import { useAuth } from '../store/AuthContext';
 
+/**
+ *
+ */
 export function useAccountDetail(accountId: string | undefined) {
   const { user } = useAuth();
   const [account, setAccount] = useState<Account | null>(null);

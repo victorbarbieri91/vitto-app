@@ -1,8 +1,8 @@
 // Página de Cartões - Central de Administração Simplificada
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
   CreditCard as CreditCardIcon,
   AlertCircle,
@@ -23,8 +23,10 @@ import {
 } from '../../services/api';
 import { formatCurrency } from '../../utils/format';
 
+/**
+ *
+ */
 export default function CardsPage() {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [cards, setCards] = useState<CreditCardWithUsage[]>([]);
   const [isLoading, setIsLoading] = useState(true);

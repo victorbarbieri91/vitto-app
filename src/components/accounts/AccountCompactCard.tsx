@@ -51,6 +51,9 @@ interface AccountCompactCardProps {
   onBalanceAdjusted?: () => void;
 }
 
+/**
+ *
+ */
 export default function AccountCompactCard({
   account,
   onEdit,

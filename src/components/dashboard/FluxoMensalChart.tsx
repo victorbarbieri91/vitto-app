@@ -21,6 +21,9 @@ interface FluxoMensalChartProps {
   months?: number;
 }
 
+/**
+ *
+ */
 export default function FluxoMensalChart({ className, months = 4 }: FluxoMensalChartProps) {
   const { user } = useAuth();
   const { size } = useScreenDetection();

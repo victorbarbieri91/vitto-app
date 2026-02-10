@@ -12,6 +12,9 @@ import {
   HistoryDropdown,
 } from '../../components/central-ia';
 
+/**
+ *
+ */
 export function CentralIAPage() {
   // Hooks principais
   const {
@@ -113,7 +116,7 @@ export function CentralIAPage() {
         {hasMessages && currentSession?.titulo && (
           <div className="hidden sm:flex items-center gap-3 absolute left-1/2 -translate-x-1/2">
             <img
-              src="/personagem.vitto.png"
+              src="/personagem.vitto.webp"
               alt="Vitto"
               className="w-7 h-7 rounded-full"
               style={{ imageRendering: 'auto' }}

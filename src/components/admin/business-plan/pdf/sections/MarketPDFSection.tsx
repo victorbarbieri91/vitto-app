@@ -91,6 +91,9 @@ const styles = StyleSheet.create({
   },
 });
 
+/**
+ *
+ */
 export function MarketPDFSection({ content }: MarketPDFSectionProps) {
   // Prepare segments data for table
   const segmentsData = (content.segments || []).map((seg) => ({

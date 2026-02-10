@@ -25,6 +25,9 @@ interface TransactionChartProps {
   period: 'week' | 'month' | 'year';
 }
 
+/**
+ *
+ */
 export default function TransactionChart({ transactions, period }: TransactionChartProps) {
   const [chartData, setChartData] = useState<any>({
     labels: [],

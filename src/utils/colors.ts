@@ -221,7 +221,7 @@ export const desaturateColor = (hex: string, amount: number = 0.35): string => {
  * 2. Se não reconhecer → cor elegante determinística pelo nome
  * 3. Fallback → cor por tipo de conta
  */
-export const getAccountColor = (tipo: string, customColor?: string | null, nome?: string): string => {
+export const getAccountColor = (tipo: string, _customColor?: string | null, nome?: string): string => {
   // Prioridade 1: Detectar banco pelo nome
   if (nome) {
     const bankColor = getBankColor(nome);

@@ -17,6 +17,9 @@ interface SimpleMetricCardProps {
   colorScheme?: ColorScheme;
 }
 
+/**
+ *
+ */
 export default function SimpleMetricCard({
   title,
   value,

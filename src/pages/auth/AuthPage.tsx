@@ -31,6 +31,9 @@ const CAROUSEL_SLIDES = [
 
 const SLIDE_DURATION = 5000;
 
+/**
+ *
+ */
 export default function AuthPage() {
   const location = useLocation();
   const initialMode: AuthMode =
@@ -510,7 +513,7 @@ export default function AuthPage() {
         <div className="relative z-10 flex flex-col items-center text-center px-12 max-w-lg w-full">
           {/* White Logo */}
           <motion.img
-            src="/logo.vitto.branco.png"
+            src="/logo.vitto.branco.webp"
             alt="Vitto"
             className="h-10 w-auto mb-8 drop-shadow-lg"
             initial={{ opacity: 0, y: -20 }}
@@ -531,7 +534,7 @@ export default function AuthPage() {
             {/* Character frame - landscape ratio matching the image (3:2) */}
             <div className="relative w-full aspect-[3/2] rounded-2xl overflow-hidden border-2 border-white/10 shadow-2xl shadow-black/30">
               <img
-                src="/personagem.login.png"
+                src="/personagem.login.webp"
                 alt="Vitto - Seu assistente financeiro"
                 className="w-full h-full object-contain"
               />

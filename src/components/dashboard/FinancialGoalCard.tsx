@@ -13,12 +13,15 @@ interface FinancialGoalCardProps {
   variant?: 'default' | 'compact' | 'detailed';
 }
 
+/**
+ *
+ */
 export default function FinancialGoalCard({
   goal,
   onEdit,
   onDelete,
   onAddProgress,
-  isLoading = false,
+  isLoading: _isLoading = false,
   variant = 'default'
 }: FinancialGoalCardProps) {
   const [showActions, setShowActions] = useState(false);

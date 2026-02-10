@@ -12,6 +12,9 @@ interface CustomDateRangePickerProps {
   initialDateRange?: DateRange;
 }
 
+/**
+ *
+ */
 export default function CustomDateRangePicker({ 
   onApply, 
   onCancel, 

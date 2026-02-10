@@ -18,7 +18,6 @@ import { cn } from '../../utils/cn';
 import { useAuth } from '../../store/AuthContext';
 import { transactionService } from '../../services/api/TransactionService';
 import { fixedTransactionService, type HybridTransaction } from '../../services/api/FixedTransactionService';
-import { supabase } from '../../services/supabase/client';
 
 // Usando HybridTransaction do service - suporta transações reais + virtuais
 

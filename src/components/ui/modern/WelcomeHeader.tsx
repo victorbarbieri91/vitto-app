@@ -69,6 +69,9 @@ WelcomeHeader.displayName = 'WelcomeHeader';
 
 export default WelcomeHeader;
 
+/**
+ *
+ */
 export function DateTimeDisplay({ className }: { className?: string }) {
   const { classes } = useResponsiveClasses();
   const now = new Date();
@@ -94,6 +97,9 @@ export function DateTimeDisplay({ className }: { className?: string }) {
   );
 }
 
+/**
+ *
+ */
 export function PeriodDisplay({ 
   period, 
   customRange,

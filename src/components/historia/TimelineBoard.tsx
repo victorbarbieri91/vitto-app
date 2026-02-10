@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { Search, Trophy, Target, Award, Calendar } from 'lucide-react';
 import ModernCard from '../ui/modern/ModernCard';
 import MilestoneCard from './MilestoneCard';
@@ -8,7 +8,7 @@ import VittoCue, { useVittoCue } from './VittoCue';
 // import CreateMilestoneModal from './CreateMilestoneModal'; // removed: managed by parent page
 import { useHistoriaService } from '../../hooks/useHistoriaService';
 import { useScreenDetection } from '../../hooks/useScreenDetection';
-import type { EventoTimeline, Marco, Badge } from '../../types/historia';
+import type { EventoTimeline } from '../../types/historia';
 
 interface TimelineBoardProps {
   className?: string;
@@ -17,14 +17,15 @@ interface TimelineBoardProps {
 type FiltroTipo = 'todos' | 'marcos' | 'badges' | 'concluidos' | 'pendentes';
 type ModoExibicao = 'timeline' | 'grid' | 'lista';
 
+/**
+ *
+ */
 export default function TimelineBoard({ className = '' }: TimelineBoardProps) {
   const { size } = useScreenDetection();
   const { cue, parabenizar, motivar, saudar } = useVittoCue();
   
   const {
     timeline,
-    marcos,
-    badges,
     resumo,
     loading,
     error,
@@ -33,9 +34,9 @@ export default function TimelineBoard({ className = '' }: TimelineBoardProps) {
   } = useHistoriaService();
 
   const [filtroAtivo, setFiltroAtivo] = useState<FiltroTipo>('todos');
-  const [modoExibicao, setModoExibicao] = useState<ModoExibicao>('timeline');
+  const [modoExibicao, _setModoExibicao] = useState<ModoExibicao>('timeline');
   const [busca, setBusca] = useState('');
-  const [itemSelecionado, setItemSelecionado] = useState<EventoTimeline | null>(null);
+  const [_itemSelecionado, setItemSelecionado] = useState<EventoTimeline | null>(null);
   // const [showCreateModal, setShowCreateModal] = useState(false); // removed: managed by parent page
 
   // Filtrar timeline

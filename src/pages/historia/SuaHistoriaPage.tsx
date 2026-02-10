@@ -12,7 +12,7 @@ import ModernSwitch from '../../components/ui/modern/ModernSwitch';
 
 const SuaHistoriaPage = () => {
     const [isCreateModalOpen, setCreateModalOpen] = useState(false);
-    const [selectedEvent, setSelectedEvent] = useState<EventoTimeline | null>(null);
+    const [_selectedEvent, setSelectedEvent] = useState<EventoTimeline | null>(null);
     const [demoMode, setDemoMode] = useState<boolean>(true);
 
     const handleEventClick = (event: EventoTimeline) => {

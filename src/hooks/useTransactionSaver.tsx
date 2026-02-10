@@ -10,6 +10,9 @@ import {
 
 type TransactionType = 'receita' | 'despesa' | 'despesa_cartao';
 
+/**
+ *
+ */
 export function useTransactionSaver(type: TransactionType, onTransactionSaved?: () => void) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 

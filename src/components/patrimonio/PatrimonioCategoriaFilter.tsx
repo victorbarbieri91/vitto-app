@@ -33,6 +33,9 @@ const ICONES_CATEGORIA: Record<CategoriaAtivo, React.ReactNode> = {
   outros: <Package className="w-4 h-4" />
 };
 
+/**
+ *
+ */
 export default function PatrimonioCategoriaFilter({
   categoriaAtiva,
   onCategoriaChange,

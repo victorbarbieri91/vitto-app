@@ -11,10 +11,13 @@ const suggestionChips = [
   'Como economizar mais?',
 ];
 
+/**
+ *
+ */
 export default function IntegratedChat() {
   const { classes, size } = useResponsiveClasses();
   const [message, setMessage] = useState('');
-  const [chatHistory, setChatHistory] = useState([]);
+  const [_chatHistory, _setChatHistory] = useState([]);
 
   const handleSendMessage = (e) => {
     e.preventDefault();

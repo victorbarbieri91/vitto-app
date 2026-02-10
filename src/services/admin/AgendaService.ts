@@ -20,6 +20,9 @@ export interface TaskFilters {
   search?: string;
 }
 
+/**
+ *
+ */
 export class AgendaService {
   /**
    * Get all tasks with optional filters

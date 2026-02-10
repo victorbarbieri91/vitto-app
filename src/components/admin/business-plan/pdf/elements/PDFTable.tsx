@@ -59,6 +59,9 @@ const styles = StyleSheet.create({
   },
 });
 
+/**
+ *
+ */
 export function PDFTable({ columns, data, striped = true }: PDFTableProps) {
   const getCellStyle = (align?: 'left' | 'center' | 'right') => {
     switch (align) {

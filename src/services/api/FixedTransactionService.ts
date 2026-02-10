@@ -1,4 +1,3 @@
-import { supabase } from '../supabase/client';
 import { Database } from '../../types/supabase';
 import { BaseApi } from './BaseApi';
 
@@ -47,6 +46,9 @@ export interface HybridTransaction {
   is_virtual: boolean; // true = transação fixa pendente, false = transação confirmada
 }
 
+/**
+ *
+ */
 export class FixedTransactionService extends BaseApi {
   /**
    * Lista todas as transações fixas do usuário

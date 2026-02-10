@@ -20,6 +20,9 @@ const GOAL_COLORS = [
   { name: 'Laranja', value: '#f59e0b' },
 ];
 
+/**
+ *
+ */
 export default function FinancialGoalForm({ 
   goal, 
   onSave, 

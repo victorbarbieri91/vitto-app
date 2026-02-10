@@ -15,6 +15,9 @@ interface UseFormOptions<T> {
   onSubmit?: (values: T) => void | Promise<void>;
 }
 
+/**
+ *
+ */
 export function useForm<T extends Record<string, any>>(options: UseFormOptions<T>) {
   const { initialValues, validationRules, onSubmit } = options;
   const [values, setValues] = useState<T>(initialValues);

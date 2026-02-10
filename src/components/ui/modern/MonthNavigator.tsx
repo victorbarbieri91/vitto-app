@@ -2,7 +2,6 @@ import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { cn } from '../../../utils/cn';
-import { useResponsiveClasses } from '../../../hooks/useScreenDetection';
 
 interface MonthNavigatorProps {
   currentMonth: number;
@@ -17,7 +16,6 @@ const MONTHS = [
 ];
 
 const MonthNavigator = memo(({ currentMonth, currentYear, onMonthChange, className }: MonthNavigatorProps) => {
-  const { classes } = useResponsiveClasses();
   const currentDate = new Date();
   const isCurrentMonth = currentMonth === currentDate.getMonth() + 1 && currentYear === currentDate.getFullYear();
 

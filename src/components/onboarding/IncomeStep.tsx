@@ -6,7 +6,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import ModernCard from '../ui/modern/ModernCard';
 import Button from '../ui/Button';
-import Input from '../ui/Input';
 import CurrencyInput from '../ui/CurrencyInput';
 import { useOnboarding } from '../../contexts/OnboardingContext';
 
@@ -21,7 +20,6 @@ const IncomeStep = memo(() => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
-    register,
     handleSubmit,
     formState: { errors, isValid },
     setValue,

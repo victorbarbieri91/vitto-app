@@ -1,5 +1,5 @@
 import { ButtonHTMLAttributes, ReactNode, forwardRef } from 'react';
-import { motion, HTMLMotionProps } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { cn } from '../../../utils/cn';
 import { buttonVariants, type ButtonVariants } from '../../../utils/variants';
 

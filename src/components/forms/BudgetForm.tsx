@@ -18,6 +18,9 @@ const BUDGET_SUGGESTIONS = [
   { label: 'Flexível (15-20%)', multiplier: 0.175 },
 ];
 
+/**
+ *
+ */
 export default function BudgetForm({ 
   budget, 
   categories,

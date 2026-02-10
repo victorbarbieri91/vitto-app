@@ -11,7 +11,7 @@ import * as XLSX from 'xlsx';
 import * as pdfjsLib from 'pdfjs-dist';
 import { supabase } from '../supabase/client';
 import { transactionService, CreateTransactionRequest } from '../api/TransactionService';
-import { documentProcessor, type ExtractedFinancialData } from './DocumentProcessor';
+import { documentProcessor } from './DocumentProcessor';
 import type {
   ImportTarget,
   FileType,
@@ -24,7 +24,6 @@ import type {
   PreparedImportData,
   ImportResult,
   TransactionType,
-  REQUIRED_FIELDS,
 } from '../../types/smart-import';
 
 // Configurar worker do PDF.js
@@ -292,18 +291,7 @@ class SmartImportService {
       };
     }
 
-    // Converter transacoes extraidas para formato de colunas/linhas
-    const headers = ['data', 'descricao', 'valor', 'tipo', 'categoria'];
-    const rawData = [
-      headers,
-      ...transacoes.map(t => [
-        t.data,
-        t.descricao,
-        t.valor,
-        t.tipo,
-        t.categoria_sugerida || 'outros'
-      ])
-    ];
+    // rawData/headers construction removed - was unused (TS6133)
 
     // Criar informacoes de colunas
     const columns: ColumnInfo[] = [
@@ -514,8 +502,8 @@ class SmartImportService {
     const str = String(value);
     // Padroes comuns de data
     const datePatterns = [
-      /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/, // DD/MM/YYYY ou MM/DD/YYYY
-      /^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/, // YYYY-MM-DD
+      /^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}$/, // DD/MM/YYYY ou MM/DD/YYYY
+      /^\d{4}[/-]\d{1,2}[/-]\d{1,2}$/, // YYYY-MM-DD
       /^\d{1,2}\s+(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)/i, // DD mes
     ];
 
@@ -662,7 +650,7 @@ class SmartImportService {
   /**
    * Gera mapeamentos sugeridos
    */
-  private generateSuggestedMappings(columns: ColumnInfo[], importType: ImportTarget): ColumnMapping[] {
+  private generateSuggestedMappings(columns: ColumnInfo[], _importType: ImportTarget): ColumnMapping[] {
     return columns.map((col) => ({
       columnIndex: col.index,
       columnName: col.originalName,
@@ -869,7 +857,7 @@ class SmartImportService {
           item.categoriaId = this.getCategoryId(item.categoria);
           break;
 
-        case 'tipo':
+        case 'tipo': {
           const tipoStr = String(value || '').toLowerCase();
           if (tipoStr.includes('receita') || tipoStr.includes('entrada') || tipoStr === '+') {
             item.tipo = 'receita';
@@ -877,6 +865,7 @@ class SmartImportService {
             item.tipo = 'despesa';
           }
           break;
+        }
 
         case 'dia_mes':
           item.diaMes = parseInt(String(value), 10);
@@ -968,7 +957,7 @@ class SmartImportService {
       const str = String(value).trim();
 
       // DD/MM/YYYY ou DD-MM-YYYY
-      const brMatch = str.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+      const brMatch = str.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/);
       if (brMatch) {
         const day = brMatch[1].padStart(2, '0');
         const month = brMatch[2].padStart(2, '0');
@@ -978,7 +967,7 @@ class SmartImportService {
       }
 
       // YYYY-MM-DD
-      const isoMatch = str.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+      const isoMatch = str.match(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
       if (isoMatch) {
         return `${isoMatch[1]}-${isoMatch[2].padStart(2, '0')}-${isoMatch[3].padStart(2, '0')}`;
       }
@@ -1005,7 +994,7 @@ class SmartImportService {
 
     try {
       // Remover R$, espacos, pontos de milhar
-      let str = String(value)
+      const str = String(value)
         .replace(/[R$\s]/g, '')
         .replace(/\.(?=\d{3})/g, '') // Remove pontos de milhar
         .replace(',', '.'); // Virgula para ponto
@@ -1182,7 +1171,7 @@ class SmartImportService {
   /**
    * Importa um ativo patrimonial
    */
-  private async importAsset(item: PreparedImportItem, config: ImportWizardConfig): Promise<void> {
+  private async importAsset(item: PreparedImportItem, _config: ImportWizardConfig): Promise<void> {
     // Obter usuario atual
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Usuario nao autenticado');

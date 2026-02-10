@@ -8,6 +8,9 @@ import { ModernButton, ModernCard } from '../../components/ui/modern';
 import AccountCompactCard from '../../components/accounts/AccountCompactCard';
 import { Plus, Building2, TrendingUp, Landmark, ArrowLeftRight } from 'lucide-react';
 
+/**
+ *
+ */
 export default function AccountsPage() {
   const {
     accounts,

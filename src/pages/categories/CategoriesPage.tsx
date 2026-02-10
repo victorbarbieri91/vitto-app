@@ -123,6 +123,9 @@ const SUGGESTED_COLORS = [
 
 type FilterType = 'todas' | 'despesa' | 'receita';
 
+/**
+ *
+ */
 export default function CategoriesPage() {
   const { categories, loading, error, addCategory, updateCategory, deleteCategory, resetToDefault } = useCategories();
   const [isModalOpen, setIsModalOpen] = useState(false);

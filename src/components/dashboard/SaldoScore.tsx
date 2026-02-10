@@ -13,7 +13,7 @@ interface SaldoScoreProps {
   onClick?: () => void;
 }
 
-const SaldoScore = ({ saldo, metaPercentual = 80, receitaMensal = 0, isLoading = false, onClick }: SaldoScoreProps) => {
+const SaldoScore = ({ saldo, metaPercentual: _metaPercentual = 80, receitaMensal: _receitaMensal = 0, isLoading = false, onClick }: SaldoScoreProps) => {
   const { size } = useResponsiveClasses();
 
   if (isLoading) {

@@ -16,6 +16,9 @@ interface UseBusinessPlanListReturn {
   updateStatus: (submodule: BusinessPlanSubmodule, status: 'draft' | 'validating' | 'validated') => Promise<void>;
 }
 
+/**
+ *
+ */
 export function useBusinessPlanList(): UseBusinessPlanListReturn {
   const { user } = useAuth();
   const [plans, setPlans] = useState<BusinessPlan[]>([]);
@@ -45,15 +48,11 @@ export function useBusinessPlanList(): UseBusinessPlanListReturn {
   ) => {
     if (!user) throw new Error('User not authenticated');
 
-    try {
-      const updated = await BusinessPlanService.updateStatus(submodule, status, user.id);
-      // Update local state optimistically
-      setPlans(prev => prev.map(p =>
-        p.submodule === submodule ? updated : p
-      ));
-    } catch (err) {
-      throw err;
-    }
+    const updated = await BusinessPlanService.updateStatus(submodule, status, user.id);
+    // Update local state optimistically
+    setPlans(prev => prev.map(p =>
+      p.submodule === submodule ? updated : p
+    ));
   }, [user]);
 
   return { plans, loading, error, refetch: fetchPlans, updateStatus };
@@ -70,6 +69,9 @@ interface UseBusinessPlanSubmoduleReturn {
   refetch: () => Promise<void>;
 }
 
+/**
+ *
+ */
 export function useBusinessPlanSubmodule(submodule: BusinessPlanSubmodule): UseBusinessPlanSubmoduleReturn {
   const { user } = useAuth();
   const [plan, setPlan] = useState<BusinessPlan | null>(null);
@@ -111,24 +113,16 @@ export function useBusinessPlanSubmodule(submodule: BusinessPlanSubmodule): UseB
   const updateContent = useCallback(async (content: BusinessPlanContent, changeSummary?: string) => {
     if (!user) throw new Error('User not authenticated');
 
-    try {
-      const updated = await BusinessPlanService.update(submodule, { content }, user.id, changeSummary);
-      setPlan(updated);
-      fetchHistory();
-    } catch (err) {
-      throw err;
-    }
+    const updated = await BusinessPlanService.update(submodule, { content }, user.id, changeSummary);
+    setPlan(updated);
+    fetchHistory();
   }, [submodule, user, fetchHistory]);
 
   const updateStatus = useCallback(async (status: 'draft' | 'validating' | 'validated') => {
     if (!user) throw new Error('User not authenticated');
 
-    try {
-      const updated = await BusinessPlanService.updateStatus(submodule, status, user.id);
-      setPlan(updated);
-    } catch (err) {
-      throw err;
-    }
+    const updated = await BusinessPlanService.updateStatus(submodule, status, user.id);
+    setPlan(updated);
   }, [submodule, user]);
 
   return {

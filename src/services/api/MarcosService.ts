@@ -406,7 +406,7 @@ export class MarcosService extends BaseApi {
         .single();
 
       return !error && !!data;
-    } catch (error) {
+    } catch (_error) {
       return false;
     }
   }
@@ -427,7 +427,7 @@ export class MarcosService extends BaseApi {
         .single();
 
       return !error && !!data;
-    } catch (error) {
+    } catch (_error) {
       return false;
     }
   }

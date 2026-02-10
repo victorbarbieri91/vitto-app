@@ -10,6 +10,9 @@ interface BudgetCardProps {
   onDelete: (budgetId: number) => void;
 }
 
+/**
+ *
+ */
 export default function BudgetCard({ budget, onEdit, onDelete }: BudgetCardProps) {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -18,7 +21,7 @@ export default function BudgetCard({ budget, onEdit, onDelete }: BudgetCardProps
     gastoAtual,
     saldoRestante,
     percentualGasto,
-    status
+    status: _status
   } = budget;
 
   const isReceita = budgetData.tipo === 'receita';

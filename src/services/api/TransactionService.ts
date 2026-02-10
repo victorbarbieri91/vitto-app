@@ -1,7 +1,5 @@
-import { supabase } from '../supabase/client';
 import { Database } from '../../types/supabase';
 import { BaseApi } from './BaseApi';
-import { saldoService } from './SaldoService';
 
 export type Transaction = Database['public']['Tables']['app_transacoes']['Row'];
 export type NewTransaction = Database['public']['Tables']['app_transacoes']['Insert'];
@@ -51,9 +49,10 @@ export interface CreateInstallmentTransactionRequest {
 // Alias for backward compatibility
 export type InstallmentTransactionRequest = CreateInstallmentTransactionRequest;
 
+/**
+ *
+ */
 export class TransactionService extends BaseApi {
-  private generationInProgress = new Set<string>();
-
   /**
    * Invalida cache de saldos após operações que afetam o saldo
    */
@@ -68,10 +67,16 @@ export class TransactionService extends BaseApi {
       console.warn('Erro ao invalidar cache de saldos:', error);
     }
   }
+  /**
+   *
+   */
   constructor() {
     super();
   }
   
+  /**
+   *
+   */
   async listByCardAndMonth(cardId: string, year: number, month: number) {
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
     const endDate = new Date(year, month, 0).toISOString().split('T')[0];
@@ -93,6 +98,9 @@ export class TransactionService extends BaseApi {
     return { data, error };
   }
 
+  /**
+   *
+   */
   async list(filters?: {
     mes?: number;
     ano?: number;
@@ -445,6 +453,9 @@ export class TransactionService extends BaseApi {
     return { data, error };
   }
 
+  /**
+   *
+   */
   async update(id: string, updates: Partial<CreateTransactionRequest>) {
     const user = await this.getCurrentUser();
     if (!user) throw new Error('Usuário não autenticado');
@@ -464,6 +475,9 @@ export class TransactionService extends BaseApi {
     return { data, error };
   }
 
+  /**
+   *
+   */
   async delete(id: string) {
     const user = await this.getCurrentUser();
     if (!user) throw new Error('Usuário não autenticado');
@@ -489,6 +503,9 @@ export class TransactionService extends BaseApi {
     return { error };
   }
 
+  /**
+   *
+   */
   async getById(id: string) {
     const user = await this.getCurrentUser();
     if (!user) throw new Error('Usuário não autenticado');

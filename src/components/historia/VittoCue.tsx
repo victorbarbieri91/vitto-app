@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Heart, Star, Target, TrendingUp, Trophy, Gift, MessageCircle } from 'lucide-react';
+import { X, Heart, Star, Target, Trophy, MessageCircle } from 'lucide-react';
 import type { FraseVitto, CueVitto } from '../../types/historia';
 
 interface VittoCueProps {
@@ -131,6 +131,9 @@ const iconesContexto = {
   'comemoração': Star
 };
 
+/**
+ *
+ */
 export default function VittoCue({ 
   trigger, 
   contexto = 'boas-vindas', 
@@ -274,6 +277,9 @@ export default function VittoCue({
 }
 
 // Hook para usar o VittoCue facilmente
+/**
+ *
+ */
 export function useVittoCue() {
   const [cue, setCue] = useState<CueVitto | null>(null);
 

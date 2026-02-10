@@ -23,6 +23,9 @@ export interface ResetResult {
   deletedCounts: Record<string, number | string>;
 }
 
+/**
+ *
+ */
 export class ResetService {
   /**
    * Busca resumo de todos os dados do usuário para exibir no modal de confirmação

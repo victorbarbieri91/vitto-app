@@ -1,4 +1,3 @@
-import React from 'react';
 import ModernCard from '../ui/modern/ModernCard';
 import { Lightbulb } from 'lucide-react';
 

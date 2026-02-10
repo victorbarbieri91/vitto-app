@@ -34,7 +34,6 @@ export default function AnimatedNumber({
   const [displayValue, setDisplayValue] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const prevValue = useRef<number | undefined>(undefined); // Iniciar como undefined
-  const [isInitialized, setIsInitialized] = useState(false);
 
   // Spring physics para animação suave
   const spring = useSpring(displayValue, {
@@ -58,7 +57,6 @@ export default function AnimatedNumber({
       // Controlar duração da animação
       const timer = setTimeout(() => {
         setIsAnimating(false);
-        setIsInitialized(true);
       }, duration);
 
       prevValue.current = value;

@@ -10,15 +10,12 @@ import { documentProcessor } from './DocumentProcessor';
 import type {
   ImportFlowState,
   ImportFlowAction,
-  ImportFlowStep,
   DocumentType,
   ExtractedTransaction,
   ImportQuestion,
   AvailableCard,
-  AvailableAccount,
-  AvailableCategory,
   ImportAgentConfig,
-  ImportChatMessage
+  ImportChatMessage,
 } from '../../types/import-flow';
 
 // Estado inicial
@@ -32,17 +29,26 @@ const initialState: ImportFlowState = {
   alertas: []
 };
 
+/**
+ *
+ */
 export class ConversationalImportAgent {
   private state: ImportFlowState = { ...initialState };
   private config: ImportAgentConfig;
   private onStateChange?: (state: ImportFlowState) => void;
   private onMessage?: (message: ImportChatMessage) => void;
 
+  /**
+   *
+   */
   constructor(config: ImportAgentConfig) {
     this.config = config;
   }
 
   // Registrar callbacks
+  /**
+   *
+   */
   public setCallbacks(callbacks: {
     onStateChange?: (state: ImportFlowState) => void;
     onMessage?: (message: ImportChatMessage) => void;
@@ -52,17 +58,26 @@ export class ConversationalImportAgent {
   }
 
   // Obter estado atual
+  /**
+   *
+   */
   public getState(): ImportFlowState {
     return { ...this.state };
   }
 
   // Resetar estado
+  /**
+   *
+   */
   public reset() {
     this.state = { ...initialState };
     this.notifyStateChange();
   }
 
   // Processar arquivo
+  /**
+   *
+   */
   public async processFile(file: File): Promise<void> {
     this.dispatch({ type: 'START_ANALYSIS', fileName: file.name, fileType: this.getFileType(file) });
 
@@ -118,7 +133,7 @@ export class ConversationalImportAgent {
 
   // Iniciar fluxo conversacional apos analise
   private async startConversationalFlow(): Promise<void> {
-    const { documentType, confianca, transacoes, observacoes } = this.state;
+    const { documentType, confianca } = this.state;
 
     // Mensagem inicial com resumo
     const resumo = this.buildAnalysisSummary();
@@ -373,6 +388,9 @@ export class ConversationalImportAgent {
   }
 
   // Responder pergunta
+  /**
+   *
+   */
   public async answerQuestion(questionId: string, answer: string | number): Promise<void> {
     const { currentQuestion } = this.state;
 
@@ -396,7 +414,7 @@ export class ConversationalImportAgent {
         }
         break;
 
-      case 'select_card':
+      case 'select_card': {
         const card = this.config.cards.find(c => c.id === answer);
         if (card) {
           this.dispatch({ type: 'SELECT_CARD', cartaoId: card.id, cartaoNome: card.nome });
@@ -407,8 +425,9 @@ export class ConversationalImportAgent {
           await this.askPeriodSelection();
         }
         break;
+      }
 
-      case 'select_account':
+      case 'select_account': {
         const account = this.config.accounts.find(a => a.id === answer);
         if (account) {
           this.dispatch({ type: 'SELECT_ACCOUNT', contaId: account.id, contaNome: account.nome });
@@ -420,12 +439,14 @@ export class ConversationalImportAgent {
           await this.askPeriodConfirmation();
         }
         break;
+      }
 
-      case 'select_period':
+      case 'select_period': {
         const [mes, ano] = String(answer).split('_').map(Number);
         this.dispatch({ type: 'SET_PERIOD', mes, ano });
         this.showPreview();
         break;
+      }
 
       case 'select_destination_type':
         if (answer === 'cartao') {
@@ -454,7 +475,7 @@ export class ConversationalImportAgent {
 
   // Mostrar preview das transacoes
   private showPreview(): void {
-    const { transacoes, cartaoNome, contaNome, documentType } = this.state;
+    const { transacoes, cartaoNome, contaNome } = this.state;
     const total = transacoes.reduce((sum, t) => sum + t.valor, 0);
     const destino = cartaoNome || contaNome || 'Transações';
 
@@ -481,16 +502,25 @@ export class ConversationalImportAgent {
   }
 
   // Alternar selecao de transacao
+  /**
+   *
+   */
   public toggleTransaction(transactionId: string): void {
     this.dispatch({ type: 'TOGGLE_TRANSACTION', transactionId });
   }
 
   // Atualizar categoria de transacao
+  /**
+   *
+   */
   public updateTransactionCategory(transactionId: string, categoryId: number, categoryName: string): void {
     this.dispatch({ type: 'UPDATE_CATEGORY', transactionId, categoryId, categoryName });
   }
 
   // Confirmar e executar importacao
+  /**
+   *
+   */
   public async confirmImport(): Promise<void> {
     const { transacoes, cartaoId, contaId, documentType, mesReferencia, anoReferencia } = this.state;
 
@@ -574,7 +604,7 @@ export class ConversationalImportAgent {
     const isoMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (isoMatch) {
       const year = parseInt(isoMatch[1]);
-      const month = parseInt(isoMatch[2]);
+      parseInt(isoMatch[2]); // month parsed but not needed
       const day = parseInt(isoMatch[3]);
 
       // Se o ano parece errado (fora de range razoável), corrigir
@@ -819,6 +849,9 @@ export class ConversationalImportAgent {
 }
 
 // Factory para criar agente com dados do usuario
+/**
+ *
+ */
 export async function createImportAgent(userId: string): Promise<ConversationalImportAgent> {
   // Buscar cartoes do usuario
   const { data: cards } = await supabase

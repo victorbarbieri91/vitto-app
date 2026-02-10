@@ -22,6 +22,9 @@ interface CategoryDistributionChartProps {
   period: 'week' | 'month' | 'year';
 }
 
+/**
+ *
+ */
 export default function CategoryDistributionChart({ 
   transactions, 
   categories,

@@ -7,8 +7,8 @@ import { ImportQuestionCard } from './ImportQuestionCard';
 import { ImportPreviewCard } from './ImportPreviewCard';
 import { ConversationalImportAgent, createImportAgent } from '../../services/ai/ConversationalImportAgent';
 import type { ChatMessage } from '../../types/central-ia';
-import type { ImportResult, ImportTarget } from '../../types/smart-import';
-import type { ImportFlowState, ImportChatMessage, ImportQuestion, ExtractedTransaction } from '../../types/import-flow';
+import type { ImportResult } from '../../types/smart-import';
+import type { ImportFlowState, ImportQuestion, ExtractedTransaction } from '../../types/import-flow';
 import { useAuth } from '../../store/AuthContext';
 
 interface ChatContainerProps {
@@ -29,6 +29,9 @@ interface ChatContainerProps {
   }) => void;
 }
 
+/**
+ *
+ */
 export function ChatContainer({
   messages,
   isLoading,
@@ -249,7 +252,7 @@ export function ChatContainer({
       // Processar arquivo com o agente de importação
       await importAgentRef.current.processFile(file);
 
-    } catch (error) {
+    } catch (_error) {
       addMessage({
         id: `assistant-error-${Date.now()}`,
         role: 'assistant',
@@ -436,7 +439,7 @@ export function ChatContainer({
               className="mb-2"
             >
               <img
-                src="/personagem.vitto.png"
+                src="/personagem.vitto.webp"
                 alt="Vitto"
                 className="w-auto h-40 sm:h-52 object-contain drop-shadow-lg"
               />

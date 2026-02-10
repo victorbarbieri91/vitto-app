@@ -46,6 +46,9 @@ const soundConfigs = {
   }
 };
 
+/**
+ *
+ */
 export function SoundManagerProvider({ children }: { children: React.ReactNode }) {
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(0.3);
@@ -148,6 +151,9 @@ export function SoundManagerProvider({ children }: { children: React.ReactNode }
   );
 }
 
+/**
+ *
+ */
 export function useSoundManager() {
   const context = useContext(SoundManagerContext);
   if (!context) {
@@ -157,6 +163,9 @@ export function useSoundManager() {
 }
 
 // Hook específico para sons de gamificação
+/**
+ *
+ */
 export function useGameSounds() {
   const { playSound } = useSoundManager();
 
@@ -195,6 +204,9 @@ export function useGameSounds() {
 }
 
 // Componente de controle de volume
+/**
+ *
+ */
 export function VolumeControl({ className = '' }: { className?: string }) {
   const { isMuted, setMuted, volume, setVolume } = useSoundManager();
 

@@ -6,6 +6,9 @@ import TaskFilters from '../../components/admin/agenda/TaskFilters';
 import { useAgenda } from '../../hooks/admin/useAgenda';
 import type { AgendaTask, CreateTaskInput, UpdateTaskInput } from '../../types/admin';
 
+/**
+ *
+ */
 export default function AgendaPage() {
   const {
     tasks,

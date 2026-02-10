@@ -36,6 +36,9 @@ interface ProximasTransacoesCardProps {
   limit?: number;
 }
 
+/**
+ *
+ */
 export default function ProximasTransacoesCard({ className, limit = 5 }: ProximasTransacoesCardProps) {
   const { user } = useAuth();
   const { size } = useScreenDetection();
@@ -238,7 +241,6 @@ export default function ProximasTransacoesCard({ className, limit = 5 }: Proxima
 
   // Estilo padrao consistente com outros cards
   const cardStyle = 'bg-white border border-slate-200 rounded-xl shadow-sm h-full flex flex-col';
-  const headerStyle = 'px-4 py-3 border-b border-slate-100 flex items-center gap-2';
 
   // Header com filtros reutilizavel
   const renderHeader = (showCount = true) => (

@@ -21,6 +21,9 @@ interface UseAgendaReturn {
   refetch: () => Promise<void>;
 }
 
+/**
+ *
+ */
 export function useAgenda(): UseAgendaReturn {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<AgendaTask[]>([]);
@@ -94,6 +97,9 @@ interface UseUpcomingTasksReturn {
   loading: boolean;
 }
 
+/**
+ *
+ */
 export function useUpcomingTasks(): UseUpcomingTasksReturn {
   const [upcomingTasks, setUpcomingTasks] = useState<AgendaTask[]>([]);
   const [overdueTasks, setOverdueTasks] = useState<AgendaTask[]>([]);

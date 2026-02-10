@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Settings, LogOut, Trash2, AlertTriangle, ChevronRight } from 'lucide-react';
+import { X, Settings, LogOut, AlertTriangle, ChevronRight } from 'lucide-react';
 import { useJuntos } from '../../contexts/JuntosContext';
 import { ModernButton } from '../ui/modern';
 import type { GrupoResumo } from '../../types/juntos';

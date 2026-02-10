@@ -25,6 +25,9 @@ interface CategoryDistributionChartRefactoredProps {
   period: 'week' | 'month' | 'year';
 }
 
+/**
+ *
+ */
 export default function CategoryDistributionChartRefactored({
   distributionData,
   period

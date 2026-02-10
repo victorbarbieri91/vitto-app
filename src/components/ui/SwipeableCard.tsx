@@ -20,6 +20,9 @@ interface SwipeableCardProps {
   className?: string;
 }
 
+/**
+ *
+ */
 export default function SwipeableCard({
   children,
   leftActions = [],

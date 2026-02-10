@@ -115,6 +115,9 @@ const getTextColor = (impactLevel: number, probabilityLevel: number): string => 
 const levelMap: Record<string, number> = { low: 0, medium: 1, high: 2 };
 const levelLabels = ['Baixo', 'Medio', 'Alto'];
 
+/**
+ *
+ */
 export function PDFRiskMatrix({ risks }: PDFRiskMatrixProps) {
   // Count risks in each cell
   const matrix: number[][] = [

@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 import { Target, Award, TrendingUp, BookOpen } from 'lucide-react';
 import ModernCard from '../ui/modern/ModernCard';

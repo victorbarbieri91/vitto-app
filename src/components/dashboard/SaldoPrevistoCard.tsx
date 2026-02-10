@@ -10,6 +10,9 @@ interface SaldoPrevistoCardProps {
   accountId?: number; // Se especificado, mostra apenas desta conta
 }
 
+/**
+ *
+ */
 export default function SaldoPrevistoCard({ 
   className, 
   showDetails = true,
@@ -20,7 +23,6 @@ export default function SaldoPrevistoCard({
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showValues, setShowValues] = useState(true);
-  const [selectedPeriod, setSelectedPeriod] = useState<'current' | 'next'>('current');
 
   const indicatorsService = new IndicatorsService();
 
@@ -59,12 +61,6 @@ export default function SaldoPrevistoCard({
       style: 'currency',
       currency: 'BRL'
     }).format(value);
-  };
-
-  const getVariationColor = (value: number) => {
-    if (value > 0) return 'text-green-600';
-    if (value < 0) return 'text-red-600';
-    return 'text-gray-600';
   };
 
   const getVariationIcon = (value: number) => {
@@ -131,7 +127,6 @@ export default function SaldoPrevistoCard({
 
   // Dados adicionais da nova implementação
   const economiaAtual = summary.economia_mes || 0;
-  const taxaEconomia = summary.taxa_economia || 0;
   const tipoPeriodo = summary.tipo_periodo || 'atual';
 
   return (

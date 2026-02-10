@@ -75,6 +75,9 @@ const styles = StyleSheet.create({
   },
 });
 
+/**
+ *
+ */
 export function ProductPDFSection({ content }: ProductPDFSectionProps) {
   // Prepare features data for table
   const featuresData = (content.features || []).map((feature) => ({

@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 import { 
   Award, 
@@ -44,6 +43,9 @@ const iconesPorSlug: Record<string, any> = {
   'default': Award
 };
 
+/**
+ *
+ */
 export default function BadgeCard({ 
   badge, 
   onClick, 
@@ -55,52 +57,6 @@ export default function BadgeCard({
   const descricao = badge.descricao;
   const cor = badge.cor || '#10b981';
   const dataDesbloqueio = badge.unlocked_at || badge.created_at;
-
-  // Cores baseadas na cor da badge
-  const getCoresPorCor = (corHex: string) => {
-    // Mapeamento de cores hexadecimais para classes Tailwind
-    const cores: Record<string, any> = {
-      '#10b981': {
-        primary: 'emerald-500',
-        light: 'emerald-50',
-        medium: 'emerald-100',
-        dark: 'emerald-800',
-        border: 'emerald-200'
-      },
-      '#f59e0b': {
-        primary: 'amber-500',
-        light: 'amber-50',
-        medium: 'amber-100',
-        dark: 'amber-800',
-        border: 'amber-200'
-      },
-      '#3b82f6': {
-        primary: 'blue-500',
-        light: 'blue-50',
-        medium: 'blue-100',
-        dark: 'blue-800',
-        border: 'blue-200'
-      },
-      '#9333ea': {
-        primary: 'purple-500',
-        light: 'purple-50',
-        medium: 'purple-100',
-        dark: 'purple-800',
-        border: 'purple-200'
-      },
-      '#F87060': {
-        primary: 'coral-500',
-        light: 'coral-50',
-        medium: 'coral-100',
-        dark: 'coral-800',
-        border: 'coral-200'
-      }
-    };
-
-    return cores[corHex] || cores['#10b981'];
-  };
-
-  const cores = getCoresPorCor(cor);
 
   const handleClick = () => {
     onClick?.();

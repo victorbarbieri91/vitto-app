@@ -46,6 +46,9 @@ const SUBMODULE_ORDER: BusinessPlanSubmodule[] = [
   'risks',
 ];
 
+/**
+ *
+ */
 export default function BusinessPlanPage() {
   const navigate = useNavigate();
   const { plans, loading, error, refetch, updateStatus } = useBusinessPlanList();
@@ -459,28 +462,3 @@ function StatusDropdown({
   );
 }
 
-// Status Pill Component (legacy - for reference)
-function StatusPill({ status }: { status: BusinessPlanStatus }) {
-  const config = {
-    draft: {
-      label: 'Rascunho',
-      classes: 'bg-slate-100 text-slate-600',
-    },
-    validating: {
-      label: 'Em Validação',
-      classes: 'bg-[#F87060]/10 text-[#F87060]',
-    },
-    validated: {
-      label: 'Validado',
-      classes: 'bg-emerald-100 text-emerald-700',
-    },
-  };
-
-  const { label, classes } = config[status];
-
-  return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${classes}`}>
-      {label}
-    </span>
-  );
-}

@@ -12,6 +12,9 @@ import {
   type BusinessPlanStatus
 } from '../../types/admin';
 
+/**
+ *
+ */
 export default function BusinessPlanSubmodulePage() {
   const { submodule } = useParams<{ submodule: SubmoduleType }>();
   const navigate = useNavigate();

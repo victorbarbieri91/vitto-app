@@ -82,6 +82,9 @@ const KPI_CONFIG: Array<{
   }
 ];
 
+/**
+ *
+ */
 export default function AdminKPIGrid({ metrics, loading }: AdminKPIGridProps) {
   if (loading) {
     return (

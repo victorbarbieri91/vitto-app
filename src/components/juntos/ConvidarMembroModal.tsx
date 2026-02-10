@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Search, UserPlus, Copy, Check, Share2, Link2, Loader2 } from 'lucide-react';
 import { useJuntos } from '../../contexts/JuntosContext';

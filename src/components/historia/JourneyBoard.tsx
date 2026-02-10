@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useHistoriaService } from '../../hooks/useHistoriaService';
 import { useMockHistoriaService } from '../../hooks/useMockHistoriaService';
 import { useAuth } from '../../store/AuthContext';

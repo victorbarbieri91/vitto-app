@@ -18,13 +18,6 @@ const getBalanceColor = (balance: number) => {
   return 'text-slate-500';
 };
 
-// Função utilitária para padronizar o roxo
-const getAccountColor = (cor?: string) => {
-  if (!cor) return '#F87060';
-  const roxos = ['#a259cf', '#8e44ad', '#9b59b6', '#7c3aed', '#6d28d9', '#8b5cf6', '#a78bfa'];
-  if (roxos.includes(cor.toLowerCase())) return '#9A279E';
-  return cor;
-};
 
 interface AccountListProps {
   accounts: Account[];
@@ -33,6 +26,9 @@ interface AccountListProps {
   onBalanceAdjusted?: () => void; // Callback para atualizar dados após ajuste
 }
 
+/**
+ *
+ */
 export default function AccountList({ accounts, onEdit, onDelete, onBalanceAdjusted }: AccountListProps) {
   const navigate = useNavigate();
   const [adjustingAccount, setAdjustingAccount] = useState<Account | null>(null);

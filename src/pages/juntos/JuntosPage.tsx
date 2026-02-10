@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Users, UserPlus, Settings, RefreshCw, Bell } from 'lucide-react';
+import { UserPlus, Settings, RefreshCw, Bell } from 'lucide-react';
 import { JuntosProvider, useJuntos } from '../../contexts/JuntosContext';
 import { JuntosDashboard } from '../../components/juntos/JuntosDashboard';
 import { SemGrupoCard } from '../../components/juntos/SemGrupoCard';

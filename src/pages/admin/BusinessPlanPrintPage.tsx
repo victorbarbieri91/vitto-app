@@ -6,6 +6,9 @@ import { useBusinessPlanList } from '../../hooks/admin/useBusinessPlan';
 import { useAuth } from '../../store/AuthContext';
 import { useIsAdmin } from '../../hooks/useAdminPermissions';
 
+/**
+ *
+ */
 export default function BusinessPlanPrintPage() {
   const { user, loading: authLoading } = useAuth();
   const isAdmin = useIsAdmin();

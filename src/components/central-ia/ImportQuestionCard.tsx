@@ -10,6 +10,9 @@ interface ImportQuestionCardProps {
   disabled?: boolean;
 }
 
+/**
+ *
+ */
 export function ImportQuestionCard({
   question,
   onAnswer,

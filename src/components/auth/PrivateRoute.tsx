@@ -7,6 +7,9 @@ type PrivateRouteProps = {
   redirectTo?: string;
 };
 
+/**
+ *
+ */
 export default function PrivateRoute({ redirectTo = '/login' }: PrivateRouteProps) {
   console.log('[PrivateRoute] Renderizando PrivateRoute');
   const { user, loading } = useAuth();

@@ -6,6 +6,9 @@ import KnowledgeForm from '../../components/admin/conhecimento/KnowledgeForm';
 
 type Tab = 'regras' | 'feedback';
 
+/**
+ *
+ */
 export default function BaseConhecimentoPage() {
   const [activeTab, setActiveTab] = useState<Tab>('regras');
   const [showForm, setShowForm] = useState(false);

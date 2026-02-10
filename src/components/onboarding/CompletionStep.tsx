@@ -1,4 +1,4 @@
-import { memo, useState, useEffect } from 'react';
+import { memo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle, ArrowRight, Sparkles } from 'lucide-react';
 import ModernCard from '../ui/modern/ModernCard';
@@ -13,11 +13,6 @@ const CompletionStep = memo(() => {
   const [isCompleted, setIsCompleted] = useState(false);
 
   const userName = userProfile?.nome || onboardingData.personalInfo?.nome || 'Usuário';
-  const receita = onboardingData.goalInfo?.receita_mensal || 0;
-  const metaPercentual = onboardingData.goalInfo?.meta_percentual || 80;
-  const metaValor = (receita * metaPercentual) / 100;
-  const accountName = onboardingData.accountInfo?.nome || 'Conta Principal';
-  const saldoInicial = onboardingData.accountInfo?.saldo_inicial || 0;
 
   const handleComplete = async () => {
     setIsCompleting(true);

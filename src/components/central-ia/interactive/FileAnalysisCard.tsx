@@ -20,6 +20,9 @@ interface FileAnalysisCardProps {
   element: FileAnalysisElement;
 }
 
+/**
+ *
+ */
 export function FileAnalysisCard({ element }: FileAnalysisCardProps) {
   const [showColumns, setShowColumns] = useState(false);
 

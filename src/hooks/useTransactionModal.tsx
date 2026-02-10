@@ -16,6 +16,9 @@ import { useTransactionContext } from '../store/TransactionContext';
 
 type ModalType = 'receita' | 'despesa' | 'despesa_cartao' | null;
 
+/**
+ *
+ */
 export function useTransactionModal(onTransactionSaved?: () => void) {
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);

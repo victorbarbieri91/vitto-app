@@ -25,7 +25,7 @@ const CreditCardSelector: React.FC<CreditCardSelectorProps> = ({
   onCardSelect,
   invoiceValues = {},
   currentMonth,
-  currentYear
+  currentYear: _currentYear
 }) => {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {

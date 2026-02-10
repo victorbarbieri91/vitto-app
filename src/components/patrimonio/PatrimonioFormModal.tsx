@@ -6,8 +6,7 @@ import { useResponsiveClasses } from '../../hooks/useScreenDetection';
 import type {
   PatrimonioAtivo,
   NewPatrimonioAtivo,
-  CategoriaAtivo,
-  DadosEspecificos
+  CategoriaAtivo
 } from '../../types/patrimonio';
 import { CATEGORIAS_METADATA, SUBCATEGORIAS } from '../../types/patrimonio';
 
@@ -19,6 +18,9 @@ interface PatrimonioFormModalProps {
   categoriaInicial?: CategoriaAtivo;
 }
 
+/**
+ *
+ */
 export default function PatrimonioFormModal({
   isOpen,
   onClose,

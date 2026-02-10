@@ -6,11 +6,13 @@ import { ModernCard, ModernButton, ModernInput, ModernSelect } from '../ui/moder
 import BudgetCard from './BudgetCard';
 import BudgetForm from '../forms/BudgetForm';
 import { cn } from '../../utils/cn';
-import ErrorBoundary from '../ui/ErrorBoundary';
 
 type ViewMode = 'grid' | 'list';
 type FilterStatus = 'all' | 'verde' | 'amarelo' | 'vermelho';
 
+/**
+ *
+ */
 export default function BudgetDashboard() {
   const [budgetStatuses, setBudgetStatuses] = useState<BudgetStatus[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);

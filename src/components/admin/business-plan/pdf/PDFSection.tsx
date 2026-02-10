@@ -114,6 +114,9 @@ const styles = StyleSheet.create({
   },
 });
 
+/**
+ *
+ */
 export function PDFSection({
   title,
   status,
@@ -195,6 +198,9 @@ const subsectionStyles = StyleSheet.create({
   },
 });
 
+/**
+ *
+ */
 export function PDFSubsection({ title, children }: SubsectionProps) {
   return (
     <View style={subsectionStyles.subsection}>
@@ -233,6 +239,9 @@ const textBlockStyles = StyleSheet.create({
   },
 });
 
+/**
+ *
+ */
 export function PDFTextBlock({ label, children }: TextBlockProps) {
   return (
     <View style={textBlockStyles.container}>
@@ -283,6 +292,9 @@ const bulletListStyles = StyleSheet.create({
   },
 });
 
+/**
+ *
+ */
 export function PDFBulletList({ items, label }: BulletListProps) {
   if (!items || items.length === 0) return null;
 

@@ -19,6 +19,9 @@ interface InteractiveMessageProps {
   disabled?: boolean;
 }
 
+/**
+ *
+ */
 export function InteractiveMessage({
   interactive,
   onButtonClick,

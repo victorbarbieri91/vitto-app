@@ -3,20 +3,17 @@ import { DayPicker } from 'react-day-picker';
 import { ptBR } from 'date-fns/locale';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
-import * as Tooltip from '@radix-ui/react-tooltip';
-import { ModernCard, ModernBadge } from '../ui/modern';
 import { useResponsiveClasses } from '../../hooks/useScreenDetection';
 import { useCalendarTransactions } from '../../hooks/useCalendarTransactions';
 import { useMonthlyDashboard } from '../../contexts/MonthlyDashboardContext';
 import { cn } from '../../utils/cn';
 import { formatCurrency } from '../../utils/format';
-import { TrendingUp, TrendingDown, Activity, X, Calendar, Filter, Receipt, ShoppingCart, CreditCard, DollarSign } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, X, Calendar, Filter, ShoppingCart, CreditCard, DollarSign } from 'lucide-react';
 import 'react-day-picker/dist/style.css';
 import '../../styles/calendar.css';
 
 const MiniCalendario = () => {
   const { classes, size } = useResponsiveClasses();
-  const [selected, setSelected] = useState<Date>();
   const [selectedDayData, setSelectedDayData] = useState<Date | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'receitas' | 'despesas'>('all');

@@ -2,6 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../store/AuthContext';
 import { creditCardService, CreditCardWithUsage } from '../services/api';
 
+/**
+ *
+ */
 export function useCreditCards() {
   const { user } = useAuth();
   const [cards, setCards] = useState<CreditCardWithUsage[]>([]);

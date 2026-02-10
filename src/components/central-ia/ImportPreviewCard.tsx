@@ -2,13 +2,9 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Check,
-  X,
   ChevronDown,
   ChevronUp,
   CreditCard,
-  Building2,
-  Calendar,
-  DollarSign,
   AlertTriangle,
   Loader2
 } from 'lucide-react';
@@ -28,6 +24,9 @@ interface ImportPreviewCardProps {
   isImporting?: boolean;
 }
 
+/**
+ *
+ */
 export function ImportPreviewCard({
   transacoes,
   summary,
@@ -45,7 +44,7 @@ export function ImportPreviewCard({
 
   const formatDate = (dateStr: string) => {
     try {
-      const [year, month, day] = dateStr.split('-');
+      const [, month, day] = dateStr.split('-');
       return `${day}/${month}`;
     } catch {
       return dateStr;

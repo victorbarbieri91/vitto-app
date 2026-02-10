@@ -4,7 +4,6 @@
 
 import { motion } from 'framer-motion';
 import {
-  CheckCircle2,
   XCircle,
   AlertTriangle,
   ChevronDown,
@@ -19,6 +18,9 @@ interface ImportResultCardProps {
   element: ImportResultElement;
 }
 
+/**
+ *
+ */
 export function ImportResultCard({ element }: ImportResultCardProps) {
   const [showErrors, setShowErrors] = useState(false);
 

@@ -27,6 +27,9 @@ interface FormData {
   observacoes: string;
 }
 
+/**
+ *
+ */
 export function ParcelamentoForm({ onSuccess, onCancel, className }: ParcelamentoFormProps) {
   const { accounts, loading: accountsLoading } = useAccounts();
   const { categories, loading: categoriesLoading } = useCategories();

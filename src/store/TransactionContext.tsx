@@ -22,6 +22,9 @@ type TransactionContextType = {
 
 const TransactionContext = createContext<TransactionContextType | undefined>(undefined);
 
+/**
+ *
+ */
 export function TransactionProvider({ children }: { children: ReactNode }) {
   const [changeVersion, setChangeVersion] = useState(0);
   const [lastChange, setLastChange] = useState<TransactionChangeEvent | null>(null);
@@ -77,6 +80,9 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ *
+ */
 export function useTransactionContext() {
   const context = useContext(TransactionContext);
   if (context === undefined) {
@@ -86,6 +92,9 @@ export function useTransactionContext() {
 }
 
 // Hook opcional para componentes que só precisam reagir a mudanças
+/**
+ *
+ */
 export function useTransactionRefresh(callback: () => void, deps: any[] = []) {
   const { onTransactionChange } = useTransactionContext();
 

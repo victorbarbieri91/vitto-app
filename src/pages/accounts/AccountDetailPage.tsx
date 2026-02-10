@@ -13,6 +13,9 @@ const getTransactionColor = (type: string) => {
   return 'text-gray-500';
 };
 
+/**
+ *
+ */
 export default function AccountDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { account, transactions, loading, error } = useAccountDetail(id);

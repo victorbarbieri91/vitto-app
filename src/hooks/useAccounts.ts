@@ -3,6 +3,9 @@ import { useAuth } from '../store/AuthContext';
 import { AccountService } from '../services/api/AccountService';
 import type { Account, AccountFormData, TransferData } from '../services/api/AccountService';
 
+/**
+ *
+ */
 export function useAccounts() {
   const { user } = useAuth();
   const accountService = useMemo(() => new AccountService(), []);

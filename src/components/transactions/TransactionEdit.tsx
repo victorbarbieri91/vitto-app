@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { ModernCard, ModernButton, ModernInput } from '../ui/modern';
 import { useAccounts } from '../../hooks/useAccounts';
 import { useCategories } from '../../hooks/useCategories';
@@ -12,9 +12,7 @@ import {
   FileText,
   Tag,
   Wallet,
-  CreditCard,
   AlertCircle,
-  Check,
   Edit3
 } from 'lucide-react';
 
@@ -45,6 +43,9 @@ interface ValidationErrors {
   conta_id?: string;
 }
 
+/**
+ *
+ */
 export function TransactionEdit({
   transaction,
   onSave,

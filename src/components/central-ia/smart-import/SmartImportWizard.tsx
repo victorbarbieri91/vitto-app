@@ -42,6 +42,9 @@ interface SmartImportWizardProps {
   onImportComplete?: (result: ImportResult) => void;
 }
 
+/**
+ *
+ */
 export function SmartImportWizard({
   isOpen,
   onClose,
@@ -221,7 +224,7 @@ export function SmartImportWizard({
     switch (currentStep) {
       case 1:
         return !!config.step1?.importType;
-      case 2:
+      case 2: {
         // Verificar se campos obrigatorios estao mapeados
         const mappings = config.step2?.mappings || [];
         const mappedFields = mappings.map((m) => m.targetField);
@@ -245,6 +248,7 @@ export function SmartImportWizard({
           );
         }
         return true;
+      }
       case 3:
         return !!(
           config.step3?.transactionType &&

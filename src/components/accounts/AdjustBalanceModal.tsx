@@ -22,6 +22,9 @@ const parseCurrency = (value: string): number => {
   return parseFloat(value.replace(/[^\d,-]/g, '').replace(',', '.')) || 0;
 };
 
+/**
+ *
+ */
 export default function AdjustBalanceModal({ 
   account, 
   isOpen, 

@@ -1,4 +1,3 @@
-import React from 'react';
 import type { EventoTimeline } from '../../types/historia';
 import JourneyEvent from './JourneyEvent';
 

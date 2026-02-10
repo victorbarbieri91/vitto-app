@@ -2,16 +2,12 @@
  * Step2ColumnMapping - Passo 2: Mapeamento de colunas
  */
 
-import { useState } from 'react';
 import { AlertCircle, CheckCircle2, HelpCircle } from 'lucide-react';
 import type {
   FileAnalysis,
   ImportTarget,
   ColumnMapping,
   MappableField,
-  TransactionField,
-  RecurringField,
-  AssetField,
 } from '../../../types/smart-import';
 import { FIELD_LABELS, REQUIRED_FIELDS } from '../../../types/smart-import';
 
@@ -22,6 +18,9 @@ interface Step2ColumnMappingProps {
   onChange: (mappings: ColumnMapping[]) => void;
 }
 
+/**
+ *
+ */
 export function Step2ColumnMapping({
   analysis,
   importType,
@@ -100,7 +99,6 @@ export function Step2ColumnMapping({
           <tbody className="divide-y divide-slate-100">
             {mappings.map((mapping) => {
               const column = analysis.columns.find((c) => c.index === mapping.columnIndex);
-              const fieldInfo = fieldLabels[mapping.targetField];
               const isRequired = requiredFields.includes(mapping.targetField as any);
               const isIgnored = mapping.targetField === 'ignorar';
 

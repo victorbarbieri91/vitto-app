@@ -37,6 +37,9 @@ function parseBRL(value: string) {
   return Number(value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
 }
 
+/**
+ *
+ */
 export default function AccountForm({ account, onSubmit, onCancel }: AccountFormProps) {
   const initialValues: AccountFormData = {
     nome: account?.nome || '',

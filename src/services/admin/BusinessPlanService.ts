@@ -11,6 +11,9 @@ import type {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const adminClient = supabase as any;
 
+/**
+ *
+ */
 export class BusinessPlanService {
   /**
    * Get all business plan submodules

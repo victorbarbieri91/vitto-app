@@ -78,6 +78,19 @@ export default defineConfig({
         if (warning.code === 'UNUSED_EXTERNAL_IMPORT') return
         if (warning.code === 'UNRESOLVED_IMPORT') return
         warn(warning)
+      },
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+          'vendor-charts': ['recharts', 'chart.js', 'react-chartjs-2'],
+          'vendor-forms': ['react-hook-form', '@hookform/resolvers', 'zod'],
+          'vendor-pdf': ['@react-pdf/renderer'],
+          'vendor-animation': ['framer-motion'],
+          'vendor-icons': ['lucide-react'],
+          'vendor-pdf-worker': ['pdfjs-dist'],
+          'vendor-sentry': ['@sentry/react'],
+        }
       }
     }
   },

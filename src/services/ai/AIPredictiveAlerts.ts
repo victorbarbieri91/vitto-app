@@ -24,9 +24,15 @@ export interface PredictiveAlert {
   createdAt: Date;
 }
 
+/**
+ *
+ */
 export class AIPredictiveAlerts {
   private static instance: AIPredictiveAlerts;
 
+  /**
+   *
+   */
   static getInstance(): AIPredictiveAlerts {
     if (!AIPredictiveAlerts.instance) {
       AIPredictiveAlerts.instance = new AIPredictiveAlerts();
@@ -382,79 +388,23 @@ export class AIPredictiveAlerts {
   }
 
   /**
-   * Gera alerta personalizado usando OpenAI
+   * Gera alerta personalizado usando IA
+   * TODO: Reativar via Edge Function quando necessário
    */
   async generateCustomAlert(
-    context: FinancialContext,
-    pattern: string,
-    data: any
+    _context: FinancialContext,
+    _pattern: string,
+    _data: any
   ): Promise<PredictiveAlert | null> {
-    if (!this.hasOpenAI()) {
-      return null;
-    }
-
-    try {
-      const prompt = `Baseado nos dados financeiros, gere um alerta preditivo personalizado:
-
-PADRÃO DETECTADO: ${pattern}
-DADOS: ${JSON.stringify(data, null, 2)}
-CONTEXTO FINANCEIRO: 
-- Saldo: ${this.formatCurrency(context.patrimonio.saldo_total)}
-- Fluxo Mensal: ${this.formatCurrency(context.indicadores.mes_atual.fluxo_liquido)}
-
-Retorne JSON com:
-{
-  "type": "warning|opportunity|critical|info",
-  "title": "Título do Alerta",
-  "message": "Mensagem explicativa",
-  "prediction": "Predição específica",
-  "confidence": 0.0-1.0,
-  "estimatedDays": número_de_dias,
-  "impact": "low|medium|high|critical",
-  "suggestedActions": ["ação1", "ação2", "ação3"]
-}`;
-
-      const openaiKey = import.meta.env.VITE_OPENAI_API_KEY;
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openaiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [{ role: 'user', content: prompt }],
-          max_tokens: 500,
-          temperature: 0.3,
-          response_format: { type: "json_object" }
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
-      }
-
-      const aiResponse = await response.json();
-      const alertData = JSON.parse(aiResponse.choices[0]?.message?.content || '{}');
-
-      return {
-        id: `custom_${Date.now()}`,
-        category: 'anomaly',
-        timeframe: 'days',
-        actionable: true,
-        data,
-        createdAt: new Date(),
-        ...alertData
-      } as PredictiveAlert;
-
-    } catch (error) {
-      console.warn('Erro ao gerar alerta personalizado:', error);
-      return null;
-    }
+    // Desativado - será reativado via Supabase Edge Function no futuro
+    return null;
   }
 
-  private hasOpenAI(): boolean {
-    return !!import.meta.env.VITE_OPENAI_API_KEY;
+  /**
+   * Verifica se o recurso de IA está habilitado
+   */
+  hasAIEnabled(): boolean {
+    return import.meta.env.VITE_AI_ENABLED === 'true';
   }
 }
 

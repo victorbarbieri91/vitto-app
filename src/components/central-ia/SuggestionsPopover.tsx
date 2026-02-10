@@ -67,6 +67,9 @@ const SUGGESTION_CATEGORIES: SuggestionCategory[] = [
   },
 ];
 
+/**
+ *
+ */
 export function SuggestionsPopover({ onSelectSuggestion }: SuggestionsPopoverProps) {
   const [isOpen, setIsOpen] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);

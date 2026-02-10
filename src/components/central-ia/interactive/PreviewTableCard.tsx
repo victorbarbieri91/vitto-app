@@ -8,7 +8,6 @@ import {
   AlertCircle,
   ChevronDown,
   ChevronUp,
-  DollarSign,
 } from 'lucide-react';
 import { useState } from 'react';
 import type { PreviewTableElement } from '../../../types/central-ia';
@@ -18,6 +17,9 @@ interface PreviewTableCardProps {
   element: PreviewTableElement;
 }
 
+/**
+ *
+ */
 export function PreviewTableCard({ element }: PreviewTableCardProps) {
   const [showAll, setShowAll] = useState(false);
 
@@ -74,7 +76,7 @@ export function PreviewTableCard({ element }: PreviewTableCardProps) {
 
       {/* Items List */}
       <div className="divide-y divide-slate-100">
-        {displayItems.map((item, i) => (
+        {displayItems.map((item) => (
           <div
             key={item.id}
             className={cn(

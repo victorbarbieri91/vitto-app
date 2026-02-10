@@ -12,6 +12,9 @@ interface BusinessPlanData {
   nextFocus: { submodule: string; title: string } | null;
 }
 
+/**
+ *
+ */
 export default function BusinessPlanStatus() {
   const [data, setData] = useState<BusinessPlanData | null>(null);
   const [loading, setLoading] = useState(true);

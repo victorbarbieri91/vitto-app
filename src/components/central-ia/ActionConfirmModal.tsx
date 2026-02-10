@@ -6,7 +6,6 @@ import {
   Check,
   Ban,
   ArrowDownCircle,
-  ArrowUpCircle,
   Target,
   PiggyBank,
   Trash2,
@@ -39,6 +38,9 @@ const ACTION_TITLES: Record<string, string> = {
   create_budget: 'Criar Orçamento',
 };
 
+/**
+ *
+ */
 export function ActionConfirmModal({
   isOpen,
   pendingAction,

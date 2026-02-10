@@ -20,6 +20,9 @@ interface MobileBottomNavProps {
   moreOpen: boolean;
 }
 
+/**
+ *
+ */
 export default function MobileBottomNav({ onMorePress, moreOpen }: MobileBottomNavProps) {
   const location = useLocation();
 

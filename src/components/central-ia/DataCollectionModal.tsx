@@ -12,6 +12,9 @@ interface DataCollectionModalProps {
   isLoading?: boolean;
 }
 
+/**
+ *
+ */
 export function DataCollectionModal({
   isOpen,
   dataRequest,

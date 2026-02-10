@@ -150,6 +150,9 @@ const SUBMODULE_ORDER: BusinessPlanSubmodule[] = [
   'risks',
 ];
 
+/**
+ *
+ */
 export function PDFTableOfContents({ plans }: PDFTableOfContentsProps) {
   // Sort plans by the defined order
   const sortedPlans = [...plans].sort(

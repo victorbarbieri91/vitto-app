@@ -19,6 +19,9 @@ interface Props {
   onSaved: () => void;
 }
 
+/**
+ *
+ */
 export default function KnowledgeForm({ entry, onClose, onSaved }: Props) {
   const [titulo, setTitulo] = useState(entry?.titulo || '');
   const [categoria, setCategoria] = useState(entry?.categoria || 'regra_negocio');

@@ -106,6 +106,9 @@ const styles = StyleSheet.create({
   },
 });
 
+/**
+ *
+ */
 export function RevenuePDFSection({ content }: RevenuePDFSectionProps) {
   // Prepare pricing models data for table
   const pricingData = (content.pricing || []).map((item) => ({

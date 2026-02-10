@@ -8,6 +8,9 @@ interface Hypothesis {
   validated: boolean;
 }
 
+/**
+ *
+ */
 export default function HypothesesCard() {
   const [hypotheses, setHypotheses] = useState<Hypothesis[]>([]);
   const [loading, setLoading] = useState(true);

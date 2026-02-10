@@ -13,7 +13,7 @@ export const BudgetCard: React.FC<BudgetCardProps> = ({
   title,
   amount,
   spent,
-  category,
+  category: _category,
   color = '#F87060'
 }) => {
   const percentage = amount > 0 ? (spent / amount) * 100 : 0;

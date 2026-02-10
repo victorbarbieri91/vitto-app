@@ -2,7 +2,7 @@
  * ImportSuccess - Tela de sucesso apos importacao
  */
 
-import { CheckCircle2, XCircle, AlertTriangle, ArrowRight, ExternalLink } from 'lucide-react';
+import { CheckCircle2, XCircle, AlertTriangle, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { ImportResult } from '../../../types/smart-import';
 
@@ -11,6 +11,9 @@ interface ImportSuccessProps {
   onClose: () => void;
 }
 
+/**
+ *
+ */
 export function ImportSuccess({ result, onClose }: ImportSuccessProps) {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {

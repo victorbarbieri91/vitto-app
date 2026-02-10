@@ -4,6 +4,9 @@ import { supabase } from '../../services/supabase/client';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 
+/**
+ *
+ */
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');

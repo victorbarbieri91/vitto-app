@@ -24,6 +24,9 @@ interface TransactionEditModalProps {
   onSave: (transaction: Transaction, data: EditTransactionData) => Promise<void>;
 }
 
+/**
+ *
+ */
 export default function TransactionEditModal({ isOpen, onClose, transaction, onSave }: TransactionEditModalProps) {
   const { accounts } = useAccounts();
   const { categories } = useCategories();

@@ -233,7 +233,7 @@ export const useTransactionsService = () => {
     transactions: Transaction[], 
     period: 'week' | 'month' | 'year',
     customStartDate?: Date,
-    customEndDate?: Date
+    _customEndDate?: Date
   ): ChartData => {
     const labels: string[] = [];
     const incomes: number[] = [];

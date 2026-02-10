@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { cn } from '../../utils/cn';
 import { useResponsiveClasses } from '../../hooks/useScreenDetection';
 import type { PatrimonioPorCategoria, CategoriaAtivo } from '../../types/patrimonio';
@@ -12,6 +12,9 @@ interface PatrimonioPizzaChartProps {
   onCategoriaClick?: (categoria: CategoriaAtivo) => void;
 }
 
+/**
+ *
+ */
 export default function PatrimonioPizzaChart({
   dados,
   isLoading = false,

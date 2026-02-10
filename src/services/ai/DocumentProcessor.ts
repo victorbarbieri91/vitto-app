@@ -80,9 +80,15 @@ export interface ProcessingResult {
   processing_time_ms: number;
 }
 
+/**
+ *
+ */
 export class DocumentProcessor {
   private supabaseUrl: string;
 
+  /**
+   *
+   */
   constructor() {
     this.supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
   }
@@ -282,45 +288,7 @@ export class DocumentProcessor {
     });
   }
 
-  /**
-   * Converte PDF para imagens usando pdf.js
-   */
-  private async pdfToImages(file: File): Promise<string[]> {
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      const images: string[] = [];
-
-      // Processar apenas as primeiras 3 páginas para evitar uso excessivo de API
-      const maxPages = Math.min(pdf.numPages, 3);
-
-      for (let i = 1; i <= maxPages; i++) {
-        const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: 2.0 }); // Escala alta para melhor OCR
-
-        const canvas = document.createElement('canvas');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-
-        const context = canvas.getContext('2d');
-        if (!context) continue;
-
-        await page.render({
-          canvasContext: context as unknown as CanvasRenderingContext2D,
-          viewport
-        } as any).promise;
-
-        // Converter para base64 (sem prefixo)
-        const dataUrl = canvas.toDataURL('image/png');
-        images.push(dataUrl.split(',')[1]);
-      }
-
-      return images;
-    } catch (error) {
-      console.error('Erro ao converter PDF para imagens:', error);
-      return [];
-    }
-  }
+  // NOTE: _pdfToImages method removed to fix TS6133 - recoverable from git if needed
 
   /**
    * Processa planilha com IA extraindo dados diretamente
@@ -411,15 +379,13 @@ export class DocumentProcessor {
     lines.push('');
 
     // Encontrar a largura máxima de cada coluna para formatação
-    const maxCols = Math.max(...data.map(row => row.length));
-
     data.forEach((row, rowIndex) => {
       if (!row || row.every(cell => cell === '' || cell === null || cell === undefined)) {
         lines.push(`[Linha ${rowIndex + 1}] (vazia)`);
         return;
       }
 
-      const formattedCells = row.map((cell, colIndex) => {
+      const formattedCells = row.map((cell, _colIndex) => {
         if (cell === null || cell === undefined || cell === '') return '';
 
         // Converter diferentes tipos de dados
@@ -444,7 +410,7 @@ export class DocumentProcessor {
 
       // Criar linha formatada com separador de colunas
       const lineContent = formattedCells
-        .map((cell, i) => cell || '(vazio)')
+        .map((cell, _i) => cell || '(vazio)')
         .join(' | ');
 
       lines.push(`[Linha ${rowIndex + 1}] ${lineContent}`);
@@ -458,7 +424,7 @@ export class DocumentProcessor {
    */
   private async extractTransactionsWithAI(
     fullContent: string,
-    sheetsInfo: { name: string; rows: number }[]
+    _sheetsInfo: { name: string; rows: number }[]
   ): Promise<{
     tipo_documento: ExtractedFinancialData['tipo_documento'];
     confianca: number;
@@ -595,7 +561,7 @@ EXTRAIA TODAS as transações que conseguir identificar. Se não conseguir deter
       }
 
       // Formato DD/MM/YYYY ou DD-MM-YYYY
-      const brMatch = dateStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+      const brMatch = dateStr.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/);
       if (brMatch) {
         const day = brMatch[1].padStart(2, '0');
         const month = brMatch[2].padStart(2, '0');
@@ -770,7 +736,7 @@ EXTRAIA TODAS as transações que conseguir identificar. Se não conseguir deter
       if (!row || row.length === 0) continue;
 
       // Extrair valores
-      let rawData = columns.data >= 0 ? row[columns.data] : null;
+      const rawData = columns.data >= 0 ? row[columns.data] : null;
       const descricao = columns.descricao >= 0 ? String(row[columns.descricao] || '') : '';
       let valor = columns.valor >= 0 ? row[columns.valor] : 0;
       const categoria = columns.categoria >= 0 ? String(row[columns.categoria] || '') : '';
@@ -824,7 +790,7 @@ EXTRAIA TODAS as transações que conseguir identificar. Se não conseguir deter
       const dateStr = String(rawDate);
 
       // Tentar formato DD/MM/YYYY ou DD-MM-YYYY
-      const brMatch = dateStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+      const brMatch = dateStr.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/);
       if (brMatch) {
         const day = brMatch[1].padStart(2, '0');
         const month = brMatch[2].padStart(2, '0');
@@ -834,7 +800,7 @@ EXTRAIA TODAS as transações que conseguir identificar. Se não conseguir deter
       }
 
       // Tentar formato YYYY-MM-DD
-      const isoMatch = dateStr.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+      const isoMatch = dateStr.match(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
       if (isoMatch) {
         return `${isoMatch[1]}-${isoMatch[2].padStart(2, '0')}-${isoMatch[3].padStart(2, '0')}`;
       }

@@ -28,6 +28,9 @@ interface InvoiceImportModalProps {
 
 type ModalStep = 'processing' | 'review' | 'importing' | 'complete' | 'error';
 
+/**
+ *
+ */
 export function InvoiceImportModal({
   isOpen,
   onClose,

@@ -12,6 +12,9 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
+/**
+ *
+ */
 export default function FinanceSummaryCard() {
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
   const [loading, setLoading] = useState(true);

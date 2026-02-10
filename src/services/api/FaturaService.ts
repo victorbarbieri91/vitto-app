@@ -1,4 +1,3 @@
-import { supabase } from '../supabase/client';
 import { Database } from '../../types/supabase';
 import { BaseApi } from './BaseApi';
 
@@ -27,11 +26,20 @@ export interface FaturaTransaction {
   fixo_id: number | null;
 }
 
+/**
+ *
+ */
 export class FaturaService extends BaseApi {
+  /**
+   *
+   */
   constructor() {
     super();
   }
 
+  /**
+   *
+   */
   async findByCardAndMonth(cardId: number | string, year: number, month: number) {
     const { data, error } = await this.supabase
       .from('app_fatura')
@@ -71,12 +79,18 @@ export class FaturaService extends BaseApi {
     return data || 0;
   }
 
+  /**
+   *
+   */
   async payInvoice(request: PayInvoiceRequest) {
     const { data, error } = await this.supabase.rpc('pagar_fatura', request);
     return { data, error };
   }
 
-  async list(filters?: any) {
+  /**
+   *
+   */
+  async list(_filters?: any) {
     const { data, error } = await this.supabase
       .from('app_fatura')
       .select('*')

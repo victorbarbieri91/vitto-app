@@ -33,6 +33,9 @@ interface UseCentralIAReturn {
   clearMessages: () => void;
 }
 
+/**
+ *
+ */
 export function useCentralIA(): UseCentralIAReturn {
   const [state, setState] = useState<ChatState>({
     messages: [],

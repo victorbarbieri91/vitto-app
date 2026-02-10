@@ -21,6 +21,9 @@ interface MessageListProps {
   }) => void;
 }
 
+/**
+ *
+ */
 export function MessageList({
   messages,
   isLoading,

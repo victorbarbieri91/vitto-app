@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { TransactionService } from '../services/api/TransactionService';
 
 export type TransactionChartData = {
@@ -9,6 +9,9 @@ export type TransactionChartData = {
 
 export type Period = 'week' | 'month' | 'year' | 'custom';
 
+/**
+ *
+ */
 export function useTransactionChart() {
   const [chartData, setChartData] = useState<TransactionChartData>({
     labels: [],

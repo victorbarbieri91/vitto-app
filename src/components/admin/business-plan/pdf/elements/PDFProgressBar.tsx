@@ -39,6 +39,9 @@ const styles = StyleSheet.create({
   },
 });
 
+/**
+ *
+ */
 export function PDFProgressBar({
   current,
   target,
@@ -84,6 +87,9 @@ export function PDFProgressBar({
 }
 
 // Simple percentage bar without labels
+/**
+ *
+ */
 export function PDFPercentageBar({
   percentage,
   color = PDF_COLORS.coral,

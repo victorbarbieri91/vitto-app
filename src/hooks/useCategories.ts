@@ -19,6 +19,9 @@ export type NewCategory = Omit<Category, 'id' | 'created_at' | 'user_id' | 'over
   user_id?: string | null;
 };
 
+/**
+ *
+ */
 export function useCategories() {
   const { user } = useAuth();
   const [rawCategories, setRawCategories] = useState<Category[]>([]);

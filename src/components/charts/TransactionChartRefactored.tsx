@@ -26,6 +26,9 @@ interface TransactionChartRefactoredProps {
   period: 'week' | 'month' | 'year';
 }
 
+/**
+ *
+ */
 export default function TransactionChartRefactored({
   labels,
   incomeData,

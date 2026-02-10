@@ -4,7 +4,6 @@ import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Wallet, Target, Ch
 import { useBudget } from '../../hooks/useBudget';
 import { BudgetCard, AddBudgetCard, BudgetModal } from '../../components/budgets';
 import { ModernCard } from '../../components/ui/modern';
-import SimpleMetricCard from '../../components/ui/modern/SimpleMetricCard';
 import { cn } from '../../utils/cn';
 import budgetService from '../../services/api/BudgetService';
 import type { BudgetWithCategory, BudgetTipo } from '../../services/api/BudgetService';
@@ -17,6 +16,9 @@ interface Category {
   icone?: string;
 }
 
+/**
+ *
+ */
 export default function BudgetsPage() {
   const {
     budgetStatus,
@@ -114,19 +116,6 @@ export default function BudgetsPage() {
   const budgetsNoLimite = budgetStatus.filter(b => b.status === 'verde').length;
   const budgetsEmRisco = budgetStatus.filter(b => b.status === 'amarelo').length;
   const budgetsExcedidos = budgetStatus.filter(b => b.status === 'vermelho').length;
-
-  // Taxa média de cumprimento (para despesas: quanto menor o %, melhor)
-  const taxaCumprimento = budgetStatus.length > 0
-    ? budgetStatus.reduce((sum, b) => {
-        // Para despesas: 100% - percentual gasto (economia)
-        // Para receitas: percentual recebido
-        if (b.budget.tipo === 'receita') {
-          return sum + Math.min(b.percentualGasto, 100);
-        } else {
-          return sum + Math.max(0, 100 - b.percentualGasto);
-        }
-      }, 0) / budgetStatus.length
-    : 0;
 
   // Animações
   const containerVariants = {

@@ -437,22 +437,37 @@ export class BudgetService extends BaseApi {
   }
 
   // Aliases para compatibilidade com código antigo
+  /**
+   *
+   */
   async list(): Promise<BudgetWithCategory[]> {
     return this.fetchBudgets();
   }
 
+  /**
+   *
+   */
   async getById(id: number): Promise<BudgetWithCategory | null> {
     return this.getBudget(id);
   }
 
+  /**
+   *
+   */
   async create(newBudget: NewBudget): Promise<Budget> {
     return this.createBudget(newBudget);
   }
 
+  /**
+   *
+   */
   async update(id: number, updates: Partial<NewBudget>): Promise<boolean> {
     return this.updateBudget(id, updates);
   }
 
+  /**
+   *
+   */
   async delete(id: number): Promise<boolean> {
     return this.deleteBudget(id);
   }

@@ -32,6 +32,9 @@ interface TransactionFormProps {
   isSubmitting?: boolean;
 }
 
+/**
+ *
+ */
 export default function TransactionForm({ 
   transaction, 
   onSubmit, 
@@ -85,7 +88,6 @@ export default function TransactionForm({
     handleBlur, 
     handleSubmit, 
     setFieldValue,
-    validateForm 
   } = useForm<FormTransactionData>({
     initialValues,
     validationRules,

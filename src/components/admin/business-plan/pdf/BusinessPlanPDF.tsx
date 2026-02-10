@@ -61,6 +61,9 @@ function renderSectionContent(plan: BusinessPlan) {
   }
 }
 
+/**
+ *
+ */
 export function BusinessPlanPDF({
   plans,
   companyName = 'Vitto',

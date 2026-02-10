@@ -10,6 +10,9 @@ interface AlertaInteligenteCardProps {
   className?: string;
 }
 
+/**
+ *
+ */
 export default function AlertaInteligenteCard({ className }: AlertaInteligenteCardProps) {
   const { user } = useAuth();
   const [alert, setAlert] = useState<PredictiveAlert | null>(null);

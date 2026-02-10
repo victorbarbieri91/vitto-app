@@ -3,7 +3,6 @@ import { supabase } from '../../../services/supabase/client';
 import {
   Check,
   X,
-  Eye,
   ChevronDown,
   ChevronUp,
   AlertCircle,
@@ -38,6 +37,9 @@ interface Props {
   onRefresh: () => void;
 }
 
+/**
+ *
+ */
 export default function FeedbackQueue({ onRefresh }: Props) {
   const [entries, setEntries] = useState<FeedbackEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,7 +103,7 @@ export default function FeedbackQueue({ onRefresh }: Props) {
       }
       // Remove needs_review flag from metadata
       if (entry.metadata) {
-        const { needs_review, ...rest } = entry.metadata;
+        const { needs_review: _needs_review, ...rest } = entry.metadata;
         updateData.metadata = { ...rest, reviewed: true, reviewed_at: new Date().toISOString() };
       }
 

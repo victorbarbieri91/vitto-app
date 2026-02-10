@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { TransactionList, TransactionListRef } from '../../components/transactions/TransactionList';
-import type { Transaction } from '../../services/api/AccountService';
 import { MonthNavigator } from '../../components/ui/modern';
 import FilterChip from '../../components/ui/FilterChip';
 import { fixedTransactionService, FixedTransactionWithDetails } from '../../services/api/FixedTransactionService';
@@ -21,6 +20,9 @@ import { toast } from 'react-hot-toast';
 
 export type RecurrenceFilter = 'all' | 'fixa' | 'parcelada' | 'unica';
 
+/**
+ *
+ */
 export default function TransactionsPageModern() {
   const { user } = useAuth();
   const { onTransactionChange } = useTransactionContext();
@@ -51,10 +53,10 @@ export default function TransactionsPageModern() {
 
   // Monthly transactions state (from dashboard - single source of truth)
   const [monthlyTransactions, setMonthlyTransactions] = useState<any[]>([]);
-  const [monthlyLoading, setMonthlyLoading] = useState(false);
+  const [_monthlyLoading, setMonthlyLoading] = useState(false);
 
   // Fixed transactions state (for edit/adjustment modals)
-  const [fixedTransactions, setFixedTransactions] = useState<FixedTransactionWithDetails[]>([]);
+  const [_fixedTransactions, setFixedTransactions] = useState<FixedTransactionWithDetails[]>([]);
 
 
   // Month navigation state

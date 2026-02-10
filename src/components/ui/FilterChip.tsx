@@ -8,6 +8,9 @@ interface FilterChipProps {
   className?: string;
 }
 
+/**
+ *
+ */
 export default function FilterChip({ label, isActive, onClick, count, className }: FilterChipProps) {
   return (
     <button

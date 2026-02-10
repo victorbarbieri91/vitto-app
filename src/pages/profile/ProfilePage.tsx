@@ -18,12 +18,15 @@ type Profile = {
 
 const CONFIRMATION_TEXT = 'quero excluir meus dados';
 
+/**
+ *
+ */
 export default function ProfilePage() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [_profile, setProfile] = useState<Profile | null>(null);
   const [formData, setFormData] = useState({
     nome: '',
     email: '',

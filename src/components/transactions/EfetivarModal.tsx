@@ -22,6 +22,9 @@ interface EfetivarModalProps {
   onConfirm: (transaction: Transaction, data: EfetivarData) => Promise<void>;
 }
 
+/**
+ *
+ */
 export default function EfetivarModal({ isOpen, onClose, transaction, onConfirm }: EfetivarModalProps) {
   const [valorRecebido, setValorRecebido] = useState<number | undefined>(undefined);
   const [dataRecebimento, setDataRecebimento] = useState('');

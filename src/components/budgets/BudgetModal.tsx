@@ -31,6 +31,9 @@ const CATEGORY_COLORS = [
   '#EC4899', '#14B8A6', '#6366F1', '#EF4444', '#84CC16'
 ];
 
+/**
+ *
+ */
 export default function BudgetModal({
   isOpen,
   onClose,

@@ -40,6 +40,9 @@ interface NewTransactionButtonProps {
   className?: string;
 }
 
+/**
+ *
+ */
 export default function NewTransactionButton({ onSelect, onSuccess, className }: NewTransactionButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [mobileModalType, setMobileModalType] = useState<TransactionType | null>(null);

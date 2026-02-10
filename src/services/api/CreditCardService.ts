@@ -33,6 +33,9 @@ export interface CreditCardWithUsage extends CreditCard {
   fatura_proxima: number;
 }
 
+/**
+ *
+ */
 export class CreditCardService {
   /**
    * Lista todos os cartões de crédito do usuário

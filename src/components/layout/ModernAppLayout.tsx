@@ -13,7 +13,6 @@ import {
   Menu,
   X,
   Wallet,
-  BookOpen,
   Users,
   Landmark,
   Sparkles
@@ -22,7 +21,7 @@ import { useState } from 'react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { useScreenDetection } from '../../hooks/useScreenDetection';
 import { cn } from '../../utils/cn';
-import ChatBar from '../chat/ChatBar';
+
 import { useSolicitacoesPendentes } from '../../hooks/useSolicitacoesPendentes';
 import NewTransactionButton from '../dashboard/NewTransactionButton';
 import { useTransactionModal } from '../../hooks/useTransactionModal';
@@ -48,6 +47,9 @@ const navigation = [
   // { name: 'Configurações', path: '/configuracoes', icon: Settings }, // MOVIDO PARA MENU DO USUÁRIO
 ];
 
+/**
+ *
+ */
 export default function ModernAppLayout({ children, requireAuth = true }: ModernAppLayoutProps) {
   const { user, userProfile, signOut, loading } = useAuth();
   const location = useLocation();

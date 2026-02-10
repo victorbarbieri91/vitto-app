@@ -16,6 +16,9 @@ interface MessageInputProps {
   onFileSelect?: (file: File) => void;
 }
 
+/**
+ *
+ */
 export function MessageInput({
   onSend,
   isLoading,

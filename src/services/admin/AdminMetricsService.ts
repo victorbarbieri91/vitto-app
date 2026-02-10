@@ -1,6 +1,9 @@
 import { supabase } from '../supabase/client';
 import type { AdminMetrics } from '../../types/admin';
 
+/**
+ *
+ */
 export class AdminMetricsService {
   /**
    * Fetch all admin dashboard metrics (SaaS focused, 7-day period)

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Users, Check, XIcon, Loader2, Bell } from 'lucide-react';
 import { juntosService } from '../../services/api/JuntosService';
-import { ModernButton } from '../ui/modern';
 import type { SolicitacaoVinculo } from '../../types/juntos';
 
 interface SolicitacoesPendentesModalProps {

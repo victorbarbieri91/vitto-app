@@ -8,6 +8,9 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   isLoading?: boolean;
 }
 
+/**
+ *
+ */
 export default function Button({
   children,
   variant = 'primary',

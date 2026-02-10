@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, TrendingUp, TrendingDown, Smartphone } from 'lucide-react';
 import { useTransactionSaver } from '../../hooks/useTransactionSaver';
@@ -36,6 +36,9 @@ const transactionConfig = {
   }
 };
 
+/**
+ *
+ */
 export function MobileTransactionModal({
   isOpen,
   transactionType,

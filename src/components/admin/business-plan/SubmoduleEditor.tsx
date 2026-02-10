@@ -19,6 +19,9 @@ interface SubmoduleEditorProps {
   onSave: (content: BusinessPlanContent, changeSummary?: string) => Promise<void>;
 }
 
+/**
+ *
+ */
 export default function SubmoduleEditor({ submodule, content, onSave }: SubmoduleEditorProps) {
   const [saving, setSaving] = useState(false);
   const [changeSummary, setChangeSummary] = useState('');

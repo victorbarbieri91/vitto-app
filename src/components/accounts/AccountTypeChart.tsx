@@ -32,6 +32,9 @@ const backgroundColors = [
   '#ECC94B', // Amarelo
 ];
 
+/**
+ *
+ */
 export default function AccountTypeChart({ accounts }: AccountTypeChartProps) {
   const chartData = useMemo<ChartData<'doughnut'>>(() => {
     const dataByTipe = accounts.reduce((acc, account) => {

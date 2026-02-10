@@ -47,6 +47,9 @@ function groupSessionsByDate(sessions: ChatSession[]) {
   return groups;
 }
 
+/**
+ *
+ */
 export function HistoryDropdown({
   sessions,
   currentSessionId,

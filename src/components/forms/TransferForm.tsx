@@ -27,6 +27,9 @@ interface FormData {
   observacoes: string;
 }
 
+/**
+ *
+ */
 export function TransferForm({ onSuccess, onCancel, className }: TransferFormProps) {
   const { accounts, loading: accountsLoading } = useAccounts();
   const transactionService = new TransactionService();

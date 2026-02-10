@@ -83,6 +83,9 @@ function getStepsForMessage(message?: string): ThinkingStep[] {
   return DEFAULT_STEPS;
 }
 
+/**
+ *
+ */
 export function ThinkingIndicator({ userMessage }: ThinkingIndicatorProps) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const steps = getStepsForMessage(userMessage);

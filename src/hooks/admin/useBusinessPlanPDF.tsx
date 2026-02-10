@@ -15,6 +15,9 @@ interface UseBusinessPlanPDFReturn {
   loading: boolean;
 }
 
+/**
+ *
+ */
 export function useBusinessPlanPDF(
   _options: UseBusinessPlanPDFOptions = {}
 ): UseBusinessPlanPDFReturn {

@@ -6,6 +6,9 @@ interface AddBudgetCardProps {
   onClick: () => void;
 }
 
+/**
+ *
+ */
 export default function AddBudgetCard({ onClick }: AddBudgetCardProps) {
   return (
     <motion.div

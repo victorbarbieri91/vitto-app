@@ -14,6 +14,9 @@ interface DayPickerProps {
   hint?: string;
 }
 
+/**
+ *
+ */
 export default function DayPicker({
   value,
   onChange,

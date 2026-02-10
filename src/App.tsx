@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './store/AuthContext';
 import { TransactionProvider } from './store/TransactionContext';
@@ -6,59 +7,73 @@ import { OnboardingProvider } from './contexts/OnboardingContext';
 import { useAuth } from './store/AuthContext';
 import PrivateRoute from './components/auth/PrivateRoute';
 import AdminRoute from './components/auth/AdminRoute';
-import OnboardingPage from './pages/onboarding/OnboardingPage';
+import ErrorBoundary from './components/ui/ErrorBoundary';
 
-// Auth Pages
+// ============================================
+// EAGER IMPORTS - Páginas carregadas imediatamente
+// (páginas mais acessadas / primeiro acesso)
+// ============================================
 import AuthPage from './pages/auth/AuthPage';
-import ForgotPasswordPage from './pages/auth/ForgotPasswordPage.tsx';
-import ResetPasswordPage from './pages/auth/ResetPasswordPage.tsx';
-
-// App Pages
 import DashboardPageModern from './pages/dashboard/DashboardPageModern';
 import AccountsPage from './pages/accounts/AccountsPage';
-import AccountDetailPage from './pages/accounts/AccountDetailPage';
 import TransactionsPageModern from './pages/transactions/TransactionsPageModern';
-import CategoriesPage from './pages/categories/CategoriesPage';
-import ProfilePage from './pages/profile/ProfilePage';
-import CardsPage from './pages/cards/CardsPage';
-import BudgetsPage from './pages/budgets/BudgetsPage';
-import SettingsPage from './pages/settings/SettingsPage';
-// import SuaHistoriaPage from './pages/historia/SuaHistoriaPage'; // TEMPORARIAMENTE OCULTO
-import NotFoundPage from './pages/errors/NotFoundPage';
-// import JourneyGamePage from './pages/historia/JourneyGamePage'; // TEMPORARIAMENTE OCULTO
 
-// Central IA
-import CentralIAPage from './pages/central-ia/CentralIAPage';
+// ============================================
+// LAZY IMPORTS - Páginas carregadas sob demanda
+// (carregam apenas quando o usuário navega até elas)
+// ============================================
 
-// Patrimonio Page
-import PatrimonioPage from './pages/patrimonio/PatrimonioPage';
+// Auth secundárias
+const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./pages/auth/ResetPasswordPage'));
 
-// Juntos (Finanças Compartilhadas)
-import JuntosPage from './pages/juntos/JuntosPage';
-import ConviteAceitarPage from './pages/juntos/ConviteAceitarPage';
+// Onboarding (visitado uma vez)
+const OnboardingPage = lazy(() => import('./pages/onboarding/OnboardingPage'));
 
-// Admin Panel
-import AdminDashboardPage from './pages/admin/AdminDashboardPage';
-import BusinessPlanPage from './pages/admin/BusinessPlanPage';
-import BusinessPlanSubmodulePage from './pages/admin/BusinessPlanSubmodulePage';
-import BusinessPlanPrintPage from './pages/admin/BusinessPlanPrintPage';
-import AgendaPage from './pages/admin/AgendaPage';
-import AdminFinancePage from './pages/admin/AdminFinancePage';
-import BaseConhecimentoPage from './pages/admin/BaseConhecimentoPage';
+// Páginas secundárias do app
+const AccountDetailPage = lazy(() => import('./pages/accounts/AccountDetailPage'));
+const CategoriesPage = lazy(() => import('./pages/categories/CategoriesPage'));
+const ProfilePage = lazy(() => import('./pages/profile/ProfilePage'));
+const CardsPage = lazy(() => import('./pages/cards/CardsPage'));
+const BudgetsPage = lazy(() => import('./pages/budgets/BudgetsPage'));
+const SettingsPage = lazy(() => import('./pages/settings/SettingsPage'));
+
+// Módulos pesados
+const CentralIAPage = lazy(() => import('./pages/central-ia/CentralIAPage'));
+const PatrimonioPage = lazy(() => import('./pages/patrimonio/PatrimonioPage'));
+const JuntosPage = lazy(() => import('./pages/juntos/JuntosPage'));
+const ConviteAceitarPage = lazy(() => import('./pages/juntos/ConviteAceitarPage'));
+
+// Admin Panel (todo o painel admin carrega sob demanda)
+const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage'));
+const BusinessPlanPage = lazy(() => import('./pages/admin/BusinessPlanPage'));
+const BusinessPlanSubmodulePage = lazy(() => import('./pages/admin/BusinessPlanSubmodulePage'));
+const BusinessPlanPrintPage = lazy(() => import('./pages/admin/BusinessPlanPrintPage'));
+const AgendaPage = lazy(() => import('./pages/admin/AgendaPage'));
+const AdminFinancePage = lazy(() => import('./pages/admin/AdminFinancePage'));
+const BaseConhecimentoPage = lazy(() => import('./pages/admin/BaseConhecimentoPage'));
+
+// Página de erro
+const NotFoundPage = lazy(() => import('./pages/errors/NotFoundPage'));
+
+// ============================================
+// LOADING SPINNER - Exibido durante lazy loading
+// ============================================
+const PageLoadingSpinner = () => (
+  <div className="flex items-center justify-center min-h-screen bg-gray-50">
+    <div className="text-center">
+      <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+      <p className="mt-4 text-gray-600">Carregando...</p>
+    </div>
+  </div>
+);
 
 // Componente para redirecionar com base na autenticação e onboarding
 const RedirectBasedOnAuth = () => {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-gray-600">Carregando...</p>
-        </div>
-      </div>
-    );
+    return <PageLoadingSpinner />;
   }
 
   if (!user) {
@@ -69,6 +84,9 @@ const RedirectBasedOnAuth = () => {
   return <Navigate to="/dashboard" replace />;
 };
 
+/**
+ *
+ */
 function App() {
   return (
     <AuthProvider>
@@ -76,10 +94,12 @@ function App() {
         <OnboardingProvider>
           <Router>
             <ChatProvider>
+            <ErrorBoundary componentName="AppRoutes" fullPage>
+            <Suspense fallback={<PageLoadingSpinner />}>
             <Routes>
             {/* Rota raiz - Redireciona com base na autenticação */}
             <Route path="/" element={<RedirectBasedOnAuth />} />
-            
+
             {/* Rotas públicas - Autenticação */}
             <Route path="/login" element={<AuthPage />} />
             <Route path="/entrar" element={<AuthPage />} />
@@ -110,7 +130,7 @@ function App() {
               <Route path="/categorias" element={<CategoriesPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/perfil" element={<ProfilePage />} />
-              
+
               {/* Rotas para páginas em desenvolvimento */}
               <Route path="/cartoes" element={<CardsPage />} />
               <Route path="/cards" element={<CardsPage />} />
@@ -159,6 +179,8 @@ function App() {
             {/* Página 404 */}
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
+            </Suspense>
+            </ErrorBoundary>
             </ChatProvider>
           </Router>
         </OnboardingProvider>

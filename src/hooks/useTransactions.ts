@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../store/AuthContext';
-import { transactionService, type TransactionWithDetails } from '../services/api/TransactionService';
 
 export type Transaction = {
   id: number;
@@ -17,6 +16,9 @@ export type Transaction = {
 
 export type NewTransaction = Omit<Transaction, 'id' | 'created_at' | 'user_id'>;
 
+/**
+ *
+ */
 export function useTransactions() {
   const { user } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);

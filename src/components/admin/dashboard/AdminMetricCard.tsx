@@ -13,6 +13,9 @@ interface AdminMetricCardProps {
   format?: 'number' | 'currency' | 'percentage';
 }
 
+/**
+ *
+ */
 export default function AdminMetricCard({
   title,
   value,

@@ -41,6 +41,9 @@ const importTypes: Array<{
   },
 ];
 
+/**
+ *
+ */
 export function Step1ImportType({
   analysis,
   selectedType,

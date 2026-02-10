@@ -4,9 +4,19 @@ import { useAuth } from '../../store/AuthContext';
 import { useOnboarding } from '../../contexts/OnboardingContext';
 import { OnboardingFlow } from '../../components/onboarding';
 
+/**
+ *
+ */
 export default function OnboardingPage() {
   const { user, loading: authLoading } = useAuth();
   const { status, loading: onboardingLoading, startOnboarding } = useOnboarding();
+
+  // Start onboarding process if user is authenticated and no status yet
+  useEffect(() => {
+    if (user && !onboardingLoading && !status) {
+      startOnboarding();
+    }
+  }, [user, onboardingLoading, status, startOnboarding]);
 
   // Redirect to login if not authenticated
   if (!authLoading && !user) {
@@ -17,13 +27,6 @@ export default function OnboardingPage() {
   if (!onboardingLoading && status?.completed) {
     return <Navigate to="/dashboard" replace />;
   }
-
-  // Start onboarding process if user is authenticated and no status yet
-  useEffect(() => {
-    if (user && !onboardingLoading && !status) {
-      startOnboarding();
-    }
-  }, [user, onboardingLoading, status, startOnboarding]);
 
   // Show loading while checking status
   if (authLoading || onboardingLoading) {

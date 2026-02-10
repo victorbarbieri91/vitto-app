@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ArrowLeftRight } from 'lucide-react';
 import { ModernButton } from '../ui/modern';
@@ -10,6 +10,9 @@ interface TransferModalProps {
   onSuccess?: () => void;
 }
 
+/**
+ *
+ */
 export function TransferModal({ isOpen, onClose, onSuccess }: TransferModalProps) {
   // Fechar modal com ESC
   useEffect(() => {

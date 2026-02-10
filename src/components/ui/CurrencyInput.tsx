@@ -96,12 +96,12 @@ const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(({
     }
   };
 
-  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+  const handleFocus = (_e: React.FocusEvent<HTMLInputElement>) => {
     setIsFocused(true);
     // A formatação em tempo real já cuida da exibição
   };
 
-  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+  const handleBlur = (_e: React.FocusEvent<HTMLInputElement>) => {
     setIsFocused(false);
     // A formatação já está aplicada em tempo real
   };

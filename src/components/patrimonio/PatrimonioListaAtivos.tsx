@@ -1,7 +1,5 @@
 import { motion } from 'framer-motion';
 import { Plus, Package } from 'lucide-react';
-import { cn } from '../../utils/cn';
-import { useResponsiveClasses } from '../../hooks/useScreenDetection';
 import type { PatrimonioAtivo, CategoriaAtivo } from '../../types/patrimonio';
 import { CATEGORIAS_METADATA } from '../../types/patrimonio';
 import PatrimonioAtivoCard from './PatrimonioAtivoCard';
@@ -16,6 +14,9 @@ interface PatrimonioListaAtivosProps {
   onUpdateValor?: (ativo: PatrimonioAtivo) => void;
 }
 
+/**
+ *
+ */
 export default function PatrimonioListaAtivos({
   ativos,
   categoriaFiltro,
@@ -25,9 +26,6 @@ export default function PatrimonioListaAtivos({
   onDeleteAtivo,
   onUpdateValor
 }: PatrimonioListaAtivosProps) {
-  const { size } = useResponsiveClasses();
-  const isMobile = size === 'mobile';
-
   // Agrupar ativos por categoria
   const ativosPorCategoria = ativos.reduce((acc, ativo) => {
     const categoria = ativo.categoria;

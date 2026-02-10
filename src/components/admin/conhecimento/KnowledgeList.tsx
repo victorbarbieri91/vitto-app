@@ -59,6 +59,9 @@ interface Props {
   onEdit: (entry: KnowledgeEntry) => void;
 }
 
+/**
+ *
+ */
 export default function KnowledgeList({ onEdit }: Props) {
   const [entries, setEntries] = useState<KnowledgeEntry[]>([]);
   const [loading, setLoading] = useState(true);

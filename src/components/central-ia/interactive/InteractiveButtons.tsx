@@ -32,6 +32,9 @@ const iconMap: Record<string, React.ReactNode> = {
   continue: <ChevronRight className="w-4 h-4" />,
 };
 
+/**
+ *
+ */
 export function InteractiveButtons({
   element,
   onSelect,

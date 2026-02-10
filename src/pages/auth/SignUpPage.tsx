@@ -2,11 +2,10 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../store/AuthContext';
 import { supabase } from '../../services/supabase/client';
-import { 
-  GlassFormContainer, 
-  ModernInput, 
-  ModernButton,
-  cn 
+import {
+  GlassFormContainer,
+  ModernInput,
+  ModernButton
 } from '../../components/ui/modern';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight, CheckCircle, User, Mail, Lock, Eye, EyeOff } from 'lucide-react';
@@ -121,7 +120,7 @@ export default function SignUpPage() {
         // Se chegou aqui, o login automático falhou, mostrar onboarding normal
         setOnboardingStep('welcome');
       }
-    } catch (error: any) {
+    } catch (_error: any) {
       setErrors({ general: 'Erro ao criar conta. Tente novamente.' });
     } finally {
       setIsLoading(false);

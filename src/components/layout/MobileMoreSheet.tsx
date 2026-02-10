@@ -32,6 +32,9 @@ interface MobileMoreSheetProps {
   badgeCount?: number;
 }
 
+/**
+ *
+ */
 export default function MobileMoreSheet({ isOpen, onClose, onSignOut, badgeCount = 0 }: MobileMoreSheetProps) {
   const location = useLocation();
 

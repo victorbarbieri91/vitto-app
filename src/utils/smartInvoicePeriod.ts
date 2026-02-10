@@ -13,6 +13,9 @@ export const NOMES_MESES = [
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
 ];
 
+/**
+ *
+ */
 export function formatFaturaLabel(mes: number, ano: number): string {
   return `Fatura de ${NOMES_MESES[mes - 1]} ${ano}`;
 }

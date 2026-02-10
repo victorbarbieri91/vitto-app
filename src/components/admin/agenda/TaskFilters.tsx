@@ -9,6 +9,9 @@ interface TaskFiltersProps {
   statusCounts: Record<TaskStatus, number>;
 }
 
+/**
+ *
+ */
 export default function TaskFilters({ filters, onFilterChange, statusCounts }: TaskFiltersProps) {
   const handleStatusClick = (status: TaskStatus) => {
     if (filters.status === status) {

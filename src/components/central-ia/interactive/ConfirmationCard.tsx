@@ -13,6 +13,9 @@ interface ConfirmationCardProps {
   disabled?: boolean;
 }
 
+/**
+ *
+ */
 export function ConfirmationCard({
   element,
   onConfirm,

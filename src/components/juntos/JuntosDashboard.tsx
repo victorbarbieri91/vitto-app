@@ -1,8 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import {
-  TrendingUp,
-  TrendingDown,
   ChevronRight,
 } from 'lucide-react';
 import { useJuntos } from '../../contexts/JuntosContext';

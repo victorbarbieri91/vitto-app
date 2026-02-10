@@ -36,6 +36,9 @@ export class AIContextManager {
   private indicatorsService = new IndicatorsService();
   private transactionService = new TransactionService();
 
+  /**
+   *
+   */
   static getInstance(): AIContextManager {
     if (!AIContextManager.instance) {
       AIContextManager.instance = new AIContextManager();
@@ -61,7 +64,7 @@ export class AIContextManager {
       const [
         userProfile,
         accounts,
-        categories,
+        _categories,
         indicators,
         recentTransactions,
         activeGoals,
@@ -230,7 +233,7 @@ export class AIContextManager {
         .single();
       
       return data || { nome: 'Usuário' };
-    } catch (error) {
+    } catch (_error) {
       console.warn('Perfil não encontrado, usando padrão');
       return { nome: 'Usuário' };
     }
@@ -245,7 +248,7 @@ export class AIContextManager {
     };
   }
 
-  private calculateSaudeFinanceira(indicators: any, patrimonio: any): SaudeFinanceira {
+  private calculateSaudeFinanceira(_indicators: any, patrimonio: any): SaudeFinanceira {
     // Algoritmo simples de saúde financeira
     let score = 50; // Base
     const fatores_positivos: string[] = [];
@@ -399,8 +402,8 @@ export class AIContextManager {
         .single();
 
       // Se não houver dados, buscar diretamente das transações
-      let mesAtualData = indicadorAtual || await this.calcularDadosMes(userId, mesAtual, anoAtual);
-      let mesAnteriorData = indicadorAnterior || await this.calcularDadosMes(userId, mesAnterior, anoAnterior);
+      const mesAtualData = indicadorAtual || await this.calcularDadosMes(userId, mesAtual, anoAtual);
+      const mesAnteriorData = indicadorAnterior || await this.calcularDadosMes(userId, mesAnterior, anoAnterior);
 
       const receitasAtual = Number(mesAtualData.receitas_confirmadas || 0);
       const despesasAtual = Number(mesAtualData.despesas_confirmadas || 0);
@@ -600,7 +603,6 @@ export class AIContextManager {
   private async getProjecoes(userId: string) {
     try {
       const projecoes = [];
-      const now = new Date();
 
       // Projetar próximos 3 meses
       for (let i = 1; i <= 3; i++) {
@@ -757,13 +759,13 @@ export class AIContextManager {
     }
   }
 
-  private async getMensagensRecentes(userId: string) {
+  private async getMensagensRecentes(_userId: string) {
     // Por enquanto retorna vazio - será implementado quando criarmos a tabela app_historico_chat
     // Na FASE 2 do plano, implementaremos o histórico completo
     return [];
   }
 
-  private async getIntencoesAnteriores(userId: string) {
+  private async getIntencoesAnteriores(_userId: string) {
     // Por enquanto retorna vazio - será implementado com a tabela app_memoria_ia
     // Na FASE 2 do plano, implementaremos o tracking de intenções
     return [];
@@ -850,7 +852,7 @@ export class AIContextManager {
     }).format(value);
   }
 
-  private async generateRelevantInsights(userId: string, query: string) {
+  private async generateRelevantInsights(_userId: string, _query: string) {
     // TODO: Implementar geração de insights relevantes
     return [];
   }

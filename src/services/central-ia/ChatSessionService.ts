@@ -17,6 +17,9 @@ export class ChatSessionService {
 
   private constructor() {}
 
+  /**
+   *
+   */
   static getInstance(): ChatSessionService {
     if (!ChatSessionService.instance) {
       ChatSessionService.instance = new ChatSessionService();

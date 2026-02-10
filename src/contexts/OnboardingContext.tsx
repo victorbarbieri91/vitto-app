@@ -32,6 +32,9 @@ const OnboardingContext = createContext<OnboardingContextType | undefined>(undef
 
 const STEP_ORDER: OnboardingStep[] = ['welcome', 'personal', 'account', 'income', 'goal', 'completed'];
 
+/**
+ *
+ */
 export function OnboardingProvider({ children }: { children: ReactNode }) {
   const { user, userProfile, loading: authLoading } = useAuth();
   const [status, setStatus] = useState<OnboardingStatus | null>(null);
@@ -222,6 +225,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ *
+ */
 export function useOnboarding() {
   const context = useContext(OnboardingContext);
   if (context === undefined) {

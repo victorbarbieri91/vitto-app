@@ -388,6 +388,9 @@ export class AccountService extends BaseApi {
     }
   }
 
+  /**
+   *
+   */
   async fetchTransactionsByAccountId(accountId: number): Promise<Transaction[]> {
     try {
       const user = await this.getCurrentUser();
@@ -407,6 +410,9 @@ export class AccountService extends BaseApi {
     }
   }
 
+  /**
+   *
+   */
   async getTotalBalance(): Promise<number> {
     try {
       const user = await this.getCurrentUser();

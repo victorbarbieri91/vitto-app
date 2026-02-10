@@ -6,6 +6,9 @@ interface HistoryTimelineProps {
   loading?: boolean;
 }
 
+/**
+ *
+ */
 export default function HistoryTimeline({ history, loading }: HistoryTimelineProps) {
   if (loading) {
     return (

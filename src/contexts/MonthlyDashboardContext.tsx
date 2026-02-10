@@ -2,8 +2,6 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 // CACHE INVALIDATION: Force refresh after saldo previsto logic fix - 2025-09-16
 import { supabase } from '../services/supabase/client';
 import { saldoService, type MetricasFinanceiras } from '../services/api/SaldoService';
-import { transactionService } from '../services/api/TransactionService';
-import { fixedTransactionService } from '../services/api/FixedTransactionService';
 import { useTransactionContext } from '../store/TransactionContext';
 import { faturaService } from '../services/api/FaturaService';
 
@@ -151,7 +149,7 @@ export const MonthlyDashboardProvider: React.FC<MonthlyDashboardProviderProps> =
       console.log(`🔄 Buscando dados via SaldoService para ${month}/${year}`);
       
       // Obter métricas financeiras usando o novo sistema
-      const metricas = await saldoService.obterMetricasFinanceiras(month, year, userId);
+      await saldoService.obterMetricasFinanceiras(month, year, userId);
       
       // Buscar todas as contas ativas do usuário
       const { data: contas, error: contasError } = await supabase
@@ -280,7 +278,7 @@ export const MonthlyDashboardProvider: React.FC<MonthlyDashboardProviderProps> =
   };
 
   // Função para gerar transações fixas - REMOVIDA: agora usa sistema virtual
-  const generateFixedTransactions = async (month: number, year: number): Promise<number> => {
+  const generateFixedTransactions = async (_month: number, _year: number): Promise<number> => {
     console.log('🔄 Sistema de transações virtuais - geração automática desabilitada');
     return 0; // Não gera mais transações automaticamente
   };

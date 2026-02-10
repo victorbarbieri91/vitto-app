@@ -80,6 +80,9 @@ const styles = StyleSheet.create({
   },
 });
 
+/**
+ *
+ */
 export function ThesisPDFSection({ content }: ThesisPDFSectionProps) {
   return (
     <View>

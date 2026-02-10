@@ -124,7 +124,6 @@ interface CalcLineProps {
 }
 
 function CalcLine({ label, value, operator, isTotal, colors }: CalcLineProps) {
-  const isPositive = value >= 0;
   const displayValue = operator === '-' ? -Math.abs(value) : value;
 
   return (
@@ -186,6 +185,9 @@ function AccountLine({ nome, saldo, colors }: AccountLineProps) {
   );
 }
 
+/**
+ *
+ */
 export default function KPIDetailModal({
   isOpen,
   onClose,

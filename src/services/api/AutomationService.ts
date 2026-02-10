@@ -2,8 +2,6 @@ import { supabase } from '../supabase/client';
 import { BaseApi } from './BaseApi';
 import { faturaService } from './FaturaService';
 import { creditCardService } from './CreditCardService';
-import { TransactionService } from './TransactionService';
-import { Database } from '../../types/database';
 
 export interface InvoiceClosureRequest {
   cartao_id: string;
@@ -29,13 +27,10 @@ export interface AutomationSettings {
   default_expense_category_id?: string;
 }
 
+/**
+ *
+ */
 export class AutomationService extends BaseApi {
-  private transactionService: TransactionService;
-
-  constructor() {
-    super();
-    this.transactionService = new TransactionService();
-  }
 
   /**
    * Fecha uma fatura automaticamente
@@ -125,7 +120,7 @@ export class AutomationService extends BaseApi {
         throw new Error('Cartão não encontrado');
       }
 
-      const cartao = cartaoResult.data;
+      // cartaoResult.data validated above but not needed directly
 
       // Usar função SQL pagar_fatura diretamente
       const { data: paymentResult, error: paymentError } = await supabase.rpc('pagar_fatura', {

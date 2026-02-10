@@ -1,5 +1,4 @@
 ﻿import { ReactNode } from 'react';
-import { motion } from 'framer-motion';
 import { cn } from '../../../utils/cn';
 import { useResponsiveClasses } from '../../../hooks/useScreenDetection';
 import AnimatedNumber from './AnimatedNumber';
@@ -19,6 +18,9 @@ interface MetricCardProps {
   onClick?: () => void;
 }
 
+/**
+ *
+ */
 export default function MetricCard({
   title,
   value,
@@ -26,7 +28,7 @@ export default function MetricCard({
   change,
   icon,
   isLoading = false,
-  animate = true,
+  animate: _animate = true,
   className,
   onClick,
 }: MetricCardProps) {

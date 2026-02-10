@@ -9,6 +9,9 @@ interface UseKPIDetailModalReturn {
   closeModal: () => void;
 }
 
+/**
+ *
+ */
 export function useKPIDetailModal(): UseKPIDetailModalReturn {
   const [isOpen, setIsOpen] = useState(false);
   const [kpiType, setKpiType] = useState<KPIType | null>(null);

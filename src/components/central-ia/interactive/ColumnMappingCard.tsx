@@ -19,6 +19,9 @@ interface ColumnMappingCardProps {
   onMappingChange?: (columnIndex: number, newField: string) => void;
 }
 
+/**
+ *
+ */
 export function ColumnMappingCard({
   element,
   onMappingChange,

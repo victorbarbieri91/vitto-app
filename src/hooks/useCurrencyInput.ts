@@ -1,5 +1,8 @@
 import { useState, useCallback } from 'react';
 
+/**
+ *
+ */
 export function useCurrencyInput(initialValue: number = 0) {
   const [value, setValue] = useState(initialValue);
 

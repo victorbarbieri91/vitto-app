@@ -32,6 +32,9 @@ const COLORS: Record<string, string> = {
   analise: 'bg-purple-50 text-purple-600 border-purple-100 hover:bg-purple-100',
 };
 
+/**
+ *
+ */
 export function QuickActionsMenu({
   actions,
   onSelect,

@@ -1,9 +1,5 @@
 import { BaseApi } from './BaseApi';
-import type { Database } from '../supabase/types';
-
-type Indicator = Database['public']['Tables']['app_indicadores']['Row'];
-type IndicatorInsert = Database['public']['Tables']['app_indicadores']['Insert'];
-type IndicatorUpdate = Database['public']['Tables']['app_indicadores']['Update'];
+// Database types removed - unused (TS6196)
 
 export interface FinancialIndicators {
   id: number;
@@ -47,6 +43,9 @@ export interface DashboardSummary {
   }>;
 }
 
+/**
+ *
+ */
 export class IndicatorsService extends BaseApi {
   /**
    * Busca indicadores de uma conta específica para um mês/ano
@@ -209,27 +208,7 @@ export class IndicatorsService extends BaseApi {
     };
   }
 
-  /**
-   * Calcula score de saúde financeira
-   */
-  private calculateHealthScore(receitas: number, despesas: number, saldoAtual: number): number {
-    if (receitas === 0) return 0;
-    
-    const ratioDespesas = despesas / receitas;
-    const saldoScore = saldoAtual > 0 ? Math.min(saldoAtual / 1000, 100) : 0;
-    
-    let score = 100;
-    
-    // Penalizar se gastos > 80% da receita
-    if (ratioDespesas > 0.8) {
-      score -= (ratioDespesas - 0.8) * 200;
-    }
-    
-    // Bonificar saldo positivo
-    score += saldoScore * 0.1;
-    
-    return Math.max(0, Math.min(100, score));
-  }
+  // NOTE: calculateHealthScore method removed to fix TS6133 - recoverable from git if needed
 
   /**
    * @deprecated Use getDashboardSummary() instead - agora usa função SQL corrigida

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   AlertTriangle, 
@@ -30,6 +30,9 @@ interface InvoiceAlertsProps {
   maxItems?: number;
 }
 
+/**
+ *
+ */
 export default function InvoiceAlerts({ className, maxItems = 3 }: InvoiceAlertsProps) {
   const navigate = useNavigate();
   const [alerts, setAlerts] = useState<InvoiceAlert[]>([]);

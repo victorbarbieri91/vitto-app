@@ -1,13 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, CreditCard as CreditCardIcon, Save, Loader2 } from 'lucide-react';
-import {
-  ModernCard,
-  ModernButton,
-  ModernInput,
-  ModernSelect,
-  GlassFormContainer
-} from '../ui/modern';
 import CurrencyInput from '../ui/CurrencyInput';
 import { 
   CreditCardWithUsage, 
@@ -18,9 +11,7 @@ import { cn } from '../../utils/cn';
 import { formatCurrency } from '../../utils/format';
 import {
   calculateSmartClosingDay,
-  getSmartClosingResult,
   validateCreditCardDates,
-  calculateDaysBetween
 } from '../../utils/creditCardHelpers';
 import DayPicker from '../ui/DayPicker';
 
@@ -56,13 +47,9 @@ const cardColors = [
   { name: 'Cinza Escuro', value: '#1F2937' },
 ];
 
-const cardIcons = [
-  { name: 'Cartão', value: 'card' },
-  { name: 'Estrela', value: 'star' },
-  { name: 'Diamante', value: 'diamond' },
-  { name: 'Coração', value: 'heart' },
-];
-
+/**
+ *
+ */
 export default function CreditCardForm({
   card,
   isOpen,
@@ -157,21 +144,6 @@ export default function CreditCardForm({
 
     if (errors.dia_fechamento) {
       setErrors(prev => ({ ...prev, dia_fechamento: undefined }));
-    }
-  };
-
-  // Reset to smart calculation
-  const resetToSmartCalculation = () => {
-    if (formData.dia_vencimento) {
-      const dueDay = parseInt(formData.dia_vencimento);
-      if (!isNaN(dueDay)) {
-        const smartClosing = calculateSmartClosingDay(dueDay);
-        setFormData(prev => ({
-          ...prev,
-          dia_fechamento: smartClosing.toString(),
-          fechamento_manual: false
-        }));
-      }
     }
   };
 

@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../store/AuthContext';
 import { BudgetService, type BudgetWithCategory, type NewBudget, type BudgetStatus } from '../services/api/BudgetService';
 
+/**
+ *
+ */
 export function useBudget() {
   const { user } = useAuth();
   const [budgets, setBudgets] = useState<BudgetWithCategory[]>([]);

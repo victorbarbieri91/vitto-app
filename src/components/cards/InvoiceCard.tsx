@@ -1,19 +1,13 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronDown,
-  ChevronUp,
   CreditCard,
-  Calendar,
   Package,
-  CheckCircle,
-  Clock,
-  AlertCircle,
   Repeat
 } from 'lucide-react';
 import { ModernCard, ModernButton, ModernBadge } from '../ui/modern';
 import { formatCurrency } from '../../utils/format';
-import { cn } from '../../utils/cn';
 import { getCategoryIcon } from '../../utils/getCategoryIcon';
 
 export interface InvoiceTransaction {
@@ -52,6 +46,9 @@ export interface InvoiceCardProps {
   onViewDetails?: (faturaId: string) => void;
 }
 
+/**
+ *
+ */
 export default function InvoiceCard({
   id,
   cartaoNome,
@@ -85,17 +82,6 @@ export default function InvoiceCard({
       }
     }
     setIsExpanded(!isExpanded);
-  };
-
-  const getStatusIcon = () => {
-    switch (status) {
-      case 'paga':
-        return <CheckCircle className="w-5 h-5 text-emerald-500" />;
-      case 'fechada':
-        return <AlertCircle className="w-5 h-5 text-amber-500" />;
-      default:
-        return <Clock className="w-5 h-5 text-blue-500" />;
-    }
   };
 
   const getStatusBadge = () => {
