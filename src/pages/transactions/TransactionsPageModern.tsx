@@ -17,6 +17,7 @@ import type { EfetivarData } from '../../components/transactions/EfetivarModal';
 import TransactionEditModal from '../../components/transactions/TransactionEditModal';
 import type { EditTransactionData } from '../../components/transactions/TransactionEditModal';
 import { toast } from 'react-hot-toast';
+import { cn } from '../../utils/cn';
 
 export type RecurrenceFilter = 'all' | 'fixa' | 'parcelada' | 'unica';
 
@@ -69,6 +70,9 @@ export default function TransactionsPageModern() {
 
   // Recurrence filter (chips)
   const [recurrenceFilter, setRecurrenceFilter] = useState<RecurrenceFilter>('all');
+
+  // Tipo filter (receita/despesa chips)
+  const [tipoFilter, setTipoFilter] = useState<'all' | 'receita' | 'despesa'>('all');
 
   // Process URL params
   useEffect(() => {
@@ -138,8 +142,127 @@ export default function TransactionsPageModern() {
       if (error) throw error;
 
       const result = data as any;
-      const transactions = result?.transacoes_mes || [];
-      setMonthlyTransactions(transactions);
+      const realTransactions = result?.transacoes_mes || [];
+
+      // Injetar faturas como itens na lista (seguindo padrao do ProximasTransacoesCard)
+      let faturaItems: any[] = [];
+      try {
+        // 1. Buscar cartoes do usuario
+        const { data: cards } = await supabase
+          .from('app_cartao_credito')
+          .select('id')
+          .eq('user_id', user.id);
+
+        const cardIds = (cards || []).map((c: any) => c.id);
+
+        if (cardIds.length > 0) {
+          // 2. Buscar faturas do mes (aberta ou fechada, nao paga)
+          const { data: faturas } = await supabase
+            .from('app_fatura')
+            .select('id, mes, ano, status, data_vencimento, cartao_id, app_cartao_credito(nome)')
+            .in('cartao_id', cardIds)
+            .eq('mes', currentMonth)
+            .eq('ano', currentYear)
+            .in('status', ['aberta', 'fechada']);
+
+          if (faturas && faturas.length > 0) {
+            // 3. Calcular valor DINAMICO para cada fatura via RPC
+            const totals = await Promise.all(
+              faturas.map(f => supabase.rpc('calcular_valor_total_fatura', { p_fatura_id: f.id }))
+            );
+
+            faturas.forEach((f: any, i) => {
+              const total = Number(totals[i].data) || 0;
+
+              // 4. Nao mostrar se valor = 0
+              if (total <= 0) return;
+
+              // 5. Nao mostrar se ja existe pagamento desta fatura nas transacoes reais
+              const cartaoNome = f.app_cartao_credito?.nome || 'Cartao';
+              const hasPagamento = realTransactions.some((t: any) =>
+                t.tipo_especial === 'pagamento_fatura' ||
+                (t.descricao?.toLowerCase().includes('pagamento fatura') && t.descricao?.includes(`(${f.mes}/${f.ano})`)) ||
+                (t.descricao?.toLowerCase().includes('fatura') && t.descricao?.toLowerCase().includes(cartaoNome.toLowerCase()) && t.descricao?.includes(`(${f.mes}/${f.ano})`))
+              );
+              if (hasPagamento) return;
+
+              const vencimento = new Date(f.data_vencimento);
+              const statusVencimento = vencimento < new Date() ? 'vencida'
+                : vencimento <= new Date(Date.now() + 7 * 86400000) ? 'proxima' : 'futura';
+
+              faturaItems.push({
+                id: `fatura-${f.id}`,
+                descricao: `Fatura ${cartaoNome} (${f.mes}/${f.ano})`,
+                valor: total,
+                data: f.data_vencimento,
+                tipo: 'despesa',
+                status: f.status === 'paga' ? 'confirmado' : 'pendente',
+                is_fatura: true,
+                fatura_details: {
+                  id: f.id,
+                  cartao_nome: cartaoNome,
+                  mes: f.mes,
+                  ano: f.ano,
+                  valor_total: total,
+                  data_vencimento: f.data_vencimento,
+                  status: f.status,
+                  status_vencimento: statusVencimento,
+                },
+                categoria: { nome: 'Fatura Cartao', cor: '#8B5CF6', icone: 'credit-card' },
+                conta_nome: '-',
+              });
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('Erro ao carregar faturas:', e);
+      }
+
+      // Gerar transacoes virtuais para regras fixas sem transacao real neste mes
+      let virtualTransactions: any[] = [];
+      try {
+        virtualTransactions = await transactionService.getVirtualFixedTransactions(currentMonth, currentYear);
+      } catch (e) {
+        console.warn('Erro ao gerar transacoes virtuais:', e);
+      }
+
+      // Mergear reais + faturas + virtuais (deduplicacao abaixo vai eliminar duplicatas)
+      const transactions = [...realTransactions, ...faturaItems, ...virtualTransactions];
+
+      // Deduplicar: para cada fixo_id, manter apenas 1 entrada por mes
+      // Prioridade: transacao real (id > 0) sobre virtual (id < 0), e id maior sobre menor
+      const fixoGroups = new Map<number, any[]>();
+      const nonFixed: any[] = [];
+
+      for (const t of transactions) {
+        if (t.fixo_id) {
+          const group = fixoGroups.get(t.fixo_id) || [];
+          group.push(t);
+          fixoGroups.set(t.fixo_id, group);
+        } else {
+          nonFixed.push(t);
+        }
+      }
+
+      const deduped = [...nonFixed];
+      for (const [, group] of fixoGroups) {
+        if (group.length === 1) {
+          deduped.push(group[0]);
+        } else {
+          // Multiplos com mesmo fixo_id: manter o real (id > 0) mais recente
+          const real = group.filter((t: any) => typeof t.id === 'number' && t.id > 0);
+          if (real.length > 0) {
+            // Manter o com maior ID (mais recente)
+            real.sort((a: any, b: any) => b.id - a.id);
+            deduped.push(real[0]);
+          } else {
+            // Todos virtuais: manter o primeiro
+            deduped.push(group[0]);
+          }
+        }
+      }
+
+      setMonthlyTransactions(deduped);
     } catch (error) {
       console.error('Erro ao carregar transacoes:', error);
       setMonthlyTransactions([]);
@@ -345,7 +468,6 @@ export default function TransactionsPageModern() {
   const handleEditModalSave = async (transaction: any, data: EditTransactionData) => {
     try {
       setIsSubmitting(true);
-      const isVirtual = transaction.is_virtual_fixed || transaction.is_virtual || transaction.fatura_details?.is_virtual;
       const fixoId = transaction.fixed_transaction_id || transaction.fixo_id || transaction.fatura_details?.fixo_id;
 
       if (data.scope === 'from_now' && fixoId) {
@@ -357,29 +479,74 @@ export default function TransactionsPageModern() {
           conta_id: data.conta_id,
         });
         toast.success('Lancamento fixo atualizado para este mes em diante');
-      } else if (data.scope === 'this_month' && isVirtual && fixoId) {
-        // Virtual fixed: create a real transaction for this month only
-        const createData: any = {
-          descricao: data.descricao,
-          valor: data.valor,
-          data: data.data,
-          tipo: transaction.tipo,
-          categoria_id: data.categoria_id,
-          conta_id: data.conta_id || undefined,
-          cartao_id: transaction.cartao_id || undefined,
-          status: 'pendente' as const,
-        };
-        await transactionService.create(createData);
+      } else if (data.scope === 'this_month' && fixoId) {
+        // Query DB by fixo_id + month to find the real record
+        // Usar formato YYYY-MM-DD direto para evitar problemas de fuso horario com toISOString()
+        const [year, month] = data.data.split('-').map(Number);
+        const lastDay = new Date(year, month, 0).getDate();
+        const monthStartStr = `${year}-${String(month).padStart(2, '0')}-01`;
+        const monthEndStr = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+        const { data: existingRows } = await supabase
+          .from('app_transacoes')
+          .select('id')
+          .eq('fixo_id', fixoId)
+          .eq('user_id', user!.id)
+          .gte('data', monthStartStr)
+          .lte('data', monthEndStr)
+          .neq('status', 'cancelado')
+          .limit(1);
+
+        if (existingRows && existingRows.length > 0) {
+          // Real transaction exists: update it (nulls are stripped by TransactionService.update)
+          const { error: updateError } = await transactionService.update(String(existingRows[0].id), {
+            descricao: data.descricao,
+            valor: data.valor,
+            data: data.data,
+            categoria_id: data.categoria_id,
+            conta_id: data.conta_id,
+          });
+          if (updateError) throw updateError;
+        } else {
+          // No real transaction: fetch fixed rule for required fields, then create
+          const fixedRule = await fixedTransactionService.getById(fixoId);
+          if (!fixedRule) throw new Error('Regra fixa nao encontrada');
+
+          const resolvedCategoriaId = data.categoria_id || fixedRule.categoria_id;
+          const resolvedContaId = data.conta_id || fixedRule.conta_id;
+
+          if (!resolvedCategoriaId) {
+            throw new Error('Categoria nao encontrada. Selecione uma categoria.');
+          }
+          if (!resolvedContaId && fixedRule.tipo !== 'despesa_cartao') {
+            throw new Error('Conta nao encontrada. Selecione uma conta.');
+          }
+
+          const { error: createError } = await transactionService.create({
+            descricao: data.descricao,
+            valor: data.valor,
+            data: data.data,
+            tipo: fixedRule.tipo as 'receita' | 'despesa' | 'despesa_cartao',
+            categoria_id: resolvedCategoriaId,
+            conta_id: resolvedContaId || undefined,
+            cartao_id: fixedRule.cartao_id || undefined,
+            status: 'pendente' as const,
+            fixo_id: fixoId,
+            origem: 'fixo',
+          });
+          if (createError) throw createError;
+        }
         toast.success('Lancamento ajustado para este mes');
       } else {
-        // Regular transaction or confirmed fixed: update directly
-        await transactionService.update(String(transaction.id), {
+        // Regular transaction (no fixo_id): update directly (nulls stripped by service)
+        const { error: updateError } = await transactionService.update(String(transaction.id), {
           descricao: data.descricao,
           valor: data.valor,
           data: data.data,
           categoria_id: data.categoria_id,
           conta_id: data.conta_id,
         });
+        if (updateError) throw updateError;
         toast.success('Lancamento atualizado');
       }
 
@@ -509,6 +676,45 @@ export default function TransactionsPageModern() {
         />
       </div>
 
+      {/* Filtro Receitas/Despesas - toggle segmentado à esquerda */}
+      <div className="flex justify-start px-1">
+        <div className="inline-flex items-center bg-slate-100 rounded-xl p-0.5 gap-0.5">
+          <button
+            onClick={() => setTipoFilter('all')}
+            className={cn(
+              'px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all',
+              tipoFilter === 'all'
+                ? 'bg-white text-slate-700 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            )}
+          >
+            Todos
+          </button>
+          <button
+            onClick={() => setTipoFilter(tipoFilter === 'receita' ? 'all' : 'receita')}
+            className={cn(
+              'px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all',
+              tipoFilter === 'receita'
+                ? 'bg-emerald-500 text-white shadow-sm ring-2 ring-emerald-300'
+                : 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100'
+            )}
+          >
+            Receitas
+          </button>
+          <button
+            onClick={() => setTipoFilter(tipoFilter === 'despesa' ? 'all' : 'despesa')}
+            className={cn(
+              'px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all',
+              tipoFilter === 'despesa'
+                ? 'bg-red-400 text-white shadow-sm ring-2 ring-red-300'
+                : 'text-red-500 bg-red-50 hover:bg-red-100'
+            )}
+          >
+            Despesas
+          </button>
+        </div>
+      </div>
+
       {/* Category Filter Indicator */}
       {categoryFilter && (
         <div className="flex justify-center">
@@ -541,9 +747,10 @@ export default function TransactionsPageModern() {
           showFilters={true}
           defaultFilters={getDateFilters()}
           includeVirtualFixed={true}
-          excludeCardTransactions={false}
+          excludeCardTransactions={true}
           preloadedTransactions={monthlyTransactions}
           recurrenceFilter={recurrenceFilter}
+          tipoFilter={tipoFilter}
         />
       </div>
 

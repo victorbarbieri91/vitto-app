@@ -63,6 +63,7 @@ interface TransactionListProps {
   excludeCardTransactions?: boolean;
   preloadedTransactions?: Transaction[];
   recurrenceFilter?: RecurrenceFilter;
+  tipoFilter?: 'all' | 'receita' | 'despesa';
 }
 
 interface ExtendedFilters extends TransactionFilters {
@@ -110,7 +111,8 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
   includeVirtualFixed = false,
   excludeCardTransactions = false,
   preloadedTransactions = null,
-  recurrenceFilter = 'all'
+  recurrenceFilter = 'all',
+  tipoFilter = 'all'
 }, ref) => {
   const { user } = useAuth();
   const { accounts, loading: accountsLoading } = useAccounts();
@@ -366,7 +368,35 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
         console.log('🔍 Data after fatura filter:', data.length);
       }
 
-      setTransactions(data);
+      // Deduplicar por fixo_id: manter apenas 1 entrada por fixo_id
+      const fixoGroups = new Map<number, any[]>();
+      const nonFixed: any[] = [];
+      for (const t of data) {
+        if (t.fixo_id) {
+          const group = fixoGroups.get(t.fixo_id) || [];
+          group.push(t);
+          fixoGroups.set(t.fixo_id, group);
+        } else {
+          nonFixed.push(t);
+        }
+      }
+      const deduped = [...nonFixed];
+      for (const [, group] of fixoGroups) {
+        if (group.length === 1) {
+          deduped.push(group[0]);
+        } else {
+          // Prioridade: real (id positivo) sobre virtual (id negativo/string)
+          const real = group.filter((t: any) => typeof t.id === 'number' && t.id > 0);
+          if (real.length > 0) {
+            real.sort((a: any, b: any) => b.id - a.id);
+            deduped.push(real[0]);
+          } else {
+            deduped.push(group[0]);
+          }
+        }
+      }
+
+      setTransactions(deduped);
     } catch (err) {
       console.error('Erro ao buscar transações:', err);
       setError(err instanceof Error ? err.message : 'Erro ao carregar transações');
@@ -414,6 +444,15 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
       });
     }
 
+    // Filtro por tipo (receita/despesa)
+    if (tipoFilter && tipoFilter !== 'all') {
+      data = data.filter((t: Transaction) => {
+        if (tipoFilter === 'receita') return t.tipo === 'receita';
+        if (tipoFilter === 'despesa') return t.tipo === 'despesa' || t.tipo === 'despesa_cartao' || t.is_fatura;
+        return true;
+      });
+    }
+
     // Filtro por texto
     if (filters.searchText) {
       const searchLower = filters.searchText.toLowerCase();
@@ -425,7 +464,7 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
     }
 
     return data;
-  }, [transactions, filters.searchText, recurrenceFilter]);
+  }, [transactions, filters.searchText, recurrenceFilter, tipoFilter]);
 
   // Paginação otimizada
   const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);

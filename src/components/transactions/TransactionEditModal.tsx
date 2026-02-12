@@ -5,6 +5,7 @@ import CurrencyInput from '../ui/CurrencyInput';
 import { ModernButton } from '../ui/modern';
 import { useAccounts } from '../../hooks/useAccounts';
 import { useCategories } from '../../hooks/useCategories';
+import { fixedTransactionService } from '../../services/api/FixedTransactionService';
 
 type Transaction = any;
 
@@ -38,6 +39,7 @@ export default function TransactionEditModal({ isOpen, onClose, transaction, onS
   const [contaId, setContaId] = useState<number | null>(null);
   const [scope, setScope] = useState<'single' | 'this_month' | 'from_now'>('single');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingRuleData, setIsLoadingRuleData] = useState(false);
 
   // Detect if fixed/parcelado
   const isFixedOrParcelado = useMemo(() => {
@@ -78,10 +80,26 @@ export default function TransactionEditModal({ isOpen, onClose, transaction, onS
       // Handle date - may be ISO string or YYYY-MM-DD
       const rawDate = transaction.data || '';
       setData(rawDate.includes('T') ? rawDate.split('T')[0] : rawDate);
-      setCategoriaId(transaction.categoria_id || transaction.categoria?.id || null);
-      setContaId(transaction.conta_id || null);
+      const txCategoriaId = transaction.categoria_id || transaction.categoria?.id || null;
+      const txContaId = transaction.conta_id || null;
+      setCategoriaId(txCategoriaId);
+      setContaId(txContaId);
       setScope(isFixedOrParcelado ? 'this_month' : 'single');
       setIsSubmitting(false);
+
+      // Se e transacao fixa e faltam IDs, buscar da regra fixa
+      const fixoId = transaction.fixed_transaction_id || transaction.fixo_id;
+      if (fixoId && (!txCategoriaId || !txContaId)) {
+        setIsLoadingRuleData(true);
+        fixedTransactionService.getById(fixoId).then(rule => {
+          if (rule) {
+            if (!txCategoriaId && rule.categoria_id) setCategoriaId(rule.categoria_id);
+            if (!txContaId && rule.conta_id) setContaId(rule.conta_id);
+          }
+        }).catch(() => {}).finally(() => {
+          setIsLoadingRuleData(false);
+        });
+      }
     }
   }, [transaction, isOpen, isFixedOrParcelado]);
 
@@ -266,7 +284,7 @@ export default function TransactionEditModal({ isOpen, onClose, transaction, onS
                   variant="primary"
                   onClick={handleSubmit}
                   isLoading={isSubmitting}
-                  disabled={!descricao.trim() || !valor || valor <= 0 || isSubmitting}
+                  disabled={!descricao.trim() || !valor || valor <= 0 || isSubmitting || isLoadingRuleData}
                   className="flex-1"
                 >
                   Salvar

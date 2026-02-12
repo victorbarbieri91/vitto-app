@@ -460,18 +460,30 @@ export class TransactionService extends BaseApi {
     const user = await this.getCurrentUser();
     if (!user) throw new Error('Usuário não autenticado');
 
+    // Filtrar campos null/undefined para nunca sobrescrever dados existentes com null
+    const cleanUpdates: Record<string, any> = {};
+    for (const [key, value] of Object.entries(updates)) {
+      if (value !== null && value !== undefined) {
+        cleanUpdates[key] = value;
+      }
+    }
+
+    if (Object.keys(cleanUpdates).length === 0) {
+      return { data: null, error: { message: 'Nenhum campo para atualizar' } };
+    }
+
     const { data, error } = await this.supabase
       .from('app_transacoes')
-      .update(updates)
+      .update(cleanUpdates)
       .eq('id', id)
       .eq('user_id', user.id)
       .select()
       .single();
-    
+
     if (!error && data) {
       await this.invalidateCacheSaldos(data.conta_id || undefined);
     }
-    
+
     return { data, error };
   }
 
@@ -695,20 +707,21 @@ export class TransactionService extends BaseApi {
         // Se há data fim e a transação está depois dela, pular
         if (dataFimRule && dataTransacao > dataFimRule) continue;
 
-        // Verificar se já existe uma transação confirmada para esta regra neste mês
-        const { data: existing, error: existingError } = await this.supabase
+        // Verificar se já existe uma transação real para esta regra neste mês
+        const { data: existingRows, error: existingError } = await this.supabase
           .from('app_transacoes')
           .select('id, data')
           .eq('fixo_id', rule.id)
           .eq('user_id', user.id)
           .gte('data', primeiroDay.toISOString().split('T')[0])
           .lte('data', ultimoDay.toISOString().split('T')[0])
-          .maybeSingle();
+          .limit(1);
 
-        console.log(`[getVirtualFixedTransactions] Regra ${rule.id} - Transação existente: ${existing ? 'SIM' : 'NÃO'}`);
+        const hasExisting = !existingError && existingRows && existingRows.length > 0;
+        console.log(`[getVirtualFixedTransactions] Regra ${rule.id} - Transação existente: ${hasExisting ? 'SIM' : 'NÃO'}`);
 
-        // Se não existe confirmada, criar virtual
-        if (!existing && (!existingError || existingError.code === 'PGRST116')) {
+        // Se não existe real, criar virtual
+        if (!hasExisting) {
           // Gerar ID único para a transação virtual usando combinação mais específica
           // Incluindo dia_mes para garantir unicidade mesmo com múltiplas regras no mesmo mês
           const uniqueVirtualId = -(rule.id * 1000000 + ano * 10000 + mes * 100 + rule.dia_mes);
