@@ -3,10 +3,9 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../store/AuthContext';
 import { supabase } from '../../services/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle, ChevronRight, BarChart3, Wallet, Bot } from 'lucide-react';
+import { User, Mail, Lock, Eye, EyeOff, ArrowRight, BarChart3, Wallet, Bot } from 'lucide-react';
 
 type AuthMode = 'login' | 'signup';
-type OnboardingStep = 'form' | 'welcome' | 'complete';
 
 const CAROUSEL_SLIDES = [
   {
@@ -42,7 +41,6 @@ export default function AuthPage() {
       : 'login';
 
   const [mode, setMode] = useState<AuthMode>(initialMode);
-  const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>('form');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nome, setNome] = useState('');
@@ -153,14 +151,14 @@ export default function AuthPage() {
         try {
           const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
           if (!loginError) {
-            setOnboardingStep('complete');
-            setTimeout(() => navigate('/dashboard'), 3000);
+            navigate('/entrevista');
             return;
           }
         } catch {
           console.log('Erro no login automático');
         }
-        setOnboardingStep('welcome');
+        // Fallback: se auto-login falhou, redirecionar para login
+        navigate('/login');
       }
     } catch {
       setErrors({ general: 'Erro ao criar conta. Tente novamente.' });
@@ -170,77 +168,6 @@ export default function AuthPage() {
   };
 
   const slide = CAROUSEL_SLIDES[activeSlide];
-
-  // Onboarding screens (after successful signup)
-  if (onboardingStep === 'welcome') {
-    return (
-      <div className="fixed inset-0 bg-[#102542] flex items-center justify-center p-4">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-10 max-w-md w-full text-center"
-        >
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: 'spring', duration: 0.5 }}
-            className="w-20 h-20 bg-gradient-to-br from-[#F87060] to-[#e55a4a] rounded-full flex items-center justify-center mx-auto mb-6"
-          >
-            <CheckCircle className="w-10 h-10 text-white" />
-          </motion.div>
-          <h2 className="text-3xl font-bold text-white mb-3">Bem-vindo ao Vitto!</h2>
-          <p className="text-white/80 mb-8">
-            Sua conta foi criada com sucesso. Tudo pronto para organizar suas finanças!
-          </p>
-          <div className="space-y-3 text-left mb-8">
-            {['Conta principal criada', 'Categorias configuradas', 'Painel personalizado pronto'].map((item) => (
-              <div key={item} className="flex items-center gap-3">
-                <CheckCircle className="w-5 h-5 text-[#F87060] flex-shrink-0" />
-                <p className="text-white/90">{item}</p>
-              </div>
-            ))}
-          </div>
-          <button
-            onClick={() => { setOnboardingStep('complete'); setTimeout(() => navigate('/dashboard'), 2000); }}
-            className="w-full py-3 bg-gradient-to-r from-[#F87060] to-[#e55a4a] text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-[#F87060]/25 transition-all flex items-center justify-center gap-2"
-          >
-            Continuar <ChevronRight className="w-5 h-5" />
-          </button>
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (onboardingStep === 'complete') {
-    return (
-      <div className="fixed inset-0 bg-[#102542] flex items-center justify-center p-4">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          onAnimationComplete={() => setTimeout(() => navigate('/dashboard'), 1500)}
-          className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-10 max-w-md w-full text-center"
-        >
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, ease: 'easeInOut' }}
-            className="w-20 h-20 bg-gradient-to-br from-green-400 to-green-500 rounded-full flex items-center justify-center mx-auto mb-6"
-          >
-            <CheckCircle className="w-10 h-10 text-white" />
-          </motion.div>
-          <h2 className="text-3xl font-bold text-white mb-3">Tudo pronto!</h2>
-          <p className="text-white/80">Redirecionando para seu painel...</p>
-          <div className="mt-6 w-full bg-white/10 rounded-full h-2">
-            <motion.div
-              className="h-full bg-gradient-to-r from-[#F87060] to-[#e55a4a] rounded-full"
-              initial={{ width: 0 }}
-              animate={{ width: '100%' }}
-              transition={{ duration: 1.5 }}
-            />
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
 
   return (
     <div className="fixed inset-0 overflow-hidden flex flex-col lg:flex-row bg-white">
