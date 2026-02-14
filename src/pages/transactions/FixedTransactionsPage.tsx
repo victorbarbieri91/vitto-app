@@ -203,7 +203,9 @@ export default function FixedTransactionsPage() {
           conta_id: adjustmentTransaction.conta_id || undefined,
           cartao_id: adjustmentTransaction.cartao_id || undefined,
           status: 'pendente',
-          observacoes: adjustmentNote || `Ajuste pontual - valor original: ${formatCurrency(Number(adjustmentTransaction.valor))}`
+          observacoes: adjustmentNote || `Ajuste pontual - valor original: ${formatCurrency(Number(adjustmentTransaction.valor))}`,
+          fixo_id: adjustmentTransaction.id,
+          origem: 'fixo',
         });
 
         if (error) throw error;
@@ -227,7 +229,9 @@ export default function FixedTransactionsPage() {
           conta_id: adjustmentTransaction.conta_id || undefined,
           cartao_id: adjustmentTransaction.cartao_id || undefined,
           status: 'confirmado',
-          observacoes: adjustmentNote || `Lançamento fixo pulado neste mês`
+          observacoes: adjustmentNote || `Lançamento fixo pulado neste mês`,
+          fixo_id: adjustmentTransaction.id,
+          origem: 'fixo',
         });
 
         if (error) throw error;

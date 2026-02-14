@@ -47,11 +47,13 @@ export class CentralIAService {
     sessionId: string | undefined,
     callbacks: StreamCallbacks,
     userData?: Record<string, unknown>,
+    mode?: 'chat' | 'interview',
   ): Promise<void> {
     const token = await this.getAuthToken();
 
     const body: CentralIARequest = { messages, sessionId };
     if (userData) body.userData = userData;
+    if (mode) body.mode = mode;
 
     const response = await fetch(this.baseUrl, {
       method: 'POST',
@@ -145,6 +147,12 @@ export class CentralIAService {
             message: event.message,
             dataRequest: event.dataRequest,
           });
+          break;
+        case 'interview_complete':
+          callbacks.onInterviewComplete?.();
+          break;
+        case 'interactive_buttons':
+          callbacks.onInteractiveButtons?.({ buttons: event.buttons });
           break;
         case 'done':
           callbacks.onDone(event.sessionId);

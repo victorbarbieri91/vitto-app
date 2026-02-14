@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { History, Plus, MessageSquare, Trash2, X } from 'lucide-react';
+import { History, Plus, MessageSquare, ClipboardList, Trash2, X } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import type { ChatSession } from '../../types/central-ia';
 
@@ -45,6 +45,18 @@ function groupSessionsByDate(sessions: ChatSession[]) {
   });
 
   return groups;
+}
+
+// Helper: retorna o icone correto baseado no tipo da sessao
+function SessionIcon({ session, isActive }: { session: ChatSession; isActive: boolean }) {
+  const isInterview = session.metadata?.type === 'interview';
+  const Icon = isInterview ? ClipboardList : MessageSquare;
+  return (
+    <Icon className={cn(
+      'w-4 h-4',
+      isActive ? 'text-coral-600' : isInterview ? 'text-violet-500' : 'text-slate-400'
+    )} />
+  );
 }
 
 /**
@@ -190,14 +202,9 @@ export function HistoryDropdown({
                                 'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
                                 currentSessionId === session.id
                                   ? 'bg-coral-100'
-                                  : 'bg-slate-100'
+                                  : session.metadata?.type === 'interview' ? 'bg-violet-50' : 'bg-slate-100'
                               )}>
-                                <MessageSquare className={cn(
-                                  'w-4 h-4',
-                                  currentSessionId === session.id
-                                    ? 'text-coral-600'
-                                    : 'text-slate-400'
-                                )} />
+                                <SessionIcon session={session} isActive={currentSessionId === session.id} />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className={cn(
@@ -261,12 +268,11 @@ export function HistoryDropdown({
                           >
                             <div className={cn(
                               'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
-                              currentSessionId === session.id ? 'bg-coral-100' : 'bg-slate-100'
+                              currentSessionId === session.id
+                                ? 'bg-coral-100'
+                                : session.metadata?.type === 'interview' ? 'bg-violet-50' : 'bg-slate-100'
                             )}>
-                              <MessageSquare className={cn(
-                                'w-4 h-4',
-                                currentSessionId === session.id ? 'text-coral-600' : 'text-slate-400'
-                              )} />
+                              <SessionIcon session={session} isActive={currentSessionId === session.id} />
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className={cn(

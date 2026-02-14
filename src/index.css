@@ -10,11 +10,10 @@
   }
 }
 
-/* Garantir zero margin/padding e overflow controlado */
+/* Garantir zero margin/padding */
 html, body {
   margin: 0;
   padding: 0;
-  overflow: hidden;
 }
 
 /* Safe area para iPhones com notch/home indicator */

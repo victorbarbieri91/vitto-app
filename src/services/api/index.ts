@@ -94,7 +94,6 @@ export type {
   DadosAjusteSaldo
 } from './SaldoService';
 export type {
-  OnboardingData,
   OnboardingStatus
 } from './OnboardingService';
 export type {

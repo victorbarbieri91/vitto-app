@@ -1101,9 +1101,15 @@ export const TransactionList = forwardRef<TransactionListRef, TransactionListPro
                         </p>
                         {getRecurrenceBadge(transaction.tipo_recorrencia || 'unica')}
                       </div>
-                      {transaction.total_parcelas && (
+                      {transaction.total_parcelas && !transaction.is_fatura && (
                         <span className="text-[11px] text-slate-400">
                           {transaction.parcela_atual}/{transaction.total_parcelas}x
+                        </span>
+                      )}
+                      {/* Ciclo da fatura - mostra período coberto */}
+                      {transaction.is_fatura && transaction.fatura_details?.ciclo_texto && (
+                        <span className="text-[10px] text-purple-400 font-medium">
+                          {transaction.fatura_details.ciclo_texto}
                         </span>
                       )}
                       {/* Mobile fallback info */}

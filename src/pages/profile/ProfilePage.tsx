@@ -204,7 +204,7 @@ export default function ProfilePage() {
 
       if (result.success) {
         closeResetModal();
-        navigate('/onboarding');
+        navigate('/entrevista');
       }
     } catch (error: any) {
       console.error('Erro ao resetar dados:', error);

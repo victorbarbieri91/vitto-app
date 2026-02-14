@@ -119,6 +119,8 @@ export interface StreamCallbacks {
   onNeedsData: (data: { message: string; dataRequest: DataRequest }) => void;
   onDone: (sessionId: string) => void;
   onError: (error: string) => void;
+  onInterviewComplete?: () => void;
+  onInteractiveButtons?: (data: { buttons: Array<{ label: string; value: string }> }) => void;
 }
 
 // Request para API
@@ -128,6 +130,7 @@ export interface CentralIARequest {
   confirmationToken?: string;
   confirmed?: boolean;
   userData?: Record<string, unknown>;
+  mode?: 'chat' | 'interview';
 }
 
 // Documentação do Sistema

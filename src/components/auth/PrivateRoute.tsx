@@ -33,10 +33,10 @@ export default function PrivateRoute({ redirectTo = '/login' }: PrivateRouteProp
     return <Navigate to={redirectTo} replace />;
   }
 
-  // Se onboarding é necessário, redireciona para onboarding
+  // Se onboarding é necessário, redireciona para entrevista IA
   if (isOnboardingRequired) {
-    console.log('[PrivateRoute] Onboarding necessário, redirecionando para /onboarding');
-    return <Navigate to="/onboarding" replace />;
+    console.log('[PrivateRoute] Onboarding necessário, redirecionando para /entrevista');
+    return <Navigate to="/entrevista" replace />;
   }
 
   console.log('[PrivateRoute] Usuário autenticado e onboarding completo, renderizando conteúdo protegido');

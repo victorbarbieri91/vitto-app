@@ -62,7 +62,10 @@ export const TransactionCompactItem: React.FC<TransactionCompactItemProps> = ({
   const accountName = transaction.conta_nome || transaction.cartao_nome || '';
 
   // Subtitle - only non-empty parts
-  const subtitleParts = [categoryName, accountName].filter(Boolean);
+  // Para faturas, mostrar o ciclo em vez de categoria/conta
+  const subtitleParts = transaction.is_fatura && transaction.fatura_details?.ciclo_texto
+    ? [transaction.fatura_details.ciclo_texto]
+    : [categoryName, accountName].filter(Boolean);
   const subtitle = subtitleParts.join(' · ');
 
   // Recurrence label

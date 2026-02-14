@@ -230,6 +230,34 @@ export class ChatSessionService {
   }
 
   /**
+   * Busca sessão de entrevista incompleta do usuário
+   */
+  async findInterviewSession(): Promise<ChatSession | null> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    // Use contains operator for JSONB: metadata @> '{"type":"interview"}'
+    const { data, error } = await db
+      .from('app_chat_sessoes')
+      .select('*')
+      .eq('user_id', user.id)
+      .contains('metadata', { type: 'interview' })
+      .order('updated_at', { ascending: false })
+      .limit(10);
+
+    if (error) {
+      console.error('Error finding interview session:', error);
+      return null;
+    }
+
+    // Filter out completed ones in JS (metadata.completed = true)
+    const session = (data || []).find(
+      (s: ChatSession) => !s.metadata?.completed
+    ) as ChatSession | undefined;
+    return session || null;
+  }
+
+  /**
    * Cria sessão e retorna, ou retorna sessão existente se já houver
    */
   async getOrCreateSession(sessionId?: string | null, titulo?: string): Promise<ChatSession> {

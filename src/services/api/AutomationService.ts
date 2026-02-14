@@ -103,50 +103,78 @@ export class AutomationService extends BaseApi {
 
   /**
    * Processa pagamento de fatura
+   * Operacoes diretas (sem RPC): atualiza fatura, cria 1 transacao, recalcula saldo
    */
   async payInvoice(request: InvoicePaymentRequest): Promise<{ success: boolean; lancamento_id?: string; error?: string }> {
     try {
-      // Buscar dados da fatura
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
+      // 1. Buscar dados da fatura
       const faturaResult = await faturaService.getById(request.fatura_id);
       if (faturaResult.error || !faturaResult.data) {
         throw new Error('Fatura não encontrada');
       }
-
       const fatura = faturaResult.data;
 
-      // Buscar dados do cartão
-      const cartaoResult = await creditCardService.getById(fatura.cartao_id);
-      if (cartaoResult.error || !cartaoResult.data) {
+      // 2. Buscar dados do cartão (para descrição)
+      const cartao = await creditCardService.getById(fatura.cartao_id);
+      if (!cartao) {
         throw new Error('Cartão não encontrado');
       }
 
-      // cartaoResult.data validated above but not needed directly
+      // 3. Atualizar fatura para 'paga'
+      const { error: updateError } = await supabase
+        .from('app_fatura')
+        .update({ status: 'paga', data_pagamento: request.data_pagamento })
+        .eq('id', fatura.id);
 
-      // Usar função SQL pagar_fatura diretamente
-      const { data: paymentResult, error: paymentError } = await supabase.rpc('pagar_fatura', {
-        p_fatura_id: parseInt(request.fatura_id),
-        p_conta_id: parseInt(request.conta_id),
-        p_data_pagamento: request.data_pagamento,
-        p_categoria_id: request.categoria_id ? parseInt(request.categoria_id) : null
-      });
-
-      if (paymentError) {
-        throw new Error(paymentError.message);
+      if (updateError) {
+        throw new Error('Erro ao atualizar fatura: ' + updateError.message);
       }
 
-      if (!paymentResult?.success) {
-        throw new Error(paymentResult?.error || 'Erro ao processar pagamento');
+      // 4. Criar UMA transação de pagamento (débito na conta bancária)
+      const { data: transacao, error: transError } = await supabase
+        .from('app_transacoes')
+        .insert({
+          user_id: user.id,
+          descricao: `Pagamento fatura ${cartao.nome} (${fatura.mes}/${fatura.ano})`,
+          valor: request.valor_pago,
+          tipo: 'despesa',
+          categoria_id: request.categoria_id ? parseInt(request.categoria_id) : 22,
+          conta_id: parseInt(request.conta_id),
+          data: request.data_pagamento,
+          status: 'confirmado',
+        })
+        .select('id')
+        .single();
+
+      if (transError) {
+        throw new Error('Erro ao criar transação: ' + transError.message);
+      }
+
+      // 5. Recalcular saldo da conta
+      const contaId = parseInt(request.conta_id);
+      const { data: novoSaldo } = await supabase.rpc('calcular_saldo_atual', {
+        conta_id_param: contaId
+      });
+
+      if (novoSaldo !== null && novoSaldo !== undefined) {
+        await supabase
+          .from('app_conta')
+          .update({ saldo_atual: novoSaldo })
+          .eq('id', contaId);
       }
 
       return {
         success: true,
-        lancamento_id: paymentResult.transacao_id
+        lancamento_id: transacao?.id?.toString()
       };
     } catch (error) {
       console.error('Erro ao processar pagamento:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Erro desconhecido' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro desconhecido'
       };
     }
   }
@@ -161,12 +189,10 @@ export class AutomationService extends BaseApi {
       let processed = 0;
 
       // Buscar todos os cartões
-      const cardsResult = await creditCardService.list();
-      if (cardsResult.error || !cardsResult.data) {
-        throw new Error('Erro ao buscar cartões');
+      const cards = await creditCardService.list();
+      if (!cards || cards.length === 0) {
+        return { success: true, processed: 0, errors: [] };
       }
-
-      const cards = cardsResult.data;
 
       // Processar cada cartão
       for (const card of cards) {

@@ -62,11 +62,11 @@ const corsHeaders = {
 
 const OPENAI_CHAT_URL = 'https://api.openai.com/v1/chat/completions';
 const OPENAI_EMBEDDING_URL = 'https://api.openai.com/v1/embeddings';
-const MODEL = 'gpt-5-mini';
+const MODEL = 'gpt-4.1-mini';
 const EMBEDDING_MODEL = 'text-embedding-3-small';
 
 // =====================================================
-// TOOL DEFINITIONS (21 tools - v18 com update_user_profile)
+// TOOL DEFINITIONS - MODO NORMAL (21 tools)
 // =====================================================
 
 const ALL_TOOLS: Tool[] = [
@@ -392,11 +392,170 @@ const CONFIRMATION_REQUIRED_TOOLS = [
   'delete_transaction', 'pagar_fatura'
 ];
 
-// Roteamento de tools removido - o agente GPT-5-mini recebe ALL_TOOLS
-// e escolhe sozinho quais usar baseado na intencao do usuario
+// =====================================================
+// INTERVIEW TOOLS (8 tools adicionais para entrevista)
+// =====================================================
+
+const INTERVIEW_TOOLS: Tool[] = [
+  {
+    type: 'function',
+    function: {
+      name: 'create_conta',
+      description: 'Cria uma conta bancaria para o usuario. Use durante a entrevista quando o usuario informar suas contas.',
+      parameters: {
+        type: 'object',
+        properties: {
+          nome: { type: 'string', description: 'Nome da conta (ex: Nubank, Itau, Conta Corrente BB)' },
+          tipo: { type: 'string', enum: ['conta_corrente', 'conta_poupanca', 'carteira', 'investimento'], description: 'Tipo da conta' },
+          saldo_inicial: { type: 'number', description: 'Saldo atual aproximado' },
+          instituicao: { type: 'string', description: 'Nome do banco/instituicao' },
+          cor: { type: 'string', description: 'Cor hex para a conta (ex: #8B5CF6 para Nubank, #FF6B00 para Inter, #003DA5 para Itau)' }
+        },
+        required: ['nome', 'tipo', 'saldo_inicial']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'create_cartao',
+      description: 'Cria um cartao de credito. Use quando o usuario informar seus cartoes.',
+      parameters: {
+        type: 'object',
+        properties: {
+          nome: { type: 'string', description: 'Nome do cartao (ex: Nubank Mastercard, Itau Visa Platinum)' },
+          limite: { type: 'number', description: 'Limite total do cartao' },
+          dia_fechamento: { type: 'number', description: 'Dia do fechamento da fatura (1-31)' },
+          dia_vencimento: { type: 'number', description: 'Dia do vencimento da fatura (1-31)' },
+          ultimos_quatro_digitos: { type: 'string', description: 'Ultimos 4 digitos do cartao (opcional)' },
+          cor: { type: 'string', description: 'Cor hex para o cartao' }
+        },
+        required: ['nome', 'limite', 'dia_fechamento', 'dia_vencimento']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'create_transacao_fixa',
+      description: 'Cria uma transacao fixa/recorrente (salario, aluguel, assinatura, etc). Use quando o usuario informar receitas ou despesas que se repetem todo mes.',
+      parameters: {
+        type: 'object',
+        properties: {
+          descricao: { type: 'string', description: 'Descricao (ex: Salario, Aluguel, Netflix)' },
+          valor: { type: 'number', description: 'Valor mensal (sempre positivo)' },
+          tipo: { type: 'string', enum: ['receita', 'despesa', 'despesa_cartao'], description: 'Tipo da transacao' },
+          categoria_id: { type: 'number', description: 'ID da categoria. Use query_categorias para obter IDs validos.' },
+          conta_id: { type: 'number', description: 'ID da conta bancaria (obrigatorio para receita/despesa). Use query_contas para obter IDs.' },
+          cartao_id: { type: 'number', description: 'ID do cartao (obrigatorio para despesa_cartao). Use query_cartoes para obter IDs.' },
+          dia_mes: { type: 'number', description: 'Dia do mes em que ocorre (1-31)' }
+        },
+        required: ['descricao', 'valor', 'tipo', 'categoria_id', 'dia_mes']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'create_meta',
+      description: 'Cria uma meta financeira para o usuario.',
+      parameters: {
+        type: 'object',
+        properties: {
+          titulo: { type: 'string', description: 'Nome da meta (ex: Reserva de emergencia, Viagem, Carro novo)' },
+          valor_meta: { type: 'number', description: 'Valor alvo da meta' },
+          valor_atual: { type: 'number', description: 'Quanto ja tem guardado para esta meta (default: 0)' },
+          data_fim: { type: 'string', description: 'Data alvo YYYY-MM-DD' },
+          descricao: { type: 'string', description: 'Descricao opcional' },
+          cor: { type: 'string', description: 'Cor hex' }
+        },
+        required: ['titulo', 'valor_meta', 'data_fim']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'create_orcamento',
+      description: 'Cria orcamento mensal para uma categoria.',
+      parameters: {
+        type: 'object',
+        properties: {
+          categoria_id: { type: 'number', description: 'ID da categoria' },
+          valor: { type: 'number', description: 'Valor limite mensal' },
+          tipo: { type: 'string', enum: ['receita', 'despesa'], description: 'Tipo do orcamento' }
+        },
+        required: ['categoria_id', 'valor', 'tipo']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'update_perfil_financeiro',
+      description: 'Atualiza o perfil financeiro do usuario na entrevista. Use para salvar informacoes como: situacao financeira, objetivos, habitos de consumo, dividas, patrimonio estimado, composicao familiar, perfil investidor.',
+      parameters: {
+        type: 'object',
+        properties: {
+          field: { type: 'string', description: 'Campo do perfil (ex: situacao_financeira, objetivos, dividas, patrimonio_estimado, composicao_familiar, perfil_investidor, habitos_consumo, renda_mensal_total, comprometimento_renda)' },
+          value: { description: 'Valor do campo (string, numero ou objeto)' }
+        },
+        required: ['field', 'value']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'finalizar_entrevista',
+      description: 'Finaliza a entrevista e marca o onboarding como completo. Chame APENAS quando tiver coletado informacoes suficientes OU quando o usuario quiser encerrar. Retorna resumo do que foi criado.',
+      parameters: {
+        type: 'object',
+        properties: {}
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_interview_progress',
+      description: 'Retorna o que ja foi cadastrado na entrevista: quantas contas, cartoes, transacoes fixas, etc. Use para saber o que falta perguntar.',
+      parameters: {
+        type: 'object',
+        properties: {}
+      }
+    }
+  }
+,
+  {
+    type: 'function',
+    function: {
+      name: 'show_interactive_buttons',
+      description: 'Mostra botoes interativos na interface para o usuario clicar em vez de digitar. Use para perguntas com opcoes definidas: sim/nao, tipo de conta, escolhas curtas. O usuario clica em um botao e a resposta eh enviada automaticamente. SEMPRE use para perguntas com resposta fechada. IMPORTANTE: o value de cada botao DEVE ser texto natural em portugues (ex: "Conta Corrente", NAO "conta_corrente"). SEMPRE escreva uma mensagem de contexto ANTES de chamar esta funcao. NUNCA misture botoes com perguntas de texto livre na mesma mensagem.',
+      parameters: {
+        type: 'object',
+        properties: {
+          buttons: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                label: { type: 'string', description: 'Texto exibido no botao - em portugues natural' },
+                value: { type: 'string', description: 'Valor enviado como resposta - DEVE ser texto natural em portugues, identico ou similar ao label. Ex: "Conta Corrente", NAO "conta_corrente"' }
+              },
+              required: ['label', 'value']
+            },
+            description: 'Lista de botoes. Maximo 5 botoes. Values devem ser texto natural em portugues.'
+          }
+        },
+        required: ['buttons']
+      }
+    }
+  }
+];
 
 // =====================================================
-// EMBEDDING (direto via OpenAI - sem hop extra)
+// EMBEDDING
 // =====================================================
 
 async function generateEmbedding(text: string, retries = 2): Promise<number[] | null> {
@@ -434,9 +593,7 @@ async function generateEmbedding(text: string, retries = 2): Promise<number[] | 
 }
 
 // =====================================================
-// RAG SEARCH (apenas memorias do usuario - Layer 3)
-// Knowledge Base agora eh carregado via SQL direto (Layer 1)
-// Historico de sessao eh carregado via loadSessionHistory (Layer 2)
+// RAG SEARCH
 // =====================================================
 
 async function ragSearchMemories(
@@ -466,7 +623,7 @@ async function ragSearchMemories(
 }
 
 // =====================================================
-// LAYER 1: KNOWLEDGE BASE (SQL direto, 100% confiavel)
+// KNOWLEDGE BASE
 // =====================================================
 
 async function loadKnowledgeBase(supabase: SupabaseClient): Promise<string> {
@@ -484,7 +641,6 @@ async function loadKnowledgeBase(supabase: SupabaseClient): Promise<string> {
 
     console.log(`loadKnowledgeBase: ${data.length} regras carregadas`);
 
-    // Agrupar por categoria para melhor organizacao
     const byCategory: Record<string, string[]> = {};
     for (const rule of data) {
       const cat = rule.categoria || 'geral';
@@ -505,7 +661,7 @@ async function loadKnowledgeBase(supabase: SupabaseClient): Promise<string> {
 }
 
 // =====================================================
-// LAYER 4: USER PROFILE (SQL direto, 100% confiavel)
+// USER PROFILE
 // =====================================================
 
 interface UserProfile {
@@ -513,19 +669,20 @@ interface UserProfile {
   receita_mensal: number | null;
   meta_despesa: number | null;
   ai_context: Record<string, unknown>;
+  perfil_financeiro: Record<string, unknown>;
 }
 
 async function loadUserProfile(supabase: SupabaseClient, userId: string): Promise<UserProfile> {
   try {
     const { data, error } = await supabase
       .from('app_perfil')
-      .select('nome, receita_mensal_estimada, meta_despesa_percentual, ai_context')
+      .select('nome, receita_mensal_estimada, meta_despesa_percentual, ai_context, perfil_financeiro')
       .eq('id', userId)
       .single();
 
     if (error || !data) {
       console.warn('loadUserProfile: perfil nao encontrado');
-      return { nome: 'Usuario', receita_mensal: null, meta_despesa: null, ai_context: {} };
+      return { nome: 'Usuario', receita_mensal: null, meta_despesa: null, ai_context: {}, perfil_financeiro: {} };
     }
 
     return {
@@ -533,15 +690,16 @@ async function loadUserProfile(supabase: SupabaseClient, userId: string): Promis
       receita_mensal: data.receita_mensal_estimada,
       meta_despesa: data.meta_despesa_percentual,
       ai_context: data.ai_context || {},
+      perfil_financeiro: data.perfil_financeiro || {},
     };
   } catch (e) {
     console.error('loadUserProfile error:', e);
-    return { nome: 'Usuario', receita_mensal: null, meta_despesa: null, ai_context: {} };
+    return { nome: 'Usuario', receita_mensal: null, meta_despesa: null, ai_context: {}, perfil_financeiro: {} };
   }
 }
 
 // =====================================================
-// SYSTEM PROMPT (4 camadas: knowledge + profile + memories + instrucoes)
+// SYSTEM PROMPT - MODO NORMAL
 // =====================================================
 
 function buildSystemPrompt(
@@ -553,7 +711,6 @@ function buildSystemPrompt(
   const dataAtual = now.toLocaleDateString('pt-BR');
   const mesAtual = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
-  // === LAYER 4: User Profile ===
   let profileBlock = '';
   if (userProfile.receita_mensal) {
     profileBlock += `\n- Receita mensal estimada: R$ ${userProfile.receita_mensal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
@@ -568,7 +725,6 @@ function buildSystemPrompt(
     }
   }
 
-  // === LAYER 3: Memorias (RAG, bonus) ===
   let memoryBlock = '';
   if (memoryResults.length > 0) {
     memoryBlock = '\n\n### Memorias do usuario:\n';
@@ -597,7 +753,112 @@ INSTRUCOES:
 }
 
 // =====================================================
-// TOOL EXECUTOR (preservado integralmente do v7)
+// SYSTEM PROMPT - MODO ENTREVISTA
+// =====================================================
+
+function buildInterviewSystemPrompt(userProfile: UserProfile): string {
+  const now = new Date();
+  const dataAtual = now.toLocaleDateString('pt-BR');
+
+  return `Voce eh o **Vitto**, assistente financeiro do app Vitto. Voce conduz a ENTREVISTA INICIAL para configurar o sistema financeiro do usuario de forma descontraida e acolhedora.
+
+Data atual: ${dataAtual}. Nome do usuario: ${userProfile.nome}.
+
+## TOM E ESTILO
+- Simpatico e natural, como um amigo que entende de financas. Seja acolhedor mas conciso.
+- Mensagens de 2-3 frases curtas + pergunta. Nao seja robotico nem exageradamente entusiasmado.
+- Confirme acoes com carinho: "Pronto, criei sua conta **Nubank**! ✓" e siga para a proxima pergunta.
+- Use **negrito** para valores e nomes. Formate valores em R$.
+- Pode usar 1 emoji por mensagem (nao exagere).
+- Se o usuario pular algo: "Tranquilo! Pode completar depois quando quiser." e avance.
+- Cada mensagem deve ter APENAS UMA pergunta ou acao. Nao consolide varias perguntas.
+
+## REGRAS DE BOTOES (CRITICO)
+- Quando usar show_interactive_buttons, o value de cada botao DEVE ser texto natural em portugues.
+  Exemplo CORRETO: { label: "Conta Corrente", value: "Conta Corrente" }
+  Exemplo ERRADO: { label: "Conta Corrente", value: "conta_corrente" }
+- NUNCA misture botoes com perguntas de texto livre na mesma mensagem.
+  Se precisa de um valor numerico (saldo, limite), pergunte SEM botoes.
+  Se precisa de uma escolha (tipo de conta, sim/nao), use APENAS botoes.
+- SEMPRE escreva uma frase de contexto ANTES de chamar show_interactive_buttons. Nunca mande so botoes sem texto.
+- Nao consolide muitas perguntas. Uma informacao por vez.
+
+## ROTEIRO
+
+**FASE 1 - INICIO** (1 msg):
+O card de boas-vindas ja explicou tudo. Sua primeira mensagem deve ser acolhedora e rapida:
+"Que bom ter voce aqui, ${userProfile.nome}! 😊 Vamos comecar configurando suas contas. Me conta: quais bancos ou contas voce usa no dia a dia? (ex: Nubank, Itau, Inter, PicPay)"
+
+**FASE 2 - CONTAS** (varias msgs, uma pergunta por vez):
+- Quando o usuario informar os bancos, para CADA conta pergunte UMA coisa por vez:
+  1. Primeiro: tipo da conta (botoes: "Conta Corrente" / "Poupanca" / "Investimento" / "Carteira digital")
+  2. Depois: "Qual o saldo aproximado da sua conta **Nubank**?" (SEM botoes - resposta livre)
+- Crie a conta com create_conta assim que tiver as infos
+- Cores por banco: Nubank=#8B5CF6, Inter=#FF6B00, Itau=#003DA5, BB=#FCCF00, Bradesco=#CC092F, Caixa=#005CA9, Santander=#EC0000, C6=#1A1A1A, PicPay=#21C25E
+- Apos criar todas: "Mais alguma conta que eu nao mencionei?" (botoes: "Tenho mais" / "So essas")
+
+**FASE 3 - CARTOES** (varias msgs, uma pergunta por vez):
+- "Agora vamos para os cartoes de credito! Voce tem algum?" (botoes: "Tenho sim" / "Nao tenho")
+- Se tem, pergunte UMA info por vez:
+  1. "Qual o nome do cartao? (ex: Nubank, C6, Inter)"
+  2. "Qual o limite total do seu **Nubank**?"
+  3. "Qual o dia de fechamento e o dia de vencimento?" (pode perguntar os dois juntos)
+  4. "E os ultimos 4 digitos do cartao? Ajuda a identificar depois 😉"
+- SEMPRE pergunte ultimos 4 digitos
+- Use create_cartao
+- Apos criar: "Se tiver a fatura em PDF, pode enviar pelo 📎 que eu processo pra voce! Tem mais algum cartao?" (botoes: "Tenho mais" / "So esses")
+
+**FASE 4 - RECEITAS FIXAS** (varias msgs, uma pergunta por vez):
+- "Otimo! Agora vamos falar sobre sua renda. Qual sua principal fonte de renda?" (botoes: "Salario CLT" / "Freelance" / "Aluguel recebido" / "Outro")
+- Depois: "Qual o valor mensal?" (SEM botoes)
+- Depois: "Em qual dia do mes voce recebe?" (SEM botoes)
+- Depois: pergunte em qual conta cai (botoes com as contas ja criadas)
+- Use query_categorias tipo='receita' ANTES de criar, depois create_transacao_fixa
+- Atualize receita_mensal_estimada com update_perfil_financeiro
+- "Tem mais alguma renda fixa?" (botoes: "Tenho mais" / "So essa")
+
+**FASE 5 - DESPESAS FIXAS** (varias msgs, uma por vez):
+- "Agora vamos mapear seus gastos fixos pra eu calcular certinho seu saldo previsto! 📊"
+- Pergunte por categoria, UMA de cada vez:
+  - "Voce paga aluguel ou financiamento?" (botoes: "Aluguel" / "Financiamento" / "Nenhum")
+  - Se sim: "Quanto paga e em qual dia do mes?" (SEM botoes)
+  - Depois: "Paga em qual conta ou cartao?" (botoes com contas/cartoes criados + "Nao tenho")
+  - Depois passe para: internet, celular, streaming, plano de saude, academia, transporte
+- Para cada: valor, dia, conta ou cartao
+- Use query_categorias tipo='despesa' ANTES, depois create_transacao_fixa
+- Apos cada bloco: "Tem mais algum gasto fixo que eu nao mencionei?" (botoes: "Tenho mais" / "Acho que eh isso")
+
+**FASE 6 - PERFIL** (2-3 msgs, uma pergunta por vez):
+- "Estamos quase la! Umas perguntinhas rapidas pra entender melhor seu perfil financeiro."
+- Uma por vez:
+  - "Voce consegue guardar dinheiro todo mes?" (botoes: "Sempre" / "As vezes" / "Raramente")
+  - "Tem alguma divida em atraso?" (botoes: "Nao" / "Sim, poucas" / "Sim, varias")
+  - "Como voce se considera com dinheiro?" (botoes: "Poupador" / "Equilibrado" / "Gastador")
+- Use update_perfil_financeiro
+
+**FASE 7 - FINALIZACAO** (1-2 msgs):
+- Use get_interview_progress para resumo
+- Apresente resumo formatado e acolhedor do que foi criado
+- "Prontinho, ${userProfile.nome}! Seu sistema ta configurado. Agora voce pode acompanhar tudo no dashboard. Qualquer coisa, eh so me chamar! 🎉"
+- Chame finalizar_entrevista
+
+## REGRAS CRITICAS
+1. SEMPRE termine com PERGUNTA ou proposta de acao
+2. Uma fase por vez, UMA PERGUNTA por vez - nao consolide
+3. Crie dados IMEDIATAMENTE apos o usuario informar
+4. CONCISO: maximo 2-3 frases curtas por mensagem + pergunta
+5. Para transacoes fixas: SEMPRE query_categorias ANTES. NUNCA invente IDs.
+6. Para transacoes em conta: SEMPRE query_contas ANTES. No cartao: query_cartoes.
+7. Para cartoes: SEMPRE pergunte ultimos 4 digitos.
+8. Use show_interactive_buttons para TODAS as perguntas com opcoes definidas.
+9. NUNCA misture botoes com perguntas de texto livre. Sao tipos de interacao DIFERENTES.
+10. SEMPRE escreva texto de contexto ANTES dos botoes. NUNCA mande so botoes.
+11. Se o usuario der varias infos de uma vez, processe TODAS, confirme e siga.
+12. Values dos botoes SEMPRE em portugues natural (ex: "Conta Corrente", NAO "conta_corrente").`;
+}
+
+// =====================================================
+// TOOL EXECUTOR
 // =====================================================
 
 async function executeTool(
@@ -616,7 +877,7 @@ async function executeTool(
         } else {
           const { data, error } = await supabase.from('app_conta').select('id, nome, saldo_atual, moeda, tipo').eq('user_id', userId).or('status.eq.ativa,status.eq.ativo');
           if (error) throw error;
-          const saldoTotal = data?.reduce((sum, c) => sum + (Number(c.saldo_atual) || 0), 0) || 0;
+          const saldoTotal = data?.reduce((sum: number, c: any) => sum + (Number(c.saldo_atual) || 0), 0) || 0;
           return { success: true, data: { saldo_total: saldoTotal, contas: data } };
         }
       }
@@ -638,7 +899,7 @@ async function executeTool(
         if (args.busca) query = query.ilike('descricao', `%${args.busca}%`);
         const { data, error } = await query;
         if (error) throw error;
-        const total = data?.reduce((sum, t) => sum + Number(t.valor), 0) || 0;
+        const total = data?.reduce((sum: number, t: any) => sum + Number(t.valor), 0) || 0;
         return { success: true, data: { transacoes: data, total, quantidade: data?.length || 0 } };
       }
 
@@ -661,7 +922,7 @@ async function executeTool(
       case 'query_metas': {
         const { data, error } = await supabase.from('app_meta_financeira').select('id, titulo, descricao, valor_meta, valor_atual, data_inicio, data_fim, cor').eq('user_id', userId);
         if (error) throw error;
-        const metasComProgresso = data?.map(m => ({ ...m, percentual: m.valor_meta > 0 ? Math.round((m.valor_atual / m.valor_meta) * 100) : 0 }));
+        const metasComProgresso = data?.map((m: any) => ({ ...m, percentual: m.valor_meta > 0 ? Math.round((m.valor_atual / m.valor_meta) * 100) : 0 }));
         return { success: true, data: metasComProgresso };
       }
 
@@ -675,8 +936,8 @@ async function executeTool(
         const endDate = new Date(Number(ano), Number(mes), 0).toISOString().split('T')[0];
         const { data: gastos } = await supabase.from('app_transacoes').select('categoria_id, valor').eq('user_id', userId).in('tipo', ['despesa', 'despesa_cartao']).gte('data', startDate).lte('data', endDate);
         const gastosPorCat: Record<number, number> = {};
-        (gastos || []).forEach(g => { gastosPorCat[g.categoria_id] = (gastosPorCat[g.categoria_id] || 0) + Number(g.valor); });
-        const orcamentosComGastos = (orcamentos || []).map(o => ({ ...o, gasto: gastosPorCat[(o.categoria as any)?.id] || 0, percentual_usado: o.valor > 0 ? Math.round((gastosPorCat[(o.categoria as any)?.id] || 0) / o.valor * 100) : 0 }));
+        (gastos || []).forEach((g: any) => { gastosPorCat[g.categoria_id] = (gastosPorCat[g.categoria_id] || 0) + Number(g.valor); });
+        const orcamentosComGastos = (orcamentos || []).map((o: any) => ({ ...o, gasto: gastosPorCat[(o.categoria as any)?.id] || 0, percentual_usado: o.valor > 0 ? Math.round((gastosPorCat[(o.categoria as any)?.id] || 0) / o.valor * 100) : 0 }));
         return { success: true, data: orcamentosComGastos };
       }
 
@@ -690,7 +951,7 @@ async function executeTool(
         if (error) throw error;
         const porCategoria: Record<string, { nome: string; total: number; cor: string }> = {};
         let totalGeral = 0;
-        data?.forEach(t => { const cat = t.categoria as { id: number; nome: string; cor: string }; if (!porCategoria[cat.id]) porCategoria[cat.id] = { nome: cat.nome, total: 0, cor: cat.cor }; porCategoria[cat.id].total += Number(t.valor); totalGeral += Number(t.valor); });
+        data?.forEach((t: any) => { const cat = t.categoria as { id: number; nome: string; cor: string }; if (!porCategoria[cat.id]) porCategoria[cat.id] = { nome: cat.nome, total: 0, cor: cat.cor }; porCategoria[cat.id].total += Number(t.valor); totalGeral += Number(t.valor); });
         const analise = Object.values(porCategoria).map(c => ({ ...c, percentual: totalGeral > 0 ? Math.round((c.total / totalGeral) * 100) : 0 })).sort((a, b) => b.total - a.total);
         return { success: true, data: { total: totalGeral, por_categoria: analise, mes, ano } };
       }
@@ -705,8 +966,8 @@ async function executeTool(
           const startDate = `${ano}-${String(mes).padStart(2, '0')}-01`;
           const endDate = new Date(ano, mes, 0).toISOString().split('T')[0];
           const { data } = await supabase.from('app_transacoes').select('valor, tipo').eq('user_id', userId).gte('data', startDate).lte('data', endDate);
-          const receitas = (data || []).filter(t => t.tipo === 'receita').reduce((s, t) => s + Number(t.valor), 0);
-          const despesas = (data || []).filter(t => t.tipo === 'despesa' || t.tipo === 'despesa_cartao').reduce((s, t) => s + Number(t.valor), 0);
+          const receitas = (data || []).filter((t: any) => t.tipo === 'receita').reduce((s: number, t: any) => s + Number(t.valor), 0);
+          const despesas = (data || []).filter((t: any) => t.tipo === 'despesa' || t.tipo === 'despesa_cartao').reduce((s: number, t: any) => s + Number(t.valor), 0);
           resultados.push({ mes: d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }), receitas, despesas, saldo: receitas - despesas });
         }
         return { success: true, data: resultados.reverse() };
@@ -728,7 +989,7 @@ async function executeTool(
         const cartoesComFatura = [];
         for (const cartao of (cartoes || [])) {
           const { data: despesas } = await supabase.from('app_transacoes').select('valor').eq('user_id', userId).eq('cartao_id', cartao.id).gte('data', startDate).lte('data', endDate);
-          const totalDespesas = (despesas || []).reduce((sum, t) => sum + Number(t.valor), 0);
+          const totalDespesas = (despesas || []).reduce((sum: number, t: any) => sum + Number(t.valor), 0);
           const { data: fatura } = await supabase.from('app_fatura').select('id, mes, ano, valor_total, status, data_vencimento').eq('cartao_id', cartao.id).eq('mes', mesAtual).eq('ano', anoAtual).single();
           cartoesComFatura.push({ ...cartao, limite_disponivel: cartao.limite - totalDespesas, despesas_mes_atual: totalDespesas, fatura_atual: fatura || null });
         }
@@ -742,7 +1003,6 @@ async function executeTool(
         const { data: fatura } = await supabase.from('app_fatura').select('id, cartao_id, mes, ano, valor_total, status, data_vencimento, data_pagamento').eq('cartao_id', args.cartao_id).eq('mes', mes).eq('ano', ano).single();
 
         if (fatura?.id) {
-          // Usar RPCs do banco que combinam transacoes reais + fixas (mesma logica do frontend)
           const [transResult, totalResult] = await Promise.all([
             supabase.rpc('obter_transacoes_fatura', { p_fatura_id: fatura.id }),
             supabase.rpc('calcular_valor_total_fatura', { p_fatura_id: fatura.id }),
@@ -752,21 +1012,18 @@ async function executeTool(
           const parceladas = transacoes.filter((t: any) => t.total_parcelas && t.total_parcelas > 1).length;
           const fixas = transacoes.filter((t: any) => t.is_fixed).length;
           const avista = transacoes.length - parceladas - fixas;
-          console.log(`query_fatura: RPC retornou ${transacoes.length} transacoes (${parceladas} parceladas, ${fixas} fixas, ${avista} avista), total R$ ${total}`);
           return { success: true, data: { cartao: cartao?.nome, fatura: { ...fatura, valor_total: total }, transacoes, total, quantidade: transacoes.length, resumo: { parceladas, fixas, avista } } };
         }
 
-        // Fallback: fatura nao existe no banco - query manual
         const diaFechamento = cartao?.dia_fechamento || 1;
         const mesNum = Number(mes); const anoNum = Number(ano);
         const fimCiclo = new Date(anoNum, mesNum - 1, diaFechamento);
         const inicioCiclo = new Date(anoNum, mesNum - 2, diaFechamento + 1);
         const startDate = inicioCiclo.toISOString().split('T')[0];
         const endDate = fimCiclo.toISOString().split('T')[0];
-        console.log(`query_fatura: fallback manual ciclo ${startDate} a ${endDate}`);
         const { data: transacoes, error } = await supabase.from('app_transacoes').select('id, descricao, valor, data, status, parcela_atual, total_parcelas, categoria:app_categoria(id, nome, cor)').eq('user_id', userId).eq('cartao_id', args.cartao_id).gte('data', startDate).lte('data', endDate).order('data', { ascending: false });
         if (error) throw error;
-        const total = (transacoes || []).reduce((sum, t) => sum + Number(t.valor), 0);
+        const total = (transacoes || []).reduce((sum: number, t: any) => sum + Number(t.valor), 0);
         return { success: true, data: { cartao: cartao?.nome, fatura: { mes, ano, status: 'aberta', valor_total: total }, transacoes, total, quantidade: transacoes?.length || 0 } };
       }
 
@@ -785,32 +1042,15 @@ async function executeTool(
         if (error) throw error;
         const totaisPorCategoria: Record<string, number> = {};
         let totalGeral = 0;
-        (data || []).forEach(ativo => { totaisPorCategoria[ativo.categoria] = (totaisPorCategoria[ativo.categoria] || 0) + Number(ativo.valor_atual); totalGeral += Number(ativo.valor_atual); });
+        (data || []).forEach((ativo: any) => { totaisPorCategoria[ativo.categoria] = (totaisPorCategoria[ativo.categoria] || 0) + Number(ativo.valor_atual); totalGeral += Number(ativo.valor_atual); });
         return { success: true, data: { ativos: data, total_geral: totalGeral, totais_por_categoria: totaisPorCategoria, quantidade: data?.length || 0 } };
       }
 
       case 'save_memory': {
-        const scoreByType: Record<string, number> = {
-          preferencia: 0.8,
-          objetivo: 0.9,
-          padrao: 0.7,
-          insight: 0.6,
-          lembrete: 0.85,
-        };
-
+        const scoreByType: Record<string, number> = { preferencia: 0.8, objetivo: 0.9, padrao: 0.7, insight: 0.6, lembrete: 0.85 };
         let embedding = null;
-        try {
-          embedding = await generateEmbedding(`[${args.tipo}] ${args.conteudo}`);
-        } catch (e) {
-          console.error('Erro ao gerar embedding para memoria:', e);
-        }
-        const insertData: any = {
-          usuario_id: userId,
-          tipo_conteudo: args.tipo,
-          conteudo: args.conteudo,
-          ativo: true,
-          relevancia_score: scoreByType[args.tipo as string] || 0.5,
-        };
+        try { embedding = await generateEmbedding(`[${args.tipo}] ${args.conteudo}`); } catch (e) { console.error('Erro ao gerar embedding para memoria:', e); }
+        const insertData: any = { usuario_id: userId, tipo_conteudo: args.tipo, conteudo: args.conteudo, ativo: true, relevancia_score: scoreByType[args.tipo as string] || 0.5 };
         if (embedding) insertData.embedding = embedding;
         const { error } = await supabase.from('app_memoria_ia').insert(insertData);
         if (error) throw error;
@@ -866,50 +1106,167 @@ async function executeTool(
         const field = args.field as string;
         const value = args.value;
         const action = (args.action as string) || 'set';
-
-        // Buscar ai_context atual
-        const { data: perfil, error: perfilError } = await supabase
-          .from('app_perfil')
-          .select('ai_context')
-          .eq('id', userId)
-          .single();
+        const { data: perfil, error: perfilError } = await supabase.from('app_perfil').select('ai_context').eq('id', userId).single();
         if (perfilError) throw perfilError;
-
         const currentContext = perfil?.ai_context || {};
-
-        if (action === 'delete') {
-          delete currentContext[field];
-        } else {
-          currentContext[field] = value;
-        }
-
-        const { error: updateError } = await supabase
-          .from('app_perfil')
-          .update({ ai_context: currentContext })
-          .eq('id', userId);
+        if (action === 'delete') { delete currentContext[field]; } else { currentContext[field] = value; }
+        const { error: updateError } = await supabase.from('app_perfil').update({ ai_context: currentContext }).eq('id', userId);
         if (updateError) throw updateError;
-
-        console.log(`update_user_profile: ${action} field "${field}"`);
         return { success: true, data: { updated: true, field, action } };
       }
 
-      case 'create_goal':
-      case 'create_budget':
-      case 'create_conta':
-      case 'create_cartao':
-        return { success: false, error: 'Para uma melhor experiencia, faca isso diretamente na aba correspondente do app Vitto!' };
+      // =====================================================
+      // INTERVIEW-ONLY TOOLS
+      // =====================================================
+
+      case 'create_conta': {
+        const { data, error } = await supabase.from('app_conta').insert({
+          user_id: userId,
+          nome: args.nome,
+          tipo: args.tipo || 'conta_corrente',
+          saldo_inicial: args.saldo_inicial || 0,
+          saldo_atual: args.saldo_inicial || 0,
+          instituicao: args.instituicao || null,
+          cor: args.cor || '#4F46E5',
+          status: 'ativo',
+          moeda: 'BRL',
+        }).select().single();
+        if (error) throw error;
+        return { success: true, data };
+      }
+
+      case 'create_cartao': {
+        const { data, error } = await supabase.from('app_cartao_credito').insert({
+          user_id: userId,
+          nome: args.nome,
+          limite: args.limite,
+          dia_fechamento: args.dia_fechamento,
+          dia_vencimento: args.dia_vencimento,
+          ultimos_quatro_digitos: args.ultimos_quatro_digitos || null,
+          cor: args.cor || '#1A1A1A',
+        }).select().single();
+        if (error) throw error;
+        return { success: true, data };
+      }
+
+      case 'create_transacao_fixa': {
+        const today = new Date().toISOString().split('T')[0];
+        const insertData: any = {
+          user_id: userId,
+          descricao: args.descricao,
+          valor: Math.abs(Number(args.valor)),
+          tipo: args.tipo,
+          categoria_id: args.categoria_id,
+          dia_mes: args.dia_mes || 1,
+          data_inicio: today,
+          ativo: true,
+        };
+        if (args.conta_id) insertData.conta_id = args.conta_id;
+        if (args.cartao_id) insertData.cartao_id = args.cartao_id;
+        const { data, error } = await supabase.from('app_transacoes_fixas').insert(insertData).select().single();
+        if (error) throw error;
+        return { success: true, data };
+      }
+
+      case 'create_meta': {
+        const today = new Date().toISOString().split('T')[0];
+        const { data, error } = await supabase.from('app_meta_financeira').insert({
+          user_id: userId,
+          titulo: args.titulo,
+          valor_meta: args.valor_meta,
+          valor_atual: args.valor_atual || 0,
+          data_inicio: today,
+          data_fim: args.data_fim,
+          descricao: args.descricao || null,
+          cor: args.cor || '#10B981',
+        }).select().single();
+        if (error) throw error;
+        return { success: true, data };
+      }
+
+      case 'create_orcamento': {
+        const now = new Date();
+        const { data, error } = await supabase.from('app_orcamento').insert({
+          user_id: userId,
+          categoria_id: args.categoria_id,
+          valor: args.valor,
+          tipo: args.tipo || 'despesa',
+          mes: now.getMonth() + 1,
+          ano: now.getFullYear(),
+        }).select().single();
+        if (error) throw error;
+        return { success: true, data };
+      }
+
+      case 'update_perfil_financeiro': {
+        const field = args.field as string;
+        const value = args.value;
+        const { data: perfil, error: perfilError } = await supabase.from('app_perfil').select('perfil_financeiro').eq('id', userId).single();
+        if (perfilError) throw perfilError;
+        const currentPerfil = perfil?.perfil_financeiro || {};
+        currentPerfil[field] = value;
+        const { error: updateError } = await supabase.from('app_perfil').update({ perfil_financeiro: currentPerfil }).eq('id', userId);
+        if (updateError) throw updateError;
+        return { success: true, data: { updated: true, field } };
+      }
+
+      case 'finalizar_entrevista': {
+        // Marcar onboarding como completo
+        const { error } = await supabase.from('app_perfil').update({
+          onboarding_completed: true,
+        }).eq('id', userId);
+        if (error) throw error;
+
+        // Calcular receita mensal total a partir de transacoes fixas de receita
+        const { data: receitasFixas } = await supabase.from('app_transacoes_fixas')
+          .select('valor').eq('user_id', userId).eq('tipo', 'receita').eq('ativo', true);
+        const receitaTotal = (receitasFixas || []).reduce((sum: number, r: any) => sum + Number(r.valor), 0);
+        if (receitaTotal > 0) {
+          await supabase.from('app_perfil').update({ receita_mensal_estimada: receitaTotal }).eq('id', userId);
+        }
+
+        return { success: true, data: { completed: true, message: 'Entrevista finalizada com sucesso!' } };
+      }
+
+      case 'get_interview_progress': {
+        const [contas, cartoes, fixas, metas, orcamentos] = await Promise.all([
+          supabase.from('app_conta').select('id, nome, tipo, saldo_atual').eq('user_id', userId),
+          supabase.from('app_cartao_credito').select('id, nome, limite').eq('user_id', userId),
+          supabase.from('app_transacoes_fixas').select('id, descricao, valor, tipo').eq('user_id', userId).eq('ativo', true),
+          supabase.from('app_meta_financeira').select('id, titulo, valor_meta').eq('user_id', userId),
+          supabase.from('app_orcamento').select('id, valor').eq('user_id', userId),
+        ]);
+        const { data: perfil } = await supabase.from('app_perfil').select('perfil_financeiro').eq('id', userId).single();
+        const perfilFields = Object.keys(perfil?.perfil_financeiro || {});
+
+        const receitasFixas = (fixas.data || []).filter((f: any) => f.tipo === 'receita');
+        const despesasFixas = (fixas.data || []).filter((f: any) => f.tipo === 'despesa' || f.tipo === 'despesa_cartao');
+
+        return {
+          success: true,
+          data: {
+            contas: { quantidade: contas.data?.length || 0, items: contas.data },
+            cartoes: { quantidade: cartoes.data?.length || 0, items: cartoes.data },
+            receitas_fixas: { quantidade: receitasFixas.length, items: receitasFixas },
+            despesas_fixas: { quantidade: despesasFixas.length, items: despesasFixas },
+            metas: { quantidade: metas.data?.length || 0, items: metas.data },
+            orcamentos: { quantidade: orcamentos.data?.length || 0 },
+            perfil_financeiro: { campos_preenchidos: perfilFields.length, campos: perfilFields },
+          },
+        };
+      }
 
       default:
         return { success: false, error: `Tool desconhecida: ${toolName}` };
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Erro ao executar tool ${toolName}:`, error);
     return { success: false, error: error.message };
   }
 }
 
 // =====================================================
-// HELPERS (preservados)
+// HELPERS
 // =====================================================
 
 function generateActionPreview(toolName: string, args: Record<string, unknown>): string {
@@ -966,6 +1323,7 @@ async function processOpenAIStream(
   const decoder = new TextDecoder();
   let buffer = '';
   let fullContent = '';
+  let hasToolCalls = false;
   const toolCallsMap = new Map<number, { id: string; name: string; arguments: string }>();
 
   while (true) {
@@ -987,12 +1345,8 @@ async function processOpenAIStream(
         const delta = parsed.choices?.[0]?.delta;
         if (!delta) continue;
 
-        if (delta.content) {
-          fullContent += delta.content;
-          onToken(delta.content);
-        }
-
         if (delta.tool_calls) {
+          hasToolCalls = true;
           for (const tc of delta.tool_calls) {
             const existing = toolCallsMap.get(tc.index) || { id: '', name: '', arguments: '' };
             if (tc.id) existing.id = tc.id;
@@ -1000,6 +1354,13 @@ async function processOpenAIStream(
             if (tc.function?.arguments) existing.arguments += tc.function.arguments;
             toolCallsMap.set(tc.index, existing);
           }
+        }
+
+        // So emitir tokens de texto se NAO ha tool calls em andamento
+        // Quando o modelo faz tool call, ele pode emitir texto descritivo que nao deve aparecer no chat
+        if (delta.content && !hasToolCalls) {
+          fullContent += delta.content;
+          onToken(delta.content);
         }
       } catch { /* skip malformed chunks */ }
     }
@@ -1017,7 +1378,7 @@ async function processOpenAIStream(
 }
 
 // =====================================================
-// PROCESS CONFIRMED ACTION (preservado)
+// PROCESS CONFIRMED ACTION
 // =====================================================
 
 async function processConfirmedAction(
@@ -1093,8 +1454,7 @@ async function loadSessionHistory(
 
     if (error || !data || data.length === 0) return [];
 
-    // Reverter para ordem cronológica e converter para ChatMessage
-    return data.reverse().map(m => ({
+    return data.reverse().map((m: any) => ({
       role: m.role as 'user' | 'assistant',
       content: m.content,
     }));
@@ -1108,7 +1468,6 @@ function embedMessageAsync(
   messageId: string,
   content: string,
 ): void {
-  // Fire-and-forget: gera embedding e salva via embed-and-save
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   if (!supabaseUrl || !serviceKey || !messageId) return;
@@ -1150,16 +1509,19 @@ async function streamingAgentLoop(
   systemPrompt: string,
   history: ChatMessage[] = [],
   maxIterations: number = 8,
+  isInterviewMode: boolean = false,
 ): Promise<string> {
   const apiKey = Deno.env.get('OPENAI_API_KEY');
   if (!apiKey) throw new Error('OPENAI_API_KEY nao configurada');
 
-  // Mensagens de trabalho: historico da sessao + mensagem atual
   const workingMessages: ChatMessage[] = [
     ...history,
     { role: 'user', content: userMessage },
   ];
-  console.log(`Agent loop: ${history.length} mensagens de historico + mensagem atual`);
+  console.log(`Agent loop: ${history.length} mensagens de historico + mensagem atual (interview=${isInterviewMode})`);
+
+  // No interview mode, nenhuma tool requer confirmacao
+  const confirmationTools = isInterviewMode ? [] : CONFIRMATION_REQUIRED_TOOLS;
 
   let fullResponse = '';
   let iteration = 0;
@@ -1198,61 +1560,39 @@ async function streamingAgentLoop(
       throw new Error(`OpenAI API error: ${openaiResponse.status}`);
     }
 
-    // Processar stream do OpenAI
     const { content, toolCalls } = await processOpenAIStream(
       openaiResponse,
       (token) => {
-        // Encaminhar cada token para o cliente via SSE
         writer.write(sseEvent({ type: 'token', content: token }));
       },
     );
 
-    // Se nao tem tool calls, resposta completa
     if (!toolCalls || toolCalls.length === 0) {
       fullResponse = content;
       break;
     }
 
-    // PRIMEIRO: verificar se alguma tool requer confirmacao ou request_user_data
-    // (essas interrompem o fluxo)
+    // Check for confirmation-required tools and special tools
     for (const toolCall of toolCalls) {
       const toolName = toolCall.function.name;
       let toolArgs: Record<string, unknown> = {};
-      try {
-        toolArgs = JSON.parse(toolCall.function.arguments || '{}');
-      } catch {
-        toolArgs = {};
-      }
+      try { toolArgs = JSON.parse(toolCall.function.arguments || '{}'); } catch { toolArgs = {}; }
 
-      // Acao que requer confirmacao -> interromper stream
-      if (CONFIRMATION_REQUIRED_TOOLS.includes(toolName)) {
+      // Confirmation required (only in normal mode)
+      if (confirmationTools.includes(toolName)) {
         const { data: pendingAction, error } = await supabase
           .from('app_pending_actions')
-          .insert({
-            user_id: userId,
-            sessao_id: sessionId,
-            action_type: toolName,
-            action_data: toolArgs,
-            status: 'pending',
-          })
-          .select()
-          .single();
+          .insert({ user_id: userId, sessao_id: sessionId, action_type: toolName, action_data: toolArgs, status: 'pending' })
+          .select().single();
 
         if (error) throw error;
 
         const previewMessage = generateActionPreview(toolName, toolArgs);
-
         writer.write(sseEvent({
           type: 'needs_confirmation',
           message: previewMessage,
-          pendingAction: {
-            id: pendingAction.id,
-            action_type: toolName,
-            action_data: toolArgs,
-            preview_message: previewMessage,
-          },
+          pendingAction: { id: pendingAction.id, action_type: toolName, action_data: toolArgs, preview_message: previewMessage },
         }));
-
         return previewMessage;
       }
 
@@ -1261,26 +1601,64 @@ async function streamingAgentLoop(
         writer.write(sseEvent({
           type: 'needs_data',
           message: toolArgs.context,
-          dataRequest: {
-            fields: toolArgs.fields,
-            context: toolArgs.context,
-          },
+          dataRequest: { fields: toolArgs.fields, context: toolArgs.context },
         }));
-
         return toolArgs.context as string || '';
+      }
+
+      // show_interactive_buttons -> emitir botoes interativos na UI
+      if (toolName === 'show_interactive_buttons') {
+        writer.write(sseEvent({
+          type: 'interactive_buttons',
+          buttons: toolArgs.buttons,
+        }));
+        // Add to working messages so AI knows buttons were shown
+        workingMessages.push({
+          role: 'assistant',
+          content: content || '',
+          tool_calls: [toolCall],
+        });
+        workingMessages.push({
+          role: 'tool',
+          tool_call_id: toolCall.id,
+          content: JSON.stringify({ success: true, message: 'Botoes exibidos para o usuario. Aguarde a resposta dele na proxima mensagem.' }),
+        });
+        // Return - don't continue loop, wait for user to click a button
+        return content || '';
+      }
+
+      // finalizar_entrevista -> emitir evento especial
+      if (toolName === 'finalizar_entrevista') {
+        const result = await executeTool(supabase, userId, toolName, toolArgs);
+        if (result.success) {
+          writer.write(sseEvent({ type: 'interview_complete' }));
+        }
+        // Continue loop so the AI can generate a final farewell message
+        workingMessages.push({
+          role: 'assistant',
+          content: content || '',
+          tool_calls: [toolCall],
+        });
+        workingMessages.push({
+          role: 'tool',
+          tool_call_id: toolCall.id,
+          content: JSON.stringify(result),
+        });
+        continue;
       }
     }
 
-    // SEGUNDO: executar TODAS as tools normais
+    // Execute all normal tools
     const toolResults: { id: string; result: string }[] = [];
     for (const toolCall of toolCalls) {
       const toolName = toolCall.function.name;
+      if (toolName === 'finalizar_entrevista') continue; // Already handled above
+      if (toolName === 'request_user_data') continue;
+      if (toolName === 'show_interactive_buttons') continue;
+      if (confirmationTools.includes(toolName)) continue;
+
       let toolArgs: Record<string, unknown> = {};
-      try {
-        toolArgs = JSON.parse(toolCall.function.arguments || '{}');
-      } catch {
-        toolArgs = {};
-      }
+      try { toolArgs = JSON.parse(toolCall.function.arguments || '{}'); } catch { toolArgs = {}; }
 
       console.log(`Tool call: ${toolName}`, toolArgs);
       writer.write(sseEvent({ type: 'tool_start', tool: toolName }));
@@ -1289,23 +1667,27 @@ async function streamingAgentLoop(
       toolResults.push({ id: toolCall.id, result: JSON.stringify(result) });
     }
 
-    // UMA unica mensagem assistant com TODAS as tool calls (formato correto OpenAI)
-    workingMessages.push({
-      role: 'assistant',
-      content: content || '',
-      tool_calls: toolCalls,
-    });
+    // Only push assistant + tool messages for tools that weren't already handled
+    const handledToolIds = new Set(
+      workingMessages.filter(m => m.role === 'tool').map(m => m.tool_call_id)
+    );
+    const unhandledToolCalls = toolCalls.filter(tc => !handledToolIds.has(tc.id));
 
-    // N mensagens tool (uma por resultado)
-    for (const tr of toolResults) {
+    if (unhandledToolCalls.length > 0) {
       workingMessages.push({
-        role: 'tool',
-        tool_call_id: tr.id,
-        content: tr.result,
+        role: 'assistant',
+        content: content || '',
+        tool_calls: toolCalls, // OpenAI needs ALL tool_calls in the assistant message
       });
-    }
 
-    // Continua o loop para obter resposta final apos tool execution
+      for (const tr of toolResults) {
+        workingMessages.push({
+          role: 'tool',
+          tool_call_id: tr.id,
+          content: tr.result,
+        });
+      }
+    }
   }
 
   if (!fullResponse && iteration >= maxIterations) {
@@ -1350,18 +1732,16 @@ Deno.serve(async (req) => {
 
     const userId = user.id;
     const body = await req.json();
-    const { messages, sessionId, confirmationToken, confirmed, userData } = body;
+    const { messages, sessionId, confirmationToken, confirmed, userData, mode } = body;
+    const isInterviewMode = mode === 'interview';
 
-    // === FLUXO 1: Confirmacao de acao pendente (JSON, sem streaming) ===
+    // === FLUXO 1: Confirmacao de acao pendente ===
     if (confirmationToken) {
       const result = await processConfirmedAction(supabase, confirmationToken, confirmed, userId);
-
-      // Salvar resposta de confirmacao na sessao se possivel
       if (sessionId && result.message) {
         const msgId = await saveMessage(supabase, sessionId, 'assistant', result.message);
         if (msgId) embedMessageAsync(msgId, result.message);
       }
-
       return new Response(
         JSON.stringify({ ...result, sessionId }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
@@ -1376,8 +1756,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Extrair ultima mensagem do usuario
-    const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+    const lastUserMsg = [...messages].reverse().find((m: any) => m.role === 'user');
     if (!lastUserMsg) {
       return new Response(
         JSON.stringify({ error: 'No user message found' }),
@@ -1386,8 +1765,6 @@ Deno.serve(async (req) => {
     }
 
     let userContent = lastUserMsg.content;
-
-    // Se tem userData, anexar ao conteudo
     if (userData) {
       userContent += `\n\nDados adicionais fornecidos: ${JSON.stringify(userData)}`;
     }
@@ -1395,65 +1772,62 @@ Deno.serve(async (req) => {
     // Garantir sessao
     let activeSessionId = sessionId;
     if (!activeSessionId) {
-      const titulo = userContent.substring(0, 50) || 'Nova conversa';
+      const titulo = isInterviewMode ? 'Entrevista Inicial' : (userContent.substring(0, 50) || 'Nova conversa');
       const { data: newSession, error } = await supabase
         .from('app_chat_sessoes')
-        .insert({ user_id: userId, titulo })
+        .insert({ user_id: userId, titulo, metadata: isInterviewMode ? { type: 'interview' } : {} })
         .select()
         .single();
       if (error) throw error;
       activeSessionId = newSession.id;
     }
 
-    // Salvar mensagem do usuario no banco (UNICA fonte de verdade)
+    // Salvar mensagem do usuario
     const userMsgId = await saveMessage(supabase, activeSessionId, 'user', userContent);
 
-    // === PIPELINE PARALELO (4 camadas) ===
-    // Layer 1: Knowledge Base (SQL direto, 100% confiavel)
-    // Layer 2: Session History (SQL direto, 100% confiavel, 5 msgs)
-    // Layer 3: Long-term Memory (RAG, bonus - depende de embedding)
-    // Layer 4: User Profile (SQL direto, 100% confiavel)
-    const [knowledgeBlock, userProfile, history, queryEmbedding] = await Promise.all([
-      loadKnowledgeBase(supabase),
-      loadUserProfile(supabase, userId),
-      loadSessionHistory(supabase, activeSessionId, 5),
-      generateEmbedding(userContent),
-    ]);
+    // === BUILD CONTEXT ===
+    const userProfile = await loadUserProfile(supabase, userId);
+    let systemPrompt: string;
+    let selectedTools: Tool[];
 
-    console.log(`Layer 1 (Knowledge): ${knowledgeBlock.length} chars`);
-    console.log(`Layer 2 (History): ${history.length} mensagens`);
-    console.log(`Layer 4 (Profile): ${userProfile.nome}, ai_context keys: ${Object.keys(userProfile.ai_context).length}`);
-
-    // Layer 3: RAG memory (bonus, depende do embedding)
-    let memoryResults: RAGResult[] = [];
-    if (queryEmbedding) {
-      memoryResults = await ragSearchMemories(supabase, queryEmbedding, userId);
-      console.log(`Layer 3 (Memory RAG): ${memoryResults.length} memorias encontradas`);
+    if (isInterviewMode) {
+      // Interview mode: system prompt especifico + all tools + interview tools
+      systemPrompt = buildInterviewSystemPrompt(userProfile);
+      selectedTools = [...ALL_TOOLS, ...INTERVIEW_TOOLS];
+      console.log(`INTERVIEW MODE: ${selectedTools.length} tools disponiveis`);
     } else {
-      console.log('Layer 3 (Memory RAG): embedding falhou, pulando busca de memorias');
+      // Normal mode: pipeline RAG completo
+      const [knowledgeBlock, queryEmbedding] = await Promise.all([
+        loadKnowledgeBase(supabase),
+        generateEmbedding(userContent),
+      ]);
+
+      let memoryResults: RAGResult[] = [];
+      if (queryEmbedding) {
+        memoryResults = await ragSearchMemories(supabase, queryEmbedding, userId);
+      }
+
+      systemPrompt = buildSystemPrompt(userProfile, knowledgeBlock, memoryResults);
+      selectedTools = ALL_TOOLS;
+      console.log(`NORMAL MODE: ${selectedTools.length} tools, knowledge=${knowledgeBlock.length}chars, memories=${memoryResults.length}`);
     }
 
-    // Construir system prompt com as 4 camadas
-    const systemPrompt = buildSystemPrompt(userProfile, knowledgeBlock, memoryResults);
-    console.log(`System prompt total: ${systemPrompt.length} chars`);
+    // Load session history (both modes)
+    const history = await loadSessionHistory(supabase, activeSessionId, isInterviewMode ? 20 : 5);
+    console.log(`History: ${history.length} mensagens`);
 
-    // Enviar TODAS as tools - o agente escolhe sozinho
-    const selectedTools = ALL_TOOLS;
-    console.log(`Tools disponiveis: ${selectedTools.length} (ALL_TOOLS)`);
-
-    // Remover a ultima mensagem do historico se for a mensagem atual (evitar duplicata)
+    // Filter history to avoid duplicating the current message
     const filteredHistory = history.filter(m =>
       !(m.role === 'user' && m.content === userContent)
     );
 
-    // Embed mensagem do usuario async
+    // Embed user message async
     if (userMsgId) embedMessageAsync(userMsgId, userContent);
 
     // === STREAMING SSE ===
     const { readable, writable } = new TransformStream<Uint8Array>();
     const writer = writable.getWriter();
 
-    // Processar em background enquanto stream eh retornado
     (async () => {
       try {
         const assistantContent = await streamingAgentLoop(
@@ -1465,25 +1839,19 @@ Deno.serve(async (req) => {
           selectedTools,
           systemPrompt,
           filteredHistory,
+          isInterviewMode ? 12 : 8, // More iterations for interview (multiple tools per turn)
+          isInterviewMode,
         );
 
-        // Salvar resposta do assistente (UNICA fonte de verdade)
         if (assistantContent) {
           const assistantMsgId = await saveMessage(supabase, activeSessionId, 'assistant', assistantContent);
           if (assistantMsgId) embedMessageAsync(assistantMsgId, assistantContent);
         }
 
-        // Enviar evento de conclusao
-        writer.write(sseEvent({
-          type: 'done',
-          sessionId: activeSessionId,
-        }));
-      } catch (error) {
+        writer.write(sseEvent({ type: 'done', sessionId: activeSessionId }));
+      } catch (error: any) {
         console.error('Streaming error:', error);
-        writer.write(sseEvent({
-          type: 'error',
-          error: error.message || 'Erro interno',
-        }));
+        writer.write(sseEvent({ type: 'error', error: error.message || 'Erro interno' }));
       } finally {
         writer.close();
       }
@@ -1499,7 +1867,7 @@ Deno.serve(async (req) => {
       },
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in central-ia:', error);
     return new Response(
       JSON.stringify({ error: error.message }),

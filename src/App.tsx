@@ -27,8 +27,8 @@ import TransactionsPageModern from './pages/transactions/TransactionsPageModern'
 const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('./pages/auth/ResetPasswordPage'));
 
-// Onboarding (visitado uma vez)
-const OnboardingPage = lazy(() => import('./pages/onboarding/OnboardingPage'));
+// Entrevista IA (substitui onboarding antigo)
+const InterviewPage = lazy(() => import('./pages/interview/InterviewPage'));
 
 // Páginas secundárias do app
 const AccountDetailPage = lazy(() => import('./pages/accounts/AccountDetailPage'));
@@ -110,9 +110,12 @@ function App() {
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
 
-            {/* Rota de onboarding - Protegida mas sem layout */}
-            <Route path="/onboarding" element={<OnboardingPage />} />
-            <Route path="/configuracao-inicial" element={<OnboardingPage />} />
+            {/* Entrevista IA - Protegida mas sem layout */}
+            <Route path="/entrevista" element={<InterviewPage />} />
+
+            {/* Onboarding legado - redireciona para entrevista */}
+            <Route path="/onboarding" element={<Navigate to="/entrevista" replace />} />
+            <Route path="/configuracao-inicial" element={<Navigate to="/entrevista" replace />} />
 
             {/* Rotas protegidas - Requerem autenticação */}
             <Route element={<PrivateRoute />}>

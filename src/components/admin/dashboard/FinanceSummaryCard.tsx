@@ -18,14 +18,17 @@ function formatCurrency(value: number): string {
 export default function FinanceSummaryCard() {
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setErrorMsg(null);
         const result = await AdminFinanceService.getSummary();
         setSummary(result);
       } catch (error) {
         console.error('Error fetching finance summary:', error);
+        setErrorMsg(error instanceof Error ? error.message : 'Erro desconhecido');
       } finally {
         setLoading(false);
       }
@@ -51,6 +54,7 @@ export default function FinanceSummaryCard() {
     return (
       <div className="bg-white rounded-xl border border-slate-200 p-4 h-full">
         <p className="text-slate-500 text-sm">Erro ao carregar</p>
+        {errorMsg && <p className="text-red-400 text-xs mt-1">{errorMsg}</p>}
       </div>
     );
   }

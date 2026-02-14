@@ -1,7 +1,7 @@
 /**
  * Testes do PrivateRoute
  * Verifica proteção de rotas: redireciona para login quando não autenticado,
- * redireciona para onboarding quando necessário, e renderiza conteúdo quando OK.
+ * redireciona para entrevista quando necessário, e renderiza conteúdo quando OK.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -35,7 +35,7 @@ function renderPrivateRoute(initialPath = '/dashboard') {
     <MemoryRouter initialEntries={[initialPath]}>
       <Routes>
         <Route path="/login" element={<div data-testid="login-page">Login</div>} />
-        <Route path="/onboarding" element={<div data-testid="onboarding-page">Onboarding</div>} />
+        <Route path="/entrevista" element={<div data-testid="interview-page">Entrevista</div>} />
         <Route element={<PrivateRoute />}>
           <Route path="/dashboard" element={<div data-testid="dashboard-page">Dashboard</div>} />
           <Route path="/contas" element={<div data-testid="accounts-page">Contas</div>} />
@@ -107,8 +107,8 @@ describe('PrivateRoute', () => {
     })
   })
 
-  describe('Redirecionamento para onboarding', () => {
-    it('deve redirecionar para /onboarding quando necessário', () => {
+  describe('Redirecionamento para entrevista', () => {
+    it('deve redirecionar para /entrevista quando onboarding necessário', () => {
       mockUseAuth.mockReturnValue({
         user: { id: 'test-user', email: 'test@vitto.app' },
         loading: false,
@@ -120,7 +120,7 @@ describe('PrivateRoute', () => {
 
       renderPrivateRoute()
 
-      expect(screen.getByTestId('onboarding-page')).toBeDefined()
+      expect(screen.getByTestId('interview-page')).toBeDefined()
       expect(screen.queryByTestId('dashboard-page')).toBeNull()
     })
   })

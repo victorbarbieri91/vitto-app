@@ -150,7 +150,7 @@ export default function TransactionsPageModern() {
         // 1. Buscar cartoes do usuario
         const { data: cards } = await supabase
           .from('app_cartao_credito')
-          .select('id')
+          .select('id, dia_fechamento, nome')
           .eq('user_id', user.id);
 
         const cardIds = (cards || []).map((c: any) => c.id);
@@ -190,6 +190,19 @@ export default function TransactionsPageModern() {
               const statusVencimento = vencimento < new Date() ? 'vencida'
                 : vencimento <= new Date(Date.now() + 7 * 86400000) ? 'proxima' : 'futura';
 
+              // Calcular período do ciclo da fatura para exibir ao usuário
+              const card = cards?.find((c: any) => c.id === f.cartao_id);
+              const diaFechamento = card?.dia_fechamento || 1;
+              // Fatura mês X cobre: dia_fechamento do mês X-1 até dia_fechamento-1 do mês X
+              const cicloInicio = new Date(f.ano, f.mes - 2, diaFechamento); // mês anterior, dia do fechamento
+              const cicloFim = new Date(f.ano, f.mes - 1, diaFechamento - 1); // mês da fatura, dia antes do fechamento
+
+              const formatCicloDate = (d: Date) => {
+                const dia = String(d.getDate()).padStart(2, '0');
+                const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+                return `${dia}/${meses[d.getMonth()]}`;
+              };
+
               faturaItems.push({
                 id: `fatura-${f.id}`,
                 descricao: `Fatura ${cartaoNome} (${f.mes}/${f.ano})`,
@@ -207,6 +220,9 @@ export default function TransactionsPageModern() {
                   data_vencimento: f.data_vencimento,
                   status: f.status,
                   status_vencimento: statusVencimento,
+                  ciclo_inicio: cicloInicio.toISOString().split('T')[0],
+                  ciclo_fim: cicloFim.toISOString().split('T')[0],
+                  ciclo_texto: `Ciclo: ${formatCicloDate(cicloInicio)} - ${formatCicloDate(cicloFim)}`,
                 },
                 categoria: { nome: 'Fatura Cartao', cor: '#8B5CF6', icone: 'credit-card' },
                 conta_nome: '-',
@@ -221,7 +237,9 @@ export default function TransactionsPageModern() {
       // Gerar transacoes virtuais para regras fixas sem transacao real neste mes
       let virtualTransactions: any[] = [];
       try {
-        virtualTransactions = await transactionService.getVirtualFixedTransactions(currentMonth, currentYear);
+        const allVirtual = await transactionService.getVirtualFixedTransactions(currentMonth, currentYear);
+        // Remover despesas de cartão virtuais - já estão incluídas no valor da fatura consolidada
+        virtualTransactions = allVirtual.filter((t: any) => t.tipo !== 'despesa_cartao');
       } catch (e) {
         console.warn('Erro ao gerar transacoes virtuais:', e);
       }

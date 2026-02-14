@@ -80,6 +80,19 @@ export class FaturaService extends BaseApi {
   }
 
   /**
+   * Busca uma fatura por ID
+   */
+  async getById(id: number | string) {
+    const { data, error } = await this.supabase
+      .from('app_fatura')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    return { data, error };
+  }
+
+  /**
    *
    */
   async payInvoice(request: PayInvoiceRequest) {
