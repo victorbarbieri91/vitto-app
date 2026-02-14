@@ -143,8 +143,20 @@ export function useInterview(): UseInterviewReturn {
               messages: [...prev.messages, { role: 'assistant', content: message }],
             }));
           },
-          onInterviewComplete: () => {
+          onInterviewComplete: async () => {
             setState(prev => ({ ...prev, isComplete: true }));
+            // Marcar onboarding como completo no banco
+            try {
+              const { data: { user } } = await supabase.auth.getUser();
+              if (user) {
+                await supabase
+                  .from('app_perfil')
+                  .update({ onboarding_completed: true })
+                  .eq('id', user.id);
+              }
+            } catch (err) {
+              console.error('[Interview] Erro ao marcar onboarding completo:', err);
+            }
           },
           onInteractiveButtons: ({ buttons }) => {
             // Store buttons - they'll be attached when onDone fires
@@ -231,11 +243,11 @@ export function useInterview(): UseInterviewReturn {
         // Buscar nome do usuario do perfil
         const { data: perfil } = await supabase
           .from('app_perfil')
-          .select('nome_completo')
+          .select('nome')
           .eq('id', authSession.user.id)
           .single();
 
-        const firstName = perfil?.nome_completo?.split(' ')[0] || authSession.user.user_metadata?.full_name?.split(' ')[0] || null;
+        const firstName = perfil?.nome?.split(' ')[0] || authSession.user.user_metadata?.nome?.split(' ')[0] || null;
         if (firstName) {
           setState(prev => ({ ...prev, userName: firstName }));
         }
