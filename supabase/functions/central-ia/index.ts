@@ -62,7 +62,7 @@ const corsHeaders = {
 
 const OPENAI_CHAT_URL = 'https://api.openai.com/v1/chat/completions';
 const OPENAI_EMBEDDING_URL = 'https://api.openai.com/v1/embeddings';
-const MODEL = 'gpt-4.1-mini';
+const MODEL = 'gpt-5-mini';
 const EMBEDDING_MODEL = 'text-embedding-3-small';
 
 // =====================================================
@@ -756,13 +756,43 @@ INSTRUCOES:
 // SYSTEM PROMPT - MODO ENTREVISTA
 // =====================================================
 
-function buildInterviewSystemPrompt(userProfile: UserProfile): string {
+function buildInterviewSystemPrompt(userProfile: UserProfile, progressData?: any): string {
   const now = new Date();
   const dataAtual = now.toLocaleDateString('pt-BR');
 
+  // Construir bloco de progresso atual
+  let progressBlock = '';
+  if (progressData) {
+    const p = progressData;
+    const parts: string[] = [];
+    if (p.contas?.quantidade > 0) {
+      parts.push(`- **Contas criadas (${p.contas.quantidade})**: ${p.contas.items?.map((c: any) => `${c.nome} (R$ ${c.saldo_atual})`).join(', ')}`);
+    }
+    if (p.cartoes?.quantidade > 0) {
+      parts.push(`- **Cartoes criados (${p.cartoes.quantidade})**: ${p.cartoes.items?.map((c: any) => `${c.nome} (limite R$ ${c.limite})`).join(', ')}`);
+    }
+    if (p.receitas_fixas?.quantidade > 0) {
+      parts.push(`- **Receitas fixas (${p.receitas_fixas.quantidade})**: ${p.receitas_fixas.items?.map((r: any) => `${r.descricao} R$ ${r.valor}`).join(', ')}`);
+    }
+    if (p.despesas_fixas?.quantidade > 0) {
+      parts.push(`- **Despesas fixas (${p.despesas_fixas.quantidade})**: ${p.despesas_fixas.items?.map((d: any) => `${d.descricao} R$ ${d.valor}`).join(', ')}`);
+    }
+    if (p.metas?.quantidade > 0) {
+      parts.push(`- **Metas (${p.metas.quantidade})**: ${p.metas.items?.map((m: any) => m.titulo).join(', ')}`);
+    }
+    if (p.perfil_financeiro?.campos_preenchidos > 0) {
+      parts.push(`- **Perfil financeiro**: ${p.perfil_financeiro.campos.join(', ')}`);
+    }
+    if (parts.length > 0) {
+      progressBlock = `\n\n## PROGRESSO ATUAL (ja cadastrado)\n${parts.join('\n')}\n\nContinue a partir do que FALTA. Nao pergunte novamente o que ja foi cadastrado.`;
+    } else {
+      progressBlock = '\n\n## PROGRESSO ATUAL\nNenhum dado cadastrado ainda. Comece do inicio (FASE 1).';
+    }
+  }
+
   return `Voce eh o **Vitto**, assistente financeiro do app Vitto. Voce conduz a ENTREVISTA INICIAL para configurar o sistema financeiro do usuario de forma descontraida e acolhedora.
 
-Data atual: ${dataAtual}. Nome do usuario: ${userProfile.nome}.
+Data atual: ${dataAtual}. Nome do usuario: ${userProfile.nome}.${progressBlock}
 
 ## TOM E ESTILO
 - Simpatico e natural, como um amigo que entende de financas. Seja acolhedor mas conciso.
@@ -1356,11 +1386,13 @@ async function processOpenAIStream(
           }
         }
 
-        // So emitir tokens de texto se NAO ha tool calls em andamento
-        // Quando o modelo faz tool call, ele pode emitir texto descritivo que nao deve aparecer no chat
-        if (delta.content && !hasToolCalls) {
+        // Sempre preservar fullContent (para salvar no DB)
+        // So emitir tokens via onToken se NAO ha tool calls em andamento
+        if (delta.content) {
           fullContent += delta.content;
-          onToken(delta.content);
+          if (!hasToolCalls) {
+            onToken(delta.content);
+          }
         }
       } catch { /* skip malformed chunks */ }
     }
@@ -1572,121 +1604,147 @@ async function streamingAgentLoop(
       break;
     }
 
-    // Check for confirmation-required tools and special tools
+    // ============================================================
+    // FASE 1: Classificar tool calls em normais vs especiais
+    // ============================================================
+    const specialCalls: {
+      buttons: { tc: ToolCall; args: Record<string, unknown> } | null;
+      confirmation: { tc: ToolCall; args: Record<string, unknown> } | null;
+      dataRequest: { tc: ToolCall; args: Record<string, unknown> } | null;
+      finalize: { tc: ToolCall; args: Record<string, unknown> } | null;
+    } = { buttons: null, confirmation: null, dataRequest: null, finalize: null };
+    const normalCalls: { tc: ToolCall; args: Record<string, unknown> }[] = [];
+
     for (const toolCall of toolCalls) {
       const toolName = toolCall.function.name;
       let toolArgs: Record<string, unknown> = {};
       try { toolArgs = JSON.parse(toolCall.function.arguments || '{}'); } catch { toolArgs = {}; }
 
-      // Confirmation required (only in normal mode)
-      if (confirmationTools.includes(toolName)) {
-        const { data: pendingAction, error } = await supabase
-          .from('app_pending_actions')
-          .insert({ user_id: userId, sessao_id: sessionId, action_type: toolName, action_data: toolArgs, status: 'pending' })
-          .select().single();
-
-        if (error) throw error;
-
-        const previewMessage = generateActionPreview(toolName, toolArgs);
-        writer.write(sseEvent({
-          type: 'needs_confirmation',
-          message: previewMessage,
-          pendingAction: { id: pendingAction.id, action_type: toolName, action_data: toolArgs, preview_message: previewMessage },
-        }));
-        return previewMessage;
-      }
-
-      // request_user_data -> interromper stream
-      if (toolName === 'request_user_data') {
-        writer.write(sseEvent({
-          type: 'needs_data',
-          message: toolArgs.context,
-          dataRequest: { fields: toolArgs.fields, context: toolArgs.context },
-        }));
-        return toolArgs.context as string || '';
-      }
-
-      // show_interactive_buttons -> emitir botoes interativos na UI
       if (toolName === 'show_interactive_buttons') {
-        writer.write(sseEvent({
-          type: 'interactive_buttons',
-          buttons: toolArgs.buttons,
-        }));
-        // Add to working messages so AI knows buttons were shown
-        workingMessages.push({
-          role: 'assistant',
-          content: content || '',
-          tool_calls: [toolCall],
-        });
-        workingMessages.push({
-          role: 'tool',
-          tool_call_id: toolCall.id,
-          content: JSON.stringify({ success: true, message: 'Botoes exibidos para o usuario. Aguarde a resposta dele na proxima mensagem.' }),
-        });
-        // Return - don't continue loop, wait for user to click a button
-        return content || '';
-      }
-
-      // finalizar_entrevista -> emitir evento especial
-      if (toolName === 'finalizar_entrevista') {
-        const result = await executeTool(supabase, userId, toolName, toolArgs);
-        if (result.success) {
-          writer.write(sseEvent({ type: 'interview_complete' }));
-        }
-        // Continue loop so the AI can generate a final farewell message
-        workingMessages.push({
-          role: 'assistant',
-          content: content || '',
-          tool_calls: [toolCall],
-        });
-        workingMessages.push({
-          role: 'tool',
-          tool_call_id: toolCall.id,
-          content: JSON.stringify(result),
-        });
-        continue;
+        specialCalls.buttons = { tc: toolCall, args: toolArgs };
+      } else if (toolName === 'finalizar_entrevista') {
+        specialCalls.finalize = { tc: toolCall, args: toolArgs };
+      } else if (toolName === 'request_user_data') {
+        specialCalls.dataRequest = { tc: toolCall, args: toolArgs };
+      } else if (confirmationTools.includes(toolName)) {
+        specialCalls.confirmation = { tc: toolCall, args: toolArgs };
+      } else {
+        normalCalls.push({ tc: toolCall, args: toolArgs });
       }
     }
 
-    // Execute all normal tools
+    // ============================================================
+    // FASE 2: Executar TODAS as tools normais primeiro
+    // ============================================================
     const toolResults: { id: string; result: string }[] = [];
-    for (const toolCall of toolCalls) {
-      const toolName = toolCall.function.name;
-      if (toolName === 'finalizar_entrevista') continue; // Already handled above
-      if (toolName === 'request_user_data') continue;
-      if (toolName === 'show_interactive_buttons') continue;
-      if (confirmationTools.includes(toolName)) continue;
-
-      let toolArgs: Record<string, unknown> = {};
-      try { toolArgs = JSON.parse(toolCall.function.arguments || '{}'); } catch { toolArgs = {}; }
-
-      console.log(`Tool call: ${toolName}`, toolArgs);
-      writer.write(sseEvent({ type: 'tool_start', tool: toolName }));
-
-      const result = await executeTool(supabase, userId, toolName, toolArgs);
-      toolResults.push({ id: toolCall.id, result: JSON.stringify(result) });
+    for (const { tc, args } of normalCalls) {
+      console.log(`Tool call: ${tc.function.name}`, args);
+      writer.write(sseEvent({ type: 'tool_start', tool: tc.function.name }));
+      const result = await executeTool(supabase, userId, tc.function.name, args);
+      toolResults.push({ id: tc.id, result: JSON.stringify(result) });
     }
 
-    // Only push assistant + tool messages for tools that weren't already handled
-    const handledToolIds = new Set(
-      workingMessages.filter(m => m.role === 'tool').map(m => m.tool_call_id)
-    );
-    const unhandledToolCalls = toolCalls.filter(tc => !handledToolIds.has(tc.id));
-
-    if (unhandledToolCalls.length > 0) {
-      workingMessages.push({
-        role: 'assistant',
-        content: content || '',
-        tool_calls: toolCalls, // OpenAI needs ALL tool_calls in the assistant message
-      });
-
-      for (const tr of toolResults) {
-        workingMessages.push({
-          role: 'tool',
-          tool_call_id: tr.id,
-          content: tr.result,
-        });
+    // ============================================================
+    // FASE 3: Tratar finalizar_entrevista (precisa continuar o loop)
+    // ============================================================
+    if (specialCalls.finalize) {
+      const { tc, args } = specialCalls.finalize;
+      const result = await executeTool(supabase, userId, 'finalizar_entrevista', args);
+      if (result.success) {
+        writer.write(sseEvent({ type: 'interview_complete' }));
       }
+      toolResults.push({ id: tc.id, result: JSON.stringify(result) });
+    }
+
+    // Push assistant message com TODOS os tool calls + resultados
+    workingMessages.push({
+      role: 'assistant',
+      content: content || '',
+      tool_calls: toolCalls,
+    });
+    for (const tr of toolResults) {
+      workingMessages.push({
+        role: 'tool',
+        tool_call_id: tr.id,
+        content: tr.result,
+      });
+    }
+
+    // Fake tool results para tools especiais que interrompem o loop
+    if (specialCalls.buttons) {
+      workingMessages.push({
+        role: 'tool',
+        tool_call_id: specialCalls.buttons.tc.id,
+        content: JSON.stringify({ success: true, message: 'Botoes exibidos para o usuario. Aguarde a resposta dele na proxima mensagem.' }),
+      });
+    }
+    if (specialCalls.confirmation) {
+      workingMessages.push({
+        role: 'tool',
+        tool_call_id: specialCalls.confirmation.tc.id,
+        content: JSON.stringify({ success: true, message: 'Aguardando confirmacao do usuario.' }),
+      });
+    }
+    if (specialCalls.dataRequest) {
+      workingMessages.push({
+        role: 'tool',
+        tool_call_id: specialCalls.dataRequest.tc.id,
+        content: JSON.stringify({ success: true, message: 'Modal de dados exibido para o usuario.' }),
+      });
+    }
+
+    // ============================================================
+    // FASE 4: Emitir eventos especiais e interromper se necessario
+    // ============================================================
+
+    // Se tem finalizar_entrevista mas NAO tem buttons/confirmation/dataRequest, continua o loop
+    // para o AI gerar a mensagem de despedida
+    if (specialCalls.finalize && !specialCalls.buttons && !specialCalls.confirmation && !specialCalls.dataRequest) {
+      continue;
+    }
+
+    // Confirmation required -> interrompe
+    if (specialCalls.confirmation) {
+      const { tc, args } = specialCalls.confirmation;
+      const { data: pendingAction, error } = await supabase
+        .from('app_pending_actions')
+        .insert({ user_id: userId, sessao_id: sessionId, action_type: tc.function.name, action_data: args, status: 'pending' })
+        .select().single();
+
+      if (error) throw error;
+
+      const previewMessage = generateActionPreview(tc.function.name, args);
+      writer.write(sseEvent({
+        type: 'needs_confirmation',
+        message: previewMessage,
+        pendingAction: { id: pendingAction.id, action_type: tc.function.name, action_data: args, preview_message: previewMessage },
+      }));
+      return previewMessage;
+    }
+
+    // request_user_data -> interrompe
+    if (specialCalls.dataRequest) {
+      const { args } = specialCalls.dataRequest;
+      writer.write(sseEvent({
+        type: 'needs_data',
+        message: args.context,
+        dataRequest: { fields: args.fields, context: args.context },
+      }));
+      return args.context as string || '';
+    }
+
+    // show_interactive_buttons -> interrompe (mas tools normais ja foram executadas!)
+    if (specialCalls.buttons) {
+      writer.write(sseEvent({
+        type: 'interactive_buttons',
+        buttons: specialCalls.buttons.args.buttons,
+      }));
+      return content || '';
+    }
+
+    // Se so tinha finalizar_entrevista (com outros especiais), continua
+    if (specialCalls.finalize) {
+      continue;
     }
   }
 
@@ -1791,9 +1849,15 @@ Deno.serve(async (req) => {
     let selectedTools: Tool[];
 
     if (isInterviewMode) {
-      // Interview mode: system prompt especifico + all tools + interview tools
-      systemPrompt = buildInterviewSystemPrompt(userProfile);
-      selectedTools = [...ALL_TOOLS, ...INTERVIEW_TOOLS];
+      // Interview mode: carregar progresso + prompt especifico + tools reduzidas
+      const progressResult = await executeTool(supabase, userId, 'get_interview_progress', {});
+      const progressData = progressResult.success ? progressResult.data : null;
+      systemPrompt = buildInterviewSystemPrompt(userProfile, progressData);
+      // Apenas tools essenciais para a entrevista (~14 em vez de 30)
+      const INTERVIEW_QUERY_TOOLS = ALL_TOOLS.filter(t =>
+        ['query_categorias', 'query_contas', 'query_cartoes', 'save_memory', 'update_user_profile'].includes(t.function.name)
+      );
+      selectedTools = [...INTERVIEW_QUERY_TOOLS, ...INTERVIEW_TOOLS];
       console.log(`INTERVIEW MODE: ${selectedTools.length} tools disponiveis`);
     } else {
       // Normal mode: pipeline RAG completo

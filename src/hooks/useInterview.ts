@@ -73,9 +73,14 @@ export function useInterview(): UseInterviewReturn {
   const hasAutoStarted = useRef(false);
   const lastUserMessageRef = useRef<string | null>(null);
   const pendingButtonsRef = useRef<InteractiveButton[] | null>(null);
+  const isSendingRef = useRef(false);
 
   // Função interna para enviar mensagem com mode='interview'
   const sendMessageInternal = useCallback(async (content: string, isAutoStart = false) => {
+    // Guard contra envios duplicados
+    if (isSendingRef.current) return;
+    isSendingRef.current = true;
+
     const userMessage: ChatMessage = { role: 'user', content };
     lastUserMessageRef.current = content;
 
@@ -103,7 +108,7 @@ export function useInterview(): UseInterviewReturn {
       let sessionId = currentSessionRef.current?.id;
 
       if (!sessionId) {
-        const newSession = await chatSessionService.createSession('Entrevista Inicial');
+        const newSession = await chatSessionService.createSession('Entrevista Inicial', { type: 'interview' });
         sessionId = newSession.id;
         setState(prev => ({ ...prev, currentSession: newSession }));
         currentSessionRef.current = newSession;
@@ -219,6 +224,8 @@ export function useInterview(): UseInterviewReturn {
         streamingContent: '',
         error: error instanceof Error ? error.message : 'Erro ao enviar mensagem',
       }));
+    } finally {
+      isSendingRef.current = false;
     }
   }, []);
 
@@ -325,12 +332,13 @@ export function useInterview(): UseInterviewReturn {
 
   // Enviar mensagem do usuário
   const sendMessage = useCallback(async (content: string) => {
-    if (!content.trim()) return;
+    if (!content.trim() || isSendingRef.current) return;
     await sendMessageInternal(content);
   }, [sendMessageInternal]);
 
   // Handle interactive button click - show label in UI, send value to AI
   const handleInteractiveAction = useCallback((value: string, label?: string) => {
+    if (isSendingRef.current) return;
     const displayText = label || value;
     setState(prev => ({
       ...prev,

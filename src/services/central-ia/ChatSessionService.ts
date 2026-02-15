@@ -30,7 +30,7 @@ export class ChatSessionService {
   /**
    * Cria uma nova sessão de chat
    */
-  async createSession(titulo?: string): Promise<ChatSession> {
+  async createSession(titulo?: string, metadata?: Record<string, unknown>): Promise<ChatSession> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Usuário não autenticado');
 
@@ -39,6 +39,7 @@ export class ChatSessionService {
       .insert({
         user_id: user.id,
         titulo: titulo || 'Nova conversa',
+        metadata: metadata || {},
       })
       .select()
       .single();
