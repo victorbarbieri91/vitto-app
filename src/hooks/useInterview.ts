@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { centralIAService } from '../services/central-ia';
 import { chatSessionService } from '../services/central-ia';
 import { supabase } from '../services/supabase/client';
+import { useOnboarding } from '../contexts/OnboardingContext';
 import type { ChatMessage, ChatSession } from '../types/central-ia';
 
 interface SimpleButton {
@@ -49,6 +50,7 @@ interface UseInterviewReturn {
  */
 export function useInterview(): UseInterviewReturn {
   const navigate = useNavigate();
+  const { refreshStatus } = useOnboarding();
 
   const [state, setState] = useState<InterviewState>({
     messages: [],
@@ -341,12 +343,13 @@ export function useInterview(): UseInterviewReturn {
   // Redirecionar para dashboard quando entrevista completar
   useEffect(() => {
     if (state.isComplete && !state.isStreaming && !state.isLoading) {
-      const timer = setTimeout(() => {
+      const timer = setTimeout(async () => {
+        await refreshStatus();
         navigate('/dashboard', { replace: true });
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [state.isComplete, state.isStreaming, state.isLoading, navigate]);
+  }, [state.isComplete, state.isStreaming, state.isLoading, navigate, refreshStatus]);
 
   // Enviar mensagem do usuário
   const sendMessage = useCallback(async (content: string) => {
@@ -398,10 +401,22 @@ export function useInterview(): UseInterviewReturn {
     setState(prev => ({ ...prev, hasStarted: true }));
   }, []);
 
-  // Continuar depois - navega para dashboard SEM marcar onboarding completo
-  const continueLater = useCallback(() => {
+  // Continuar depois - marca onboarding completo e navega para dashboard
+  const continueLater = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('app_perfil')
+          .update({ onboarding_completed: true })
+          .eq('id', user.id);
+      }
+      await refreshStatus();
+    } catch {
+      // Navigate anyway
+    }
     navigate('/dashboard', { replace: true });
-  }, [navigate]);
+  }, [navigate, refreshStatus]);
 
   // Reiniciar entrevista - limpa todos os dados e volta ao card inicial
   const restartInterview = useCallback(async () => {
@@ -460,12 +475,13 @@ export function useInterview(): UseInterviewReturn {
         })
         .eq('id', user.id);
 
+      await refreshStatus();
       navigate('/dashboard', { replace: true });
     } catch (error) {
       console.error('Erro ao pular entrevista:', error);
       navigate('/dashboard', { replace: true });
     }
-  }, [navigate]);
+  }, [navigate, refreshStatus]);
 
   const clearError = useCallback(() => {
     setState(prev => ({ ...prev, error: null }));
