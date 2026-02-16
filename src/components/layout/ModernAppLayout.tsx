@@ -81,7 +81,12 @@ export default function ModernAppLayout({ children, requireAuth = true }: Modern
   }
 
   const handleSignOut = async () => {
-    await signOut();
+    try {
+      await signOut();
+    } catch {
+      // Force navigation even if signOut fails
+    }
+    window.location.href = '/login';
   };
 
   return (
