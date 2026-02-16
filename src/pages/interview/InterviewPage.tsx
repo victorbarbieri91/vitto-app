@@ -39,7 +39,6 @@ export function InterviewPage() {
     streamingContent,
     error,
     isComplete,
-    interactiveButtons,
     isResumingSession,
     hasStarted,
     userName,
@@ -331,34 +330,18 @@ export function InterviewPage() {
                 isLoading={isLoading}
                 isStreaming={isStreaming}
                 streamingContent={streamingContent}
+                onInteractiveAction={(action, value) => {
+                  if (action === 'button' && value) {
+                    // Encontrar label do botão na última mensagem
+                    const lastMsg = messages[messages.length - 1];
+                    const buttonsEl = lastMsg?.interactive?.elements?.find(e => e.type === 'buttons');
+                    const label = buttonsEl && 'buttons' in buttonsEl
+                      ? buttonsEl.buttons.find(b => b.value === value)?.label
+                      : undefined;
+                    handleInteractiveAction(value, label);
+                  }
+                }}
               />
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Interactive Buttons */}
-        <AnimatePresence>
-          {interactiveButtons && interactiveButtons.length > 0 && !isLoading && !isStreaming && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              className="absolute bottom-2 left-0 right-0 px-4 z-40"
-            >
-              <div className="max-w-3xl mx-auto flex flex-wrap gap-2 justify-center">
-                {interactiveButtons.map((btn, idx) => (
-                  <motion.button
-                    key={idx}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: idx * 0.05 }}
-                    onClick={() => handleInteractiveAction(btn.value, btn.label)}
-                    className="px-5 py-2.5 text-sm font-medium rounded-full bg-coral-500 text-white hover:bg-coral-600 shadow-md transition-all hover:shadow-lg active:scale-95"
-                  >
-                    {btn.label}
-                  </motion.button>
-                ))}
-              </div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -421,7 +404,6 @@ export function InterviewPage() {
           'px-4 sm:px-6 py-3',
           'border-t border-slate-100/60',
           'bg-white/60 backdrop-blur-sm',
-          interactiveButtons && interactiveButtons.length > 0 ? 'pt-14' : '',
         )}>
           <div className="max-w-3xl mx-auto">
             <MessageInput

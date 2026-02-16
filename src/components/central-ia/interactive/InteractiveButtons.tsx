@@ -32,27 +32,44 @@ const iconMap: Record<string, React.ReactNode> = {
   continue: <ChevronRight className="w-4 h-4" />,
 };
 
-/**
- *
- */
 export function InteractiveButtons({
   element,
   onSelect,
   disabled = false,
 }: InteractiveButtonsProps) {
-  const getButtonStyles = (variant: InteractiveButton['variant'] = 'secondary') => {
+  const hasSelection = !!element.selectedValue;
+
+  const getButtonStyles = (button: InteractiveButton) => {
     const baseStyles =
       'flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all';
 
+    // Se já tem seleção, mostrar estado de seleção
+    if (hasSelection) {
+      const isSelected = button.value === element.selectedValue;
+      if (isSelected) {
+        return cn(
+          baseStyles,
+          'bg-coral-500 text-white shadow-sm ring-2 ring-coral-300/50'
+        );
+      }
+      // Botões não selecionados ficam faded
+      return cn(
+        baseStyles,
+        'bg-slate-50 text-slate-400 border border-slate-100 cursor-default'
+      );
+    }
+
+    // Sem seleção: estilo normal clicável
+    const variant = button.variant || 'primary';
     const variants = {
       primary:
-        'bg-coral-500 text-white hover:bg-coral-600 shadow-sm hover:shadow-md',
+        'bg-coral-500 text-white hover:bg-coral-600 shadow-sm hover:shadow-md active:scale-95',
       secondary:
-        'bg-white text-slate-700 border border-slate-200 hover:border-coral-300 hover:bg-coral-50',
+        'bg-white text-slate-700 border border-slate-200 hover:border-coral-300 hover:bg-coral-50 active:scale-95',
       outline:
-        'bg-transparent text-slate-600 border border-slate-300 hover:bg-slate-50',
+        'bg-transparent text-slate-600 border border-slate-300 hover:bg-slate-50 active:scale-95',
       danger:
-        'bg-red-500 text-white hover:bg-red-600',
+        'bg-red-500 text-white hover:bg-red-600 active:scale-95',
     };
 
     return cn(
@@ -63,26 +80,32 @@ export function InteractiveButtons({
   };
 
   return (
-    <div className="mt-3">
+    <div className="mt-3 pt-2 border-t border-slate-100/60">
       {element.question && (
         <p className="text-sm text-slate-600 mb-3">{element.question}</p>
       )}
 
       <div className="flex flex-wrap gap-2">
-        {element.buttons.map((button, index) => (
-          <motion.button
-            key={button.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-            onClick={() => !disabled && !button.disabled && onSelect(button.value)}
-            disabled={disabled || button.disabled}
-            className={getButtonStyles(button.variant)}
-          >
-            {button.icon && iconMap[button.icon]}
-            {button.label}
-          </motion.button>
-        ))}
+        {element.buttons.map((button, index) => {
+          const isSelected = hasSelection && button.value === element.selectedValue;
+          const isDisabledBySelection = hasSelection && !isSelected;
+
+          return (
+            <motion.button
+              key={button.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.06, duration: 0.2 }}
+              onClick={() => !disabled && !hasSelection && !button.disabled && onSelect(button.value)}
+              disabled={disabled || isDisabledBySelection || button.disabled}
+              className={getButtonStyles(button)}
+            >
+              {isSelected && <Check className="w-4 h-4" />}
+              {!isSelected && button.icon && iconMap[button.icon]}
+              {button.label}
+            </motion.button>
+          );
+        })}
       </div>
     </div>
   );

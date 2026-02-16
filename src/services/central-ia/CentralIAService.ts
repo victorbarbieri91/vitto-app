@@ -155,7 +155,7 @@ export class CentralIAService {
           callbacks.onInteractiveButtons?.({ buttons: event.buttons });
           break;
         case 'done':
-          callbacks.onDone(event.sessionId);
+          callbacks.onDone(event.sessionId, event.content);
           break;
         case 'error':
           callbacks.onError(event.error);

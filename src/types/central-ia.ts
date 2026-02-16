@@ -117,7 +117,7 @@ export interface StreamCallbacks {
   onToolStart?: (toolName: string) => void;
   onNeedsConfirmation: (data: { message: string; pendingAction: PendingAction }) => void;
   onNeedsData: (data: { message: string; dataRequest: DataRequest }) => void;
-  onDone: (sessionId: string) => void;
+  onDone: (sessionId: string, content?: string) => void;
   onError: (error: string) => void;
   onInterviewComplete?: () => void;
   onInteractiveButtons?: (data: { buttons: Array<{ label: string; value: string }> }) => void;
@@ -218,6 +218,7 @@ export interface ButtonsElement {
   question?: string;
   buttons: InteractiveButton[];
   allowMultiple?: boolean;
+  selectedValue?: string;
 }
 
 // Elemento de análise de arquivo

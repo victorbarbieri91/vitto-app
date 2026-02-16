@@ -1912,7 +1912,7 @@ Deno.serve(async (req) => {
           if (assistantMsgId) embedMessageAsync(assistantMsgId, assistantContent);
         }
 
-        writer.write(sseEvent({ type: 'done', sessionId: activeSessionId }));
+        writer.write(sseEvent({ type: 'done', sessionId: activeSessionId, content: assistantContent || '' }));
       } catch (error: any) {
         console.error('Streaming error:', error);
         writer.write(sseEvent({ type: 'error', error: error.message || 'Erro interno' }));

@@ -5,7 +5,7 @@ import { chatSessionService } from '../services/central-ia';
 import { supabase } from '../services/supabase/client';
 import type { ChatMessage, ChatSession } from '../types/central-ia';
 
-interface InteractiveButton {
+interface SimpleButton {
   label: string;
   value: string;
 }
@@ -18,7 +18,6 @@ interface InterviewState {
   error: string | null;
   currentSession: ChatSession | null;
   isComplete: boolean;
-  interactiveButtons: InteractiveButton[] | null;
   isResumingSession: boolean;
   hasStarted: boolean;
   userName: string | null;
@@ -31,7 +30,6 @@ interface UseInterviewReturn {
   streamingContent: string;
   error: string | null;
   isComplete: boolean;
-  interactiveButtons: InteractiveButton[] | null;
   isResumingSession: boolean;
   hasStarted: boolean;
   userName: string | null;
@@ -60,7 +58,6 @@ export function useInterview(): UseInterviewReturn {
     error: null,
     currentSession: null,
     isComplete: false,
-    interactiveButtons: null,
     isResumingSession: false,
     hasStarted: false,
     userName: null,
@@ -72,7 +69,7 @@ export function useInterview(): UseInterviewReturn {
   const streamingRef = useRef('');
   const hasAutoStarted = useRef(false);
   const lastUserMessageRef = useRef<string | null>(null);
-  const pendingButtonsRef = useRef<InteractiveButton[] | null>(null);
+  const pendingButtonsRef = useRef<SimpleButton[] | null>(null);
   const isSendingRef = useRef(false);
 
   // Função interna para enviar mensagem com mode='interview'
@@ -91,7 +88,6 @@ export function useInterview(): UseInterviewReturn {
       isStreaming: false,
       streamingContent: '',
       error: null,
-      interactiveButtons: null,
     }));
 
     streamingRef.current = '';
@@ -167,8 +163,9 @@ export function useInterview(): UseInterviewReturn {
             // Store buttons - they'll be attached when onDone fires
             pendingButtonsRef.current = buttons;
           },
-          onDone: (returnedSessionId) => {
-            let finalContent = streamingRef.current;
+          onDone: (returnedSessionId, doneContent) => {
+            // Usar streaming acumulado, ou content do done event como fallback
+            let finalContent = streamingRef.current || doneContent || '';
             const buttons = pendingButtonsRef.current;
 
             // Limpar texto de tool calls que pode ter vazado no streaming
@@ -180,17 +177,38 @@ export function useInterview(): UseInterviewReturn {
             }
 
             setState(prev => {
-              const newMessages = finalContent
-                ? [...prev.messages, { role: 'assistant' as const, content: finalContent }]
-                : prev.messages;
+              if (!finalContent && !buttons) {
+                // Nada para mostrar
+                return { ...prev, isLoading: false, isStreaming: false, streamingContent: '' };
+              }
+
+              // Criar mensagem do assistente com botões inline (se houver)
+              const assistantMsg: ChatMessage = {
+                role: 'assistant',
+                content: finalContent,
+              };
+
+              // Anexar botões como interactive content inline
+              if (buttons && buttons.length > 0) {
+                assistantMsg.interactive = {
+                  elements: [{
+                    type: 'buttons' as const,
+                    buttons: buttons.map((btn, idx) => ({
+                      id: `btn-${idx}`,
+                      label: btn.label,
+                      value: btn.value,
+                      variant: 'primary' as const,
+                    })),
+                  }],
+                };
+              }
 
               return {
                 ...prev,
                 isLoading: false,
                 isStreaming: false,
                 streamingContent: '',
-                messages: newMessages,
-                interactiveButtons: buttons,
+                messages: [...prev.messages, assistantMsg],
               };
             });
 
@@ -336,15 +354,32 @@ export function useInterview(): UseInterviewReturn {
     await sendMessageInternal(content);
   }, [sendMessageInternal]);
 
-  // Handle interactive button click - show label in UI, send value to AI
+  // Handle interactive button click - show label in UI, mark selected in message, send value to AI
   const handleInteractiveAction = useCallback((value: string, label?: string) => {
     if (isSendingRef.current) return;
     const displayText = label || value;
-    setState(prev => ({
-      ...prev,
-      interactiveButtons: null,
-      messages: [...prev.messages, { role: 'user' as const, content: displayText }],
-    }));
+    setState(prev => {
+      // Marcar selectedValue na última mensagem que tem botões interativos
+      const updatedMessages = prev.messages.map((msg, idx) => {
+        if (idx === prev.messages.length - 1 && msg.interactive?.elements) {
+          return {
+            ...msg,
+            interactive: {
+              ...msg.interactive,
+              elements: msg.interactive.elements.map(el =>
+                el.type === 'buttons' ? { ...el, selectedValue: value } : el
+              ),
+            },
+          };
+        }
+        return msg;
+      });
+
+      return {
+        ...prev,
+        messages: [...updatedMessages, { role: 'user' as const, content: displayText }],
+      };
+    });
     // Send value to AI with isAutoStart=true so it doesn't duplicate the user message
     sendMessageInternal(value, true);
   }, [sendMessageInternal]);
@@ -389,7 +424,6 @@ export function useInterview(): UseInterviewReturn {
         error: null,
         currentSession: null,
         isComplete: false,
-        interactiveButtons: null,
         isResumingSession: false,
         hasStarted: false,
         userName: savedName,
@@ -444,7 +478,6 @@ export function useInterview(): UseInterviewReturn {
     streamingContent: state.streamingContent,
     error: state.error,
     isComplete: state.isComplete,
-    interactiveButtons: state.interactiveButtons,
     isResumingSession: state.isResumingSession,
     hasStarted: state.hasStarted,
     userName: state.userName,
