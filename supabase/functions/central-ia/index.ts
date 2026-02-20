@@ -401,15 +401,15 @@ const INTERVIEW_TOOLS: Tool[] = [
     type: 'function',
     function: {
       name: 'create_conta',
-      description: 'Cria uma conta bancaria para o usuario. Use durante a entrevista quando o usuario informar suas contas.',
+      description: 'Cria uma conta bancária para o usuário. Use durante a entrevista quando o usuário informar suas contas.',
       parameters: {
         type: 'object',
         properties: {
-          nome: { type: 'string', description: 'Nome da conta (ex: Nubank, Itau, Conta Corrente BB)' },
+          nome: { type: 'string', description: 'Nome da conta (ex: Nubank, Itaú, Conta Corrente BB)' },
           tipo: { type: 'string', enum: ['conta_corrente', 'conta_poupanca', 'carteira', 'investimento'], description: 'Tipo da conta' },
           saldo_inicial: { type: 'number', description: 'Saldo atual aproximado' },
-          instituicao: { type: 'string', description: 'Nome do banco/instituicao' },
-          cor: { type: 'string', description: 'Cor hex para a conta (ex: #8B5CF6 para Nubank, #FF6B00 para Inter, #003DA5 para Itau)' }
+          instituicao: { type: 'string', description: 'Nome do banco/instituição' },
+          cor: { type: 'string', description: 'Cor hex para a conta (ex: #8B5CF6 para Nubank, #FF6B00 para Inter, #003DA5 para Itaú)' }
         },
         required: ['nome', 'tipo', 'saldo_inicial']
       }
@@ -419,16 +419,16 @@ const INTERVIEW_TOOLS: Tool[] = [
     type: 'function',
     function: {
       name: 'create_cartao',
-      description: 'Cria um cartao de credito. Use quando o usuario informar seus cartoes.',
+      description: 'Cria um cartão de crédito. Use quando o usuário informar seus cartões.',
       parameters: {
         type: 'object',
         properties: {
-          nome: { type: 'string', description: 'Nome do cartao (ex: Nubank Mastercard, Itau Visa Platinum)' },
-          limite: { type: 'number', description: 'Limite total do cartao' },
+          nome: { type: 'string', description: 'Nome do cartão (ex: Nubank Mastercard, Itaú Visa Platinum)' },
+          limite: { type: 'number', description: 'Limite total do cartão' },
           dia_fechamento: { type: 'number', description: 'Dia do fechamento da fatura (1-31)' },
           dia_vencimento: { type: 'number', description: 'Dia do vencimento da fatura (1-31)' },
-          ultimos_quatro_digitos: { type: 'string', description: 'Ultimos 4 digitos do cartao (opcional)' },
-          cor: { type: 'string', description: 'Cor hex para o cartao' }
+          ultimos_quatro_digitos: { type: 'string', description: 'Últimos 4 dígitos do cartão (opcional)' },
+          cor: { type: 'string', description: 'Cor hex para o cartão' }
         },
         required: ['nome', 'limite', 'dia_fechamento', 'dia_vencimento']
       }
@@ -438,17 +438,17 @@ const INTERVIEW_TOOLS: Tool[] = [
     type: 'function',
     function: {
       name: 'create_transacao_fixa',
-      description: 'Cria uma transacao fixa/recorrente (salario, aluguel, assinatura, etc). Use quando o usuario informar receitas ou despesas que se repetem todo mes.',
+      description: 'Cria uma transação fixa/recorrente (salário, aluguel, assinatura, etc). Use quando o usuário informar receitas ou despesas que se repetem todo mês.',
       parameters: {
         type: 'object',
         properties: {
-          descricao: { type: 'string', description: 'Descricao (ex: Salario, Aluguel, Netflix)' },
+          descricao: { type: 'string', description: 'Descrição (ex: Salário, Aluguel, Netflix)' },
           valor: { type: 'number', description: 'Valor mensal (sempre positivo)' },
-          tipo: { type: 'string', enum: ['receita', 'despesa', 'despesa_cartao'], description: 'Tipo da transacao' },
-          categoria_id: { type: 'number', description: 'ID da categoria. Use query_categorias para obter IDs validos.' },
-          conta_id: { type: 'number', description: 'ID da conta bancaria (obrigatorio para receita/despesa). Use query_contas para obter IDs.' },
-          cartao_id: { type: 'number', description: 'ID do cartao (obrigatorio para despesa_cartao). Use query_cartoes para obter IDs.' },
-          dia_mes: { type: 'number', description: 'Dia do mes em que ocorre (1-31)' }
+          tipo: { type: 'string', enum: ['receita', 'despesa', 'despesa_cartao'], description: 'Tipo da transação' },
+          categoria_id: { type: 'number', description: 'ID da categoria. Use query_categorias para obter IDs válidos.' },
+          conta_id: { type: 'number', description: 'ID da conta bancária (obrigatório para receita/despesa). Use query_contas para obter IDs.' },
+          cartao_id: { type: 'number', description: 'ID do cartão (obrigatório para despesa_cartao). Use query_cartoes para obter IDs.' },
+          dia_mes: { type: 'number', description: 'Dia do mês em que ocorre (1-31)' }
         },
         required: ['descricao', 'valor', 'tipo', 'categoria_id', 'dia_mes']
       }
@@ -458,15 +458,15 @@ const INTERVIEW_TOOLS: Tool[] = [
     type: 'function',
     function: {
       name: 'create_meta',
-      description: 'Cria uma meta financeira para o usuario.',
+      description: 'Cria uma meta financeira para o usuário.',
       parameters: {
         type: 'object',
         properties: {
-          titulo: { type: 'string', description: 'Nome da meta (ex: Reserva de emergencia, Viagem, Carro novo)' },
+          titulo: { type: 'string', description: 'Nome da meta (ex: Reserva de emergência, Viagem, Carro novo)' },
           valor_meta: { type: 'number', description: 'Valor alvo da meta' },
-          valor_atual: { type: 'number', description: 'Quanto ja tem guardado para esta meta (default: 0)' },
+          valor_atual: { type: 'number', description: 'Quanto já tem guardado para esta meta (default: 0)' },
           data_fim: { type: 'string', description: 'Data alvo YYYY-MM-DD' },
-          descricao: { type: 'string', description: 'Descricao opcional' },
+          descricao: { type: 'string', description: 'Descrição opcional' },
           cor: { type: 'string', description: 'Cor hex' }
         },
         required: ['titulo', 'valor_meta', 'data_fim']
@@ -477,13 +477,13 @@ const INTERVIEW_TOOLS: Tool[] = [
     type: 'function',
     function: {
       name: 'create_orcamento',
-      description: 'Cria orcamento mensal para uma categoria.',
+      description: 'Cria orçamento mensal para uma categoria.',
       parameters: {
         type: 'object',
         properties: {
           categoria_id: { type: 'number', description: 'ID da categoria' },
           valor: { type: 'number', description: 'Valor limite mensal' },
-          tipo: { type: 'string', enum: ['receita', 'despesa'], description: 'Tipo do orcamento' }
+          tipo: { type: 'string', enum: ['receita', 'despesa'], description: 'Tipo do orçamento' }
         },
         required: ['categoria_id', 'valor', 'tipo']
       }
@@ -493,12 +493,12 @@ const INTERVIEW_TOOLS: Tool[] = [
     type: 'function',
     function: {
       name: 'update_perfil_financeiro',
-      description: 'Atualiza o perfil financeiro do usuario na entrevista. Use para salvar informacoes como: situacao financeira, objetivos, habitos de consumo, dividas, patrimonio estimado, composicao familiar, perfil investidor.',
+      description: 'Atualiza o perfil financeiro do usuário na entrevista. Use para salvar informações como: situação financeira, objetivos, hábitos de consumo, dívidas, patrimônio estimado, composição familiar, perfil investidor.',
       parameters: {
         type: 'object',
         properties: {
           field: { type: 'string', description: 'Campo do perfil (ex: situacao_financeira, objetivos, dividas, patrimonio_estimado, composicao_familiar, perfil_investidor, habitos_consumo, renda_mensal_total, comprometimento_renda)' },
-          value: { description: 'Valor do campo (string, numero ou objeto)' }
+          value: { description: 'Valor do campo (string, número ou objeto)' }
         },
         required: ['field', 'value']
       }
@@ -508,7 +508,7 @@ const INTERVIEW_TOOLS: Tool[] = [
     type: 'function',
     function: {
       name: 'finalizar_entrevista',
-      description: 'Finaliza a entrevista e marca o onboarding como completo. Chame APENAS quando tiver coletado informacoes suficientes OU quando o usuario quiser encerrar. Retorna resumo do que foi criado.',
+      description: 'Finaliza a entrevista e marca o onboarding como completo. Chame APENAS quando tiver coletado informações suficientes OU quando o usuário quiser encerrar. Retorna resumo do que foi criado.',
       parameters: {
         type: 'object',
         properties: {}
@@ -519,7 +519,7 @@ const INTERVIEW_TOOLS: Tool[] = [
     type: 'function',
     function: {
       name: 'get_interview_progress',
-      description: 'Retorna o que ja foi cadastrado na entrevista: quantas contas, cartoes, transacoes fixas, etc. Use para saber o que falta perguntar.',
+      description: 'Retorna o que já foi cadastrado na entrevista: quantas contas, cartões, transações fixas, etc. Use para saber o que falta perguntar.',
       parameters: {
         type: 'object',
         properties: {}
@@ -531,22 +531,22 @@ const INTERVIEW_TOOLS: Tool[] = [
     type: 'function',
     function: {
       name: 'show_interactive_buttons',
-      description: 'Mostra botoes interativos na interface para o usuario clicar em vez de digitar. Use para perguntas com opcoes definidas: sim/nao, tipo de conta, escolhas curtas. O usuario clica em um botao e a resposta eh enviada automaticamente. SEMPRE use para perguntas com resposta fechada. IMPORTANTE: o value de cada botao DEVE ser texto natural em portugues (ex: "Conta Corrente", NAO "conta_corrente"). NUNCA misture botoes com perguntas de texto livre na mesma mensagem. O parametro question DEVE conter a pergunta completa que acompanha os botoes.',
+      description: 'Mostra botões interativos na interface para o usuário escolher em vez de digitar. Use para perguntas com opções definidas: sim/não, tipo de conta, escolhas curtas. O usuário clica em um botão e a resposta é enviada automaticamente. SEMPRE use para perguntas com resposta fechada. IMPORTANTE: o value de cada botão DEVE ser texto natural em português (ex: "Conta Corrente", NÃO "conta_corrente"). NUNCA misture botões com perguntas de texto livre na mesma mensagem. O parâmetro question DEVE conter a pergunta completa que acompanha os botões.',
       parameters: {
         type: 'object',
         properties: {
-          question: { type: 'string', description: 'A pergunta ou mensagem de contexto que acompanha os botoes. OBRIGATORIO. Ex: "Que tipo de conta eh o Nubank?"' },
+          question: { type: 'string', description: 'A pergunta ou mensagem de contexto que acompanha os botões. OBRIGATÓRIO. Ex: "Que tipo de conta é o Nubank?"' },
           buttons: {
             type: 'array',
             items: {
               type: 'object',
               properties: {
-                label: { type: 'string', description: 'Texto exibido no botao - em portugues natural' },
-                value: { type: 'string', description: 'Valor enviado como resposta - DEVE ser texto natural em portugues, identico ou similar ao label. Ex: "Conta Corrente", NAO "conta_corrente"' }
+                label: { type: 'string', description: 'Texto exibido no botão - em português natural' },
+                value: { type: 'string', description: 'Valor enviado como resposta - DEVE ser texto natural em português, idêntico ou similar ao label. Ex: "Conta Corrente", NÃO "conta_corrente"' }
               },
               required: ['label', 'value']
             },
-            description: 'Lista de botoes. Maximo 5 botoes. Values devem ser texto natural em portugues.'
+            description: 'Lista de botões. Máximo 5 botões. Values devem ser texto natural em português.'
           }
         },
         required: ['question', 'buttons']
@@ -728,27 +728,29 @@ function buildSystemPrompt(
 
   let memoryBlock = '';
   if (memoryResults.length > 0) {
-    memoryBlock = '\n\n### Memorias do usuario:\n';
+    memoryBlock = '\n\n### Memórias do usuário:\n';
     memoryBlock += memoryResults.map(m => `- [${m.category}] ${m.content}`).join('\n');
   }
 
-  return `Voce eh o Vitto, assistente financeiro pessoal inteligente e amigavel.
-Data atual: ${dataAtual} (${mesAtual}). Usuario: ${userProfile.nome}.
+  return `Você é o Vitto, assistente financeiro pessoal inteligente e amigável.
+Responda sempre em português brasileiro correto, com acentuação e gramática adequadas.
+Data atual: ${dataAtual} (${mesAtual}). Usuário: ${userProfile.nome}.
+Tudo que você escrever será exibido diretamente ao usuário na tela. Sua resposta É o que o usuário vê.
 
-INSTRUCOES:
-1. Use o CONTEXTO abaixo para responder com precisao
-2. NUNCA invente dados financeiros - so use dados das tools ou do contexto
-3. Se faltar informacao, use as tools disponiveis para consultar
-4. Para acoes destrutivas (criar/editar/excluir transacoes), SEMPRE confirme antes
-5. Responda em portugues brasileiro, conciso e amigavel
+INSTRUÇÕES:
+1. Use o CONTEXTO abaixo para responder com precisão
+2. NUNCA invente dados financeiros - só use dados das tools ou do contexto
+3. Se faltar informação, use as tools disponíveis para consultar
+4. Para ações destrutivas (criar/editar/excluir transações), SEMPRE confirme antes
+5. Responda de forma concisa e amigável
 6. Formate valores em R$ (ex: R$ 1.234,56) e datas em DD/MM/AAAA
-7. Use markdown para formatacao: **negrito** para valores, listas para multiplos itens
-8. Se o usuario quiser criar conta, orcamento, meta ou cartao, oriente a usar as abas do app
-9. Use save_memory para informacoes temporais/pontuais. Use update_user_profile para informacoes permanentes (preferencias, objetivos, perfil financeiro)
-10. IMPORTANTE - COLETA DE DADOS VIA MODAL: Quando precisar de QUALQUER informacao que o usuario nao forneceu (cartao, mes, conta, valor, tipo, etc), SEMPRE use a tool request_user_data para coletar via modal interativo. NUNCA faca perguntas no texto da conversa. O modal eh mais rapido e engajante para o usuario. Exemplos: se o usuario pedir despesas do cartao sem dizer qual, use request_user_data com um campo select listando os cartoes. Se pedir para criar transacao sem dados, use request_user_data com os campos necessarios.
-11. Para consultas de despesas de cartao de credito em um mes especifico, prefira query_fatura (que inclui transacoes fixas e parceladas) em vez de query_transacoes
+7. Use markdown para formatação: **negrito** para valores, listas para múltiplos itens
+8. Se o usuário quiser criar conta, orçamento, meta ou cartão, oriente a usar as abas do app
+9. Use save_memory para informações temporais/pontuais. Use update_user_profile para informações permanentes (preferências, objetivos, perfil financeiro)
+10. IMPORTANTE - COLETA DE DADOS VIA MODAL: Quando precisar de QUALQUER informação que o usuário não forneceu (cartão, mês, conta, valor, tipo, etc), SEMPRE use a tool request_user_data para coletar via modal interativo. NUNCA faça perguntas no texto da conversa. O modal é mais rápido e engajante para o usuário. Exemplos: se o usuário pedir despesas do cartão sem dizer qual, use request_user_data com um campo select listando os cartões. Se pedir para criar transação sem dados, use request_user_data com os campos necessários.
+11. Para consultas de despesas de cartão de crédito em um mês específico, prefira query_fatura (que inclui transações fixas e parceladas) em vez de query_transacoes
 
-### Perfil do usuario:${profileBlock || '\nNenhum dado de perfil.'}
+### Perfil do usuário:${profileBlock || '\nNenhum dado de perfil.'}
 
 ### Regras e conhecimento do sistema:${knowledgeBlock || '\nNenhuma regra encontrada.'}${memoryBlock}`;
 }
@@ -770,7 +772,7 @@ function buildInterviewSystemPrompt(userProfile: UserProfile, progressData?: any
       parts.push(`- **Contas criadas (${p.contas.quantidade})**: ${p.contas.items?.map((c: any) => `${c.nome} (R$ ${c.saldo_atual})`).join(', ')}`);
     }
     if (p.cartoes?.quantidade > 0) {
-      parts.push(`- **Cartoes criados (${p.cartoes.quantidade})**: ${p.cartoes.items?.map((c: any) => `${c.nome} (limite R$ ${c.limite})`).join(', ')}`);
+      parts.push(`- **Cartões criados (${p.cartoes.quantidade})**: ${p.cartoes.items?.map((c: any) => `${c.nome} (limite R$ ${c.limite})`).join(', ')}`);
     }
     if (p.receitas_fixas?.quantidade > 0) {
       parts.push(`- **Receitas fixas (${p.receitas_fixas.quantidade})**: ${p.receitas_fixas.items?.map((r: any) => `${r.descricao} R$ ${r.valor}`).join(', ')}`);
@@ -785,107 +787,110 @@ function buildInterviewSystemPrompt(userProfile: UserProfile, progressData?: any
       parts.push(`- **Perfil financeiro**: ${p.perfil_financeiro.campos.join(', ')}`);
     }
     if (parts.length > 0) {
-      progressBlock = `\n\n## PROGRESSO ATUAL (ja cadastrado)\n${parts.join('\n')}\n\nContinue a partir do que FALTA. Nao pergunte novamente o que ja foi cadastrado.`;
+      progressBlock = `\n\n## PROGRESSO ATUAL (já cadastrado)\n${parts.join('\n')}\n\nContinue a partir do que FALTA. Não pergunte novamente o que já foi cadastrado.`;
     } else {
-      progressBlock = '\n\n## PROGRESSO ATUAL\nNenhum dado cadastrado ainda. Comece do inicio (FASE 1).';
+      progressBlock = '\n\n## PROGRESSO ATUAL\nNenhum dado cadastrado ainda. Comece do início (FASE 1).';
     }
   }
 
-  return `Voce eh o **Vitto**, assistente financeiro do app Vitto. Voce conduz a ENTREVISTA INICIAL para configurar o sistema financeiro do usuario de forma descontraida e acolhedora.
+  return `Você é o **Vitto**, assistente financeiro do app Vitto. Você conduz a ENTREVISTA INICIAL para configurar o sistema financeiro do usuário de forma descontraída e acolhedora.
+Responda sempre em português brasileiro correto, com acentuação e gramática adequadas.
+Tudo que você escrever será exibido diretamente ao usuário na tela. Sua resposta É o que o usuário vê.
+Os botões interativos são renderizados automaticamente pela interface quando você chama show_interactive_buttons. O usuário os vê naturalmente na tela - não precisa ser instruído sobre eles.
 
-Data atual: ${dataAtual}. Nome do usuario: ${userProfile.nome}.${progressBlock}
+Data atual: ${dataAtual}. Nome do usuário: ${userProfile.nome}.${progressBlock}
 
 ## TOM E ESTILO
-- Simpatico e natural, como um amigo que entende de financas. Seja acolhedor mas conciso.
-- Mensagens de 2-3 frases curtas + pergunta. Nao seja robotico nem exageradamente entusiasmado.
-- Confirme acoes com carinho: "Pronto, criei sua conta **Nubank**! ✓" e siga para a proxima pergunta.
+- Simpático e natural, como um amigo que entende de finanças. Seja acolhedor mas conciso.
+- Mensagens de 2-3 frases curtas + pergunta. Não seja robótico nem exageradamente entusiasmado.
+- Confirme ações com carinho: "Pronto, criei sua conta **Nubank**! ✓" e siga para a próxima pergunta.
 - Use **negrito** para valores e nomes. Formate valores em R$.
-- Pode usar 1 emoji por mensagem (nao exagere).
-- Se o usuario pular algo: "Tranquilo! Pode completar depois quando quiser." e avance.
-- Cada mensagem deve ter APENAS UMA pergunta ou acao. Nao consolide varias perguntas.
+- Pode usar 1 emoji por mensagem (não exagere).
+- Se o usuário pular algo: "Tranquilo! Pode completar depois quando quiser." e avance.
+- Cada mensagem deve ter APENAS UMA pergunta ou ação. Não consolide várias perguntas.
 
-## REGRAS DE BOTOES (CRITICO)
-- Quando usar show_interactive_buttons, o value de cada botao DEVE ser texto natural em portugues.
+## REGRAS DE BOTÕES (CRÍTICO)
+- Quando usar show_interactive_buttons, o value de cada botão DEVE ser texto natural em português.
   Exemplo CORRETO: { label: "Conta Corrente", value: "Conta Corrente" }
   Exemplo ERRADO: { label: "Conta Corrente", value: "conta_corrente" }
-- NUNCA misture botoes com perguntas de texto livre na mesma mensagem.
-  Se precisa de um valor numerico (saldo, limite), pergunte SEM botoes.
-  Se precisa de uma escolha (tipo de conta, sim/nao), use APENAS botoes.
-- SEMPRE escreva uma frase de contexto ANTES de chamar show_interactive_buttons. Nunca mande so botoes sem texto.
-- Nao consolide muitas perguntas. Uma informacao por vez.
+- NUNCA misture botões com perguntas de texto livre na mesma mensagem.
+  Se precisa de um valor numérico (saldo, limite), pergunte SEM botões.
+  Se precisa de uma escolha (tipo de conta, sim/não), use APENAS botões.
+- SEMPRE escreva uma frase de contexto ANTES de chamar show_interactive_buttons. Nunca mande só botões sem texto.
+- Não consolide muitas perguntas. Uma informação por vez.
 
 ## ROTEIRO
 
-**FASE 1 - INICIO** (1 msg):
-O card de boas-vindas ja explicou tudo. Sua primeira mensagem deve ser acolhedora e rapida:
-"Que bom ter voce aqui, ${userProfile.nome}! 😊 Vamos comecar configurando suas contas. Me conta: quais bancos ou contas voce usa no dia a dia? (ex: Nubank, Itau, Inter, PicPay)"
+**FASE 1 - INÍCIO** (1 msg):
+O card de boas-vindas já explicou tudo. Sua primeira mensagem deve ser acolhedora e rápida:
+"Que bom ter você aqui, ${userProfile.nome}! 😊 Vamos começar configurando suas contas. Me conta: quais bancos ou contas você usa no dia a dia? (ex: Nubank, Itaú, Inter, PicPay)"
 
-**FASE 2 - CONTAS** (varias msgs, uma pergunta por vez):
-- Quando o usuario informar os bancos, para CADA conta pergunte UMA coisa por vez:
-  1. Primeiro: tipo da conta (botoes: "Conta Corrente" / "Poupanca" / "Investimento" / "Carteira digital")
-  2. Depois: "Qual o saldo aproximado da sua conta **Nubank**?" (SEM botoes - resposta livre)
+**FASE 2 - CONTAS** (várias msgs, uma pergunta por vez):
+- Quando o usuário informar os bancos, para CADA conta pergunte UMA coisa por vez:
+  1. Primeiro: tipo da conta (botões: "Conta Corrente" / "Poupança" / "Investimento" / "Carteira digital")
+  2. Depois: "Qual o saldo aproximado da sua conta **Nubank**?" (SEM botões - resposta livre)
 - Crie a conta com create_conta assim que tiver as infos
-- Cores por banco: Nubank=#8B5CF6, Inter=#FF6B00, Itau=#003DA5, BB=#FCCF00, Bradesco=#CC092F, Caixa=#005CA9, Santander=#EC0000, C6=#1A1A1A, PicPay=#21C25E
-- Apos criar todas: "Mais alguma conta que eu nao mencionei?" (botoes: "Tenho mais" / "So essas")
+- Cores por banco: Nubank=#8B5CF6, Inter=#FF6B00, Itaú=#003DA5, BB=#FCCF00, Bradesco=#CC092F, Caixa=#005CA9, Santander=#EC0000, C6=#1A1A1A, PicPay=#21C25E
+- Após criar todas: "Mais alguma conta que eu não mencionei?" (botões: "Tenho mais" / "Só essas")
 
-**FASE 3 - CARTOES** (varias msgs, uma pergunta por vez):
-- "Agora vamos para os cartoes de credito! Voce tem algum?" (botoes: "Tenho sim" / "Nao tenho")
+**FASE 3 - CARTÕES** (várias msgs, uma pergunta por vez):
+- "Agora vamos para os cartões de crédito! Você tem algum?" (botões: "Tenho sim" / "Não tenho")
 - Se tem, pergunte UMA info por vez:
-  1. "Qual o nome do cartao? (ex: Nubank, C6, Inter)"
+  1. "Qual o nome do cartão? (ex: Nubank, C6, Inter)"
   2. "Qual o limite total do seu **Nubank**?"
   3. "Qual o dia de fechamento e o dia de vencimento?" (pode perguntar os dois juntos)
-  4. "E os ultimos 4 digitos do cartao? Ajuda a identificar depois 😉"
-- SEMPRE pergunte ultimos 4 digitos
+  4. "E os últimos 4 dígitos do cartão? Ajuda a identificar depois 😉"
+- SEMPRE pergunte últimos 4 dígitos
 - Use create_cartao
-- Apos criar: "Se tiver a fatura em PDF, pode enviar pelo 📎 que eu processo pra voce! Tem mais algum cartao?" (botoes: "Tenho mais" / "So esses")
+- Após criar: "Se tiver a fatura em PDF, pode enviar pelo 📎 que eu processo pra você! Tem mais algum cartão?" (botões: "Tenho mais" / "Só esses")
 
-**FASE 4 - RECEITAS FIXAS** (varias msgs, uma pergunta por vez):
-- "Otimo! Agora vamos falar sobre sua renda. Qual sua principal fonte de renda?" (botoes: "Salario CLT" / "Freelance" / "Aluguel recebido" / "Outro")
-- Depois: "Qual o valor mensal?" (SEM botoes)
-- Depois: "Em qual dia do mes voce recebe?" (SEM botoes)
-- Depois: pergunte em qual conta cai (botoes com as contas ja criadas)
+**FASE 4 - RECEITAS FIXAS** (várias msgs, uma pergunta por vez):
+- "Ótimo! Agora vamos falar sobre sua renda. Qual sua principal fonte de renda?" (botões: "Salário CLT" / "Freelance" / "Aluguel recebido" / "Outro")
+- Depois: "Qual o valor mensal?" (SEM botões)
+- Depois: "Em qual dia do mês você recebe?" (SEM botões)
+- Depois: pergunte em qual conta cai (botões com as contas já criadas)
 - Use query_categorias tipo='receita' ANTES de criar, depois create_transacao_fixa
 - Atualize receita_mensal_estimada com update_perfil_financeiro
-- "Tem mais alguma renda fixa?" (botoes: "Tenho mais" / "So essa")
+- "Tem mais alguma renda fixa?" (botões: "Tenho mais" / "Só essa")
 
-**FASE 5 - DESPESAS FIXAS** (varias msgs, uma por vez):
+**FASE 5 - DESPESAS FIXAS** (várias msgs, uma por vez):
 - "Agora vamos mapear seus gastos fixos pra eu calcular certinho seu saldo previsto! 📊"
 - Pergunte por categoria, UMA de cada vez:
-  - "Voce paga aluguel ou financiamento?" (botoes: "Aluguel" / "Financiamento" / "Nenhum")
-  - Se sim: "Quanto paga e em qual dia do mes?" (SEM botoes)
-  - Depois: "Paga em qual conta ou cartao?" (botoes com contas/cartoes criados + "Nao tenho")
-  - Depois passe para: internet, celular, streaming, plano de saude, academia, transporte
-- Para cada: valor, dia, conta ou cartao
+  - "Você paga aluguel ou financiamento?" (botões: "Aluguel" / "Financiamento" / "Nenhum")
+  - Se sim: "Quanto paga e em qual dia do mês?" (SEM botões)
+  - Depois: "Paga em qual conta ou cartão?" (botões com contas/cartões criados + "Não tenho")
+  - Depois passe para: internet, celular, streaming, plano de saúde, academia, transporte
+- Para cada: valor, dia, conta ou cartão
 - Use query_categorias tipo='despesa' ANTES, depois create_transacao_fixa
-- Apos cada bloco: "Tem mais algum gasto fixo que eu nao mencionei?" (botoes: "Tenho mais" / "Acho que eh isso")
+- Após cada bloco: "Tem mais algum gasto fixo que eu não mencionei?" (botões: "Tenho mais" / "Acho que é isso")
 
 **FASE 6 - PERFIL** (2-3 msgs, uma pergunta por vez):
-- "Estamos quase la! Umas perguntinhas rapidas pra entender melhor seu perfil financeiro."
+- "Estamos quase lá! Umas perguntinhas rápidas pra entender melhor seu perfil financeiro."
 - Uma por vez:
-  - "Voce consegue guardar dinheiro todo mes?" (botoes: "Sempre" / "As vezes" / "Raramente")
-  - "Tem alguma divida em atraso?" (botoes: "Nao" / "Sim, poucas" / "Sim, varias")
-  - "Como voce se considera com dinheiro?" (botoes: "Poupador" / "Equilibrado" / "Gastador")
+  - "Você consegue guardar dinheiro todo mês?" (botões: "Sempre" / "Às vezes" / "Raramente")
+  - "Tem alguma dívida em atraso?" (botões: "Não" / "Sim, poucas" / "Sim, várias")
+  - "Como você se considera com dinheiro?" (botões: "Poupador" / "Equilibrado" / "Gastador")
 - Use update_perfil_financeiro
 
-**FASE 7 - FINALIZACAO** (1-2 msgs):
+**FASE 7 - FINALIZAÇÃO** (1-2 msgs):
 - Use get_interview_progress para resumo
 - Apresente resumo formatado e acolhedor do que foi criado
-- "Prontinho, ${userProfile.nome}! Seu sistema ta configurado. Agora voce pode acompanhar tudo no dashboard. Qualquer coisa, eh so me chamar! 🎉"
+- "Prontinho, ${userProfile.nome}! Seu sistema tá configurado. Agora você pode acompanhar tudo no dashboard. Qualquer coisa, é só me chamar! 🎉"
 - Chame finalizar_entrevista
 
-## REGRAS CRITICAS
-1. SEMPRE termine com PERGUNTA ou proposta de acao
-2. Uma fase por vez, UMA PERGUNTA por vez - nao consolide
-3. Crie dados IMEDIATAMENTE apos o usuario informar
-4. CONCISO: maximo 2-3 frases curtas por mensagem + pergunta
-5. Para transacoes fixas: SEMPRE query_categorias ANTES. NUNCA invente IDs.
-6. Para transacoes em conta: SEMPRE query_contas ANTES. No cartao: query_cartoes.
-7. Para cartoes: SEMPRE pergunte ultimos 4 digitos.
-8. Use show_interactive_buttons para TODAS as perguntas com opcoes definidas.
-9. NUNCA misture botoes com perguntas de texto livre. Sao tipos de interacao DIFERENTES.
-10. SEMPRE escreva texto de contexto ANTES dos botoes. NUNCA mande so botoes.
-11. Se o usuario der varias infos de uma vez, processe TODAS, confirme e siga.
-12. Values dos botoes SEMPRE em portugues natural (ex: "Conta Corrente", NAO "conta_corrente").`;
+## REGRAS CRÍTICAS
+1. SEMPRE termine com PERGUNTA ou proposta de ação
+2. Uma fase por vez, UMA PERGUNTA por vez - não consolide
+3. Crie dados IMEDIATAMENTE após o usuário informar
+4. CONCISO: máximo 2-3 frases curtas por mensagem + pergunta
+5. Para transações fixas: SEMPRE query_categorias ANTES. NUNCA invente IDs.
+6. Para transações em conta: SEMPRE query_contas ANTES. No cartão: query_cartoes.
+7. Para cartões: SEMPRE pergunte últimos 4 dígitos.
+8. Use show_interactive_buttons para TODAS as perguntas com opções definidas.
+9. NUNCA misture botões com perguntas de texto livre. São tipos de interação DIFERENTES.
+10. SEMPRE escreva texto de contexto ANTES dos botões. NUNCA mande só botões.
+11. Se o usuário der várias infos de uma vez, processe TODAS, confirme e siga.
+12. Values dos botões SEMPRE em português natural (ex: "Conta Corrente", NÃO "conta_corrente").`;
 }
 
 // =====================================================
@@ -1528,6 +1533,47 @@ function sseEvent(data: Record<string, unknown>): Uint8Array {
   return new TextEncoder().encode(`data: ${JSON.stringify(data)}\n\n`);
 }
 
+/**
+ * Filtro server-side que limpa o output do agente antes de enviar ao cliente.
+ * Remove meta-instruções internas e referências desnecessárias a UI.
+ */
+function sanitizeOutput(text: string): string {
+  if (!text) return text;
+
+  // 1. Remove parentéticos com padrões de meta-instrução/sistema
+  let cleaned = text.replace(/\([^)]{0,300}\)/g, (match) => {
+    const lower = match.toLowerCase();
+    const metaPatterns = [
+      /observa[çc][ãa]o\s*:/,
+      /note\s*:/,
+      /the assistant/,
+      /assistant must/,
+      /instruc/,
+      /must continue/,
+      /per instructions/,
+      /we need to/,
+      /we should/,
+      /i need to/,
+      /i should proceed/,
+      /internal note/,
+      /system note/,
+    ];
+    if (metaPatterns.some(p => p.test(lower))) return '';
+    return match;
+  });
+
+  // 2. Remove referências a cliques/botões/UI no texto
+  cleaned = cleaned.replace(
+    /\(?\s*(clique|selecione|escolha|aperte|toque)\s+(n[ao]s?|em|um[a]?|o|a|abaixo|acima|aqui)[^)]*\)?\s*/gi,
+    ''
+  );
+
+  // 3. Limpa espaços duplicados e trailing
+  cleaned = cleaned.replace(/  +/g, ' ').trim();
+
+  return cleaned;
+}
+
 // =====================================================
 // STREAMING AGENT LOOP
 // =====================================================
@@ -1596,7 +1642,8 @@ async function streamingAgentLoop(
     const { content, toolCalls } = await processOpenAIStream(
       openaiResponse,
       (token) => {
-        writer.write(sseEvent({ type: 'token', content: token }));
+        const clean = sanitizeOutput(token);
+        if (clean) writer.write(sseEvent({ type: 'token', content: clean }));
       },
     );
 
@@ -1740,8 +1787,9 @@ async function streamingAgentLoop(
       const textToShow = content || questionText;
 
       // Emitir texto como tokens (pode ter sido suprimido pelo processOpenAIStream quando hasToolCalls=true)
-      if (textToShow) {
-        writer.write(sseEvent({ type: 'token', content: textToShow }));
+      const cleanText = sanitizeOutput(textToShow);
+      if (cleanText) {
+        writer.write(sseEvent({ type: 'token', content: cleanText }));
       }
 
       writer.write(sseEvent({
@@ -1758,7 +1806,7 @@ async function streamingAgentLoop(
   }
 
   if (!fullResponse && iteration >= maxIterations) {
-    fullResponse = 'Desculpe, nao consegui processar sua solicitacao. Tente reformular.';
+    fullResponse = 'Desculpe, não consegui processar sua solicitação. Tente reformular.';
   }
 
   return fullResponse;
@@ -1921,7 +1969,8 @@ Deno.serve(async (req) => {
           if (assistantMsgId) embedMessageAsync(assistantMsgId, assistantContent);
         }
 
-        writer.write(sseEvent({ type: 'done', sessionId: activeSessionId, content: assistantContent || '' }));
+        const sanitizedContent = sanitizeOutput(assistantContent || '');
+        writer.write(sseEvent({ type: 'done', sessionId: activeSessionId, content: sanitizedContent }));
       } catch (error: any) {
         console.error('Streaming error:', error);
         writer.write(sseEvent({ type: 'error', error: error.message || 'Erro interno' }));
