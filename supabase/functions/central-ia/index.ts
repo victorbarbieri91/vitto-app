@@ -531,10 +531,11 @@ const INTERVIEW_TOOLS: Tool[] = [
     type: 'function',
     function: {
       name: 'show_interactive_buttons',
-      description: 'Mostra botoes interativos na interface para o usuario clicar em vez de digitar. Use para perguntas com opcoes definidas: sim/nao, tipo de conta, escolhas curtas. O usuario clica em um botao e a resposta eh enviada automaticamente. SEMPRE use para perguntas com resposta fechada. IMPORTANTE: o value de cada botao DEVE ser texto natural em portugues (ex: "Conta Corrente", NAO "conta_corrente"). SEMPRE escreva uma mensagem de contexto ANTES de chamar esta funcao. NUNCA misture botoes com perguntas de texto livre na mesma mensagem.',
+      description: 'Mostra botoes interativos na interface para o usuario clicar em vez de digitar. Use para perguntas com opcoes definidas: sim/nao, tipo de conta, escolhas curtas. O usuario clica em um botao e a resposta eh enviada automaticamente. SEMPRE use para perguntas com resposta fechada. IMPORTANTE: o value de cada botao DEVE ser texto natural em portugues (ex: "Conta Corrente", NAO "conta_corrente"). NUNCA misture botoes com perguntas de texto livre na mesma mensagem. O parametro question DEVE conter a pergunta completa que acompanha os botoes.',
       parameters: {
         type: 'object',
         properties: {
+          question: { type: 'string', description: 'A pergunta ou mensagem de contexto que acompanha os botoes. OBRIGATORIO. Ex: "Que tipo de conta eh o Nubank?"' },
           buttons: {
             type: 'array',
             items: {
@@ -548,7 +549,7 @@ const INTERVIEW_TOOLS: Tool[] = [
             description: 'Lista de botoes. Maximo 5 botoes. Values devem ser texto natural em portugues.'
           }
         },
-        required: ['buttons']
+        required: ['question', 'buttons']
       }
     }
   }
@@ -1735,11 +1736,19 @@ async function streamingAgentLoop(
 
     // show_interactive_buttons -> interrompe (mas tools normais ja foram executadas!)
     if (specialCalls.buttons) {
+      const questionText = (specialCalls.buttons.args.question as string) || '';
+      const textToShow = content || questionText;
+
+      // Emitir texto como tokens (pode ter sido suprimido pelo processOpenAIStream quando hasToolCalls=true)
+      if (textToShow) {
+        writer.write(sseEvent({ type: 'token', content: textToShow }));
+      }
+
       writer.write(sseEvent({
         type: 'interactive_buttons',
         buttons: specialCalls.buttons.args.buttons,
       }));
-      return content || '';
+      return textToShow;
     }
 
     // Se so tinha finalizar_entrevista (com outros especiais), continua
