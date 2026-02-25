@@ -19,6 +19,16 @@ export class CentralIAService {
   }
 
   /**
+   * Retorna a URL da edge function baseada no mode
+   */
+  private getBaseUrl(mode?: 'chat' | 'interview'): string {
+    if (mode === 'interview') {
+      return `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/entrevista-ia`;
+    }
+    return this.baseUrl;
+  }
+
+  /**
    *
    */
   static getInstance(): CentralIAService {
@@ -55,7 +65,7 @@ export class CentralIAService {
     if (userData) body.userData = userData;
     if (mode) body.mode = mode;
 
-    const response = await fetch(this.baseUrl, {
+    const response = await fetch(this.getBaseUrl(mode), {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,

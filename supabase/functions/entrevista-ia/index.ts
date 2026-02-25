@@ -1,21 +1,17 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-import type { RAGResult } from '../_shared/types.ts';
 import { corsHeaders } from '../_shared/config.ts';
-import { generateEmbedding } from '../_shared/embedding.ts';
 import { loadUserProfile } from '../_shared/user-profile.ts';
 import { saveMessage, loadSessionHistory, embedMessageAsync } from '../_shared/persistence.ts';
 import { sseEvent } from '../_shared/sse.ts';
 import { streamingAgentLoop } from '../_shared/agent-loop.ts';
-import { ALL_TOOLS, CONFIRMATION_REQUIRED_TOOLS } from './tools.ts';
-import { executeChatTool } from './tool-executor.ts';
-import { buildSystemPrompt } from './system-prompt.ts';
-import { ragSearchMemories, loadKnowledgeBase } from './rag.ts';
-import { processConfirmedAction, generateActionPreview } from './confirmation.ts';
+import { INTERVIEW_TOOLSET } from './tools.ts';
+import { executeInterviewTool } from './tool-executor.ts';
+import { buildInterviewSystemPrompt } from './system-prompt.ts';
 
 // =====================================================
-// MAIN HANDLER - CHAT NORMAL
+// MAIN HANDLER - ENTREVISTA
 // =====================================================
 
 Deno.serve(async (req) => {
@@ -49,22 +45,9 @@ Deno.serve(async (req) => {
 
     const userId = user.id;
     const body = await req.json();
-    const { messages, sessionId, confirmationToken, confirmed, userData } = body;
+    const { messages, sessionId, userData } = body;
 
-    // === FLUXO 1: Confirmacao de acao pendente ===
-    if (confirmationToken) {
-      const result = await processConfirmedAction(supabase, confirmationToken, confirmed, userId);
-      if (sessionId && result.message) {
-        const msgId = await saveMessage(supabase, sessionId, 'assistant', result.message);
-        if (msgId) embedMessageAsync(msgId, result.message);
-      }
-      return new Response(
-        JSON.stringify({ ...result, sessionId }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
-    }
-
-    // === FLUXO 2: Mensagem do usuario (SSE streaming) ===
+    // Validar mensagens
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return new Response(
         JSON.stringify({ error: 'messages array required' }),
@@ -88,10 +71,9 @@ Deno.serve(async (req) => {
     // Garantir sessao
     let activeSessionId = sessionId;
     if (!activeSessionId) {
-      const titulo = userContent.substring(0, 50) || 'Nova conversa';
       const { data: newSession, error } = await supabase
         .from('app_chat_sessoes')
-        .insert({ user_id: userId, titulo, metadata: {} })
+        .insert({ user_id: userId, titulo: 'Entrevista Inicial', metadata: { type: 'interview' } })
         .select()
         .single();
       if (error) throw error;
@@ -101,24 +83,18 @@ Deno.serve(async (req) => {
     // Salvar mensagem do usuario
     const userMsgId = await saveMessage(supabase, activeSessionId, 'user', userContent);
 
-    // === BUILD CONTEXT (RAG pipeline) ===
+    // === BUILD CONTEXT ===
     const userProfile = await loadUserProfile(supabase, userId);
 
-    const [knowledgeBlock, queryEmbedding] = await Promise.all([
-      loadKnowledgeBase(supabase),
-      generateEmbedding(userContent),
-    ]);
+    // Carregar progresso da entrevista
+    const progressResult = await executeInterviewTool(supabase, userId, 'get_interview_progress', {});
+    const progressData = progressResult.success ? progressResult.data as Record<string, unknown> : undefined;
+    const systemPrompt = buildInterviewSystemPrompt(userProfile, progressData);
 
-    let memoryResults: RAGResult[] = [];
-    if (queryEmbedding) {
-      memoryResults = await ragSearchMemories(supabase, queryEmbedding, userId);
-    }
+    console.log(`ENTREVISTA MODE: ${INTERVIEW_TOOLSET.length} tools disponiveis`);
 
-    const systemPrompt = buildSystemPrompt(userProfile, knowledgeBlock, memoryResults);
-    console.log(`NORMAL MODE: ${ALL_TOOLS.length} tools, knowledge=${knowledgeBlock.length}chars, memories=${memoryResults.length}`);
-
-    // Load session history (5 mensagens para chat normal)
-    const history = await loadSessionHistory(supabase, activeSessionId, 5);
+    // Load session history (20 mensagens para manter contexto da entrevista)
+    const history = await loadSessionHistory(supabase, activeSessionId, 20);
     console.log(`History: ${history.length} mensagens`);
 
     // Filter history to avoid duplicating the current message
@@ -141,15 +117,12 @@ Deno.serve(async (req) => {
           userId,
           userContent,
           activeSessionId,
-          ALL_TOOLS,
+          INTERVIEW_TOOLSET,
           systemPrompt,
           filteredHistory,
-          8, // Iterations for normal chat
-          executeChatTool,
-          {
-            confirmationTools: CONFIRMATION_REQUIRED_TOOLS,
-            generateActionPreview,
-          },
+          12, // More iterations for interview (multiple tools per turn)
+          executeInterviewTool,
+          { confirmationTools: [] }, // Sem confirmacoes na entrevista
         );
 
         if (assistantContent) {
@@ -179,7 +152,7 @@ Deno.serve(async (req) => {
 
   } catch (error: unknown) {
     const errMsg = error instanceof Error ? error.message : String(error);
-    console.error('Error in central-ia:', error);
+    console.error('Error in entrevista-ia:', error);
     return new Response(
       JSON.stringify({ error: errMsg }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
