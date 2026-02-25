@@ -39,7 +39,7 @@ export function buildInterviewSystemPrompt(userProfile: UserProfile, progressDat
     if (parts.length > 0) {
       progressBlock = `\n\n## PROGRESSO ATUAL\n${parts.join('\n')}\nContinue a partir do que falta. Não pergunte o que já foi cadastrado.`;
     } else {
-      progressBlock = '\n\n## PROGRESSO ATUAL\nNenhum dado cadastrado ainda. Comece perguntando as contas bancárias.';
+      progressBlock = '\n\n## PROGRESSO ATUAL\nNenhum dado cadastrado ainda. É a primeira interação: dê boas-vindas, apresente-se brevemente e pergunte o nome da primeira conta bancária.';
     }
   }
 
